@@ -1,0 +1,186 @@
+/* ==========================================================================
+   Bracket — visualização das chaves
+   ========================================================================== */
+
+.bracket-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.bracket-row {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 1.5rem;
+    align-items: flex-start;
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+}
+
+.upper-bracket-container,
+.lower-bracket-container {
+    flex: 1 1 auto;
+    min-width: 0;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.015) 100%);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem 1.25rem 1rem;
+}
+
+.grand-final-container {
+    flex: 0 0 auto;
+    width: 290px;
+    background: linear-gradient(180deg, rgba(22, 224, 189, 0.06) 0%, rgba(22, 224, 189, 0.02) 100%);
+    border: 1px solid rgba(22, 224, 189, 0.35);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem;
+    box-shadow: 0 0 0 1px rgba(22, 224, 189, 0.05), 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.bracket-section-title {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin: 0 0 1rem 0;
+    color: var(--text-1);
+}
+
+    .bracket-section-title i {
+        color: var(--accent);
+    }
+
+.grand-final-container .bracket-section-title i {
+    color: var(--warning);
+}
+
+.bracket-horizontal {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+}
+
+.round {
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: var(--radius);
+    padding: 0.85rem;
+    border: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    min-width: 200px;
+    max-width: 230px;
+    flex-shrink: 0;
+}
+
+    .round h5 {
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--text-3);
+        margin: 0 0 0.75rem 0;
+        font-weight: 600;
+    }
+
+.match {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%);
+    margin-bottom: 0.75rem;
+    padding: 0.55rem 0.6rem;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    position: relative;
+}
+
+    .match:last-child {
+        margin-bottom: 0;
+    }
+
+    .match .player {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        margin: 0.2rem 0;
+        padding: 0.4rem 0.6rem;
+        background: rgba(255, 255, 255, 0.02);
+        border-radius: 8px;
+        border-left: 3px solid transparent;
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: var(--text-2);
+        min-height: 36px;
+    }
+
+    .match .player .player-name {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .match .player .deck-tag {
+        font-size: 0.7rem;
+        color: var(--text-3);
+        background: rgba(255, 255, 255, 0.05);
+        padding: 0.1rem 0.45rem;
+        border-radius: 5px;
+        font-weight: 500;
+        white-space: nowrap;
+        max-width: 60%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .match .player.winner {
+        background: linear-gradient(90deg, rgba(22, 224, 189, 0.18), rgba(22, 224, 189, 0.04));
+        border-left-color: var(--accent);
+        color: #d2fff3;
+        font-weight: 700;
+    }
+
+    .match .player.loser {
+        background: rgba(255, 93, 115, 0.08);
+        border-left-color: var(--danger);
+        color: var(--text-3);
+        text-decoration: line-through;
+        text-decoration-color: rgba(255, 93, 115, 0.35);
+    }
+
+    .match .player.waiting {
+        opacity: 0.55;
+        font-style: italic;
+    }
+
+    .match button.result-btn {
+        margin-top: 0.5rem;
+        font-size: 0.75rem;
+        padding: 0.3rem 0.5rem;
+        width: 100%;
+        border-radius: 8px;
+    }
+
+    .match .match-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        margin-top: 0.4rem;
+        font-size: 0.7rem;
+        color: var(--text-3);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-weight: 600;
+    }
+
+        .match .match-status i {
+            color: var(--accent);
+        }
+
+@media (max-width: 992px) {
+    .bracket-row {
+        flex-wrap: wrap;
+    }
+
+    .grand-final-container {
+        width: 100%;
+    }
+}

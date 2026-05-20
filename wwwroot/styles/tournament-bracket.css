@@ -1,0 +1,93 @@
+﻿.bracket-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.bracket-row {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 2rem;
+    align-items: flex-start;
+    overflow-x: auto;
+}
+
+.upper-bracket-container, .lower-bracket-container {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.grand-final-container {
+    flex: 0 0 auto;
+    width: 260px;
+    border-left: 2px solid #ddd;
+    padding-left: 1rem;
+}
+
+.bracket-horizontal {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+}
+
+.round {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 0.75rem;
+    border: 1px solid #dee2e6;
+    width: auto;
+    min-width: 180px;
+    max-width: 260px;
+}
+
+.match {
+    background: white;
+    margin-bottom: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    border-left: 4px solid #007bff;
+}
+
+    .match .player {
+        font-weight: 600;
+        margin: 0.2rem 0;
+        font-size: 0.9rem;
+    }
+
+    .match .winner {
+        background-color: #d4edda;
+        border-left: 4px solid #28a745;
+        padding-left: 0.5rem;
+    }
+
+    .match button {
+        margin-top: 0.4rem;
+        font-size: 0.8rem;
+    }
+
+h3 {
+    font-size: 1.4rem;
+    margin-bottom: 0.75rem;
+}
+
+.grand-final-box {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 0.5rem;
+    border: 2px solid #28a745;
+}
+
+
+/*.modal-dialog {
+    position: fixed;*/ /* mantém a capacidade de arrasto */
+    /*width: 500px;*/ /* largura fixa (ajuste conforme desejar) */
+    /*max-width: 90vw;*/ /* para telas menores */
+    /*margin: 0;*/ /* remove margens padrão */
+    /*top: 10%;
+    left: 50%;
+    transform: translateX(-50%);
+}*/
+
+/*.modal-content {
+    width: 100%;
+}*/

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bracket — RankingDigi</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/styles/app.css">
+    <link rel="stylesheet" href="/styles/bracket.css">
+</head>
+<body data-page="tournaments">
+    <main class="container-fluid py-4 px-4">
+        <header class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+            <div>
+                <h1 class="page-title">
+                    <span class="icon-badge"><i class="bi bi-diagram-3-fill"></i></span>
+                    <span id="tournamentTitle">Carregando…</span>
+                </h1>
+                <p class="page-subtitle mt-2">Dupla eliminação · clique em "Registrar resultado" para definir o vencedor de cada partida.</p>
+            </div>
+            <a href="/tournaments.html" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Voltar
+            </a>
+        </header>
+
+        <div class="bracket-wrapper">
+            <div class="bracket-row">
+                <div class="upper-bracket-container">
+                    <h3 class="bracket-section-title"><i class="bi bi-arrow-up-circle-fill"></i> Chave Superior</h3>
+                    <div id="upperBracketRoot" class="bracket-horizontal"></div>
+                </div>
+                <div class="grand-final-container">
+                    <h3 class="bracket-section-title"><i class="bi bi-trophy-fill"></i> Grande Final</h3>
+                    <div id="grandFinalRoot"></div>
+                </div>
+            </div>
+            <div class="bracket-row">
+                <div class="lower-bracket-container">
+                    <h3 class="bracket-section-title"><i class="bi bi-arrow-down-circle-fill"></i> Chave Inferior</h3>
+                    <div id="lowerBracketRoot" class="bracket-horizontal"></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal de resultado -->
+    <div class="modal fade" id="resultModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-flag-fill me-2"></i> Registrar resultado</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="currentMatchId">
+                    <label class="form-label">Vencedor</label>
+                    <select id="winnerSelect" class="form-select"></select>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="saveResultBtn">
+                        <i class="bi bi-check2-circle"></i> Salvar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/scripts/common.js"></script>
+    <script src="/scripts/double-bracket.js"></script>
+</body>
+</html>

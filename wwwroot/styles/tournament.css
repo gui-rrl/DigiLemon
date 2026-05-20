@@ -1,0 +1,8 @@
+﻿.modal-header {
+    cursor: move; /* Opcional, indica que é arrastável */
+}
+
+    .modal-header .btn-close {
+        cursor: default;
+        pointer-events: auto; /* Garante que o botão 'X' continue clicável */
+    }

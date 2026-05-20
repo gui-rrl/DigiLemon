@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Criar Torneio — RankingDigi</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/styles/app.css">
+</head>
+<body data-page="tournaments">
+    <main class="container py-4">
+        <header class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+            <div>
+                <h1 class="page-title">
+                    <span class="icon-badge"><i class="bi bi-trophy-fill"></i></span>
+                    Criar novo torneio
+                </h1>
+                <p class="page-subtitle mt-2">Preencha os dados, escolha os participantes e seus decks. A quantidade total precisa ser potência de 2 (2, 4, 8, 16…).</p>
+            </div>
+            <a href="/tournaments.html" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Voltar
+            </a>
+        </header>
+
+        <form id="createTournamentForm" novalidate>
+            <section class="card-app mb-4">
+                <div class="card-header"><i class="bi bi-info-circle"></i> Informações gerais</div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label for="name" class="form-label">Nome do torneio</label>
+                            <input type="text" id="name" class="form-control" placeholder="Ex.: Copa de Verão" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="startDate" class="form-label">Data de início</label>
+                            <input type="date" id="startDate" class="form-control" required>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card-app mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <span><i class="bi bi-people-fill"></i> Participantes e decks <small class="text-muted-2 ms-2">(opcional)</small></span>
+                    <span class="status-pill prep" id="playerCountPill">0 jogadores</span>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info-soft mb-3" style="background: rgba(0,194,255,0.08); border: 1px solid rgba(0,194,255,0.25); color: var(--text-2); border-radius: 12px; padding: 0.85rem 1rem; font-size: 0.9rem;">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Você pode adicionar os participantes <strong>agora</strong> ou criar o torneio vazio e enviar o
+                        <strong>link de convite</strong> para que eles próprios se inscrevam. Depois, basta clicar em "Iniciar torneio".
+                    </div>
+                    <div id="playersContainer" class="d-flex flex-column gap-3"></div>
+                    <div class="d-flex flex-wrap gap-2 mt-3">
+                        <button type="button" id="addPlayerBtn" class="btn btn-secondary">
+                            <i class="bi bi-plus-circle"></i> Adicionar jogador
+                        </button>
+                        <small class="text-muted-2 ms-2 align-self-center">Cada jogador deve ser único e ter um deck.</small>
+                    </div>
+                </div>
+            </section>
+
+            <div class="d-flex justify-content-end gap-2">
+                <a href="/tournaments.html" class="btn btn-secondary">Cancelar</a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check2-circle"></i> Criar torneio
+                </button>
+            </div>
+        </form>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="/scripts/common.js"></script>
+    <script src="/scripts/create-tournament.js"></script>
+</body>
+</html>

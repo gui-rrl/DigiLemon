@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Partidas — RankingDigi</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/styles/app.css">
+</head>
+<body data-page="matches">
+    <main class="container py-4">
+        <header class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+            <div>
+                <h1 class="page-title">
+                    <span class="icon-badge"><i class="bi bi-controller"></i></span>
+                    Partidas
+                </h1>
+                <p class="page-subtitle mt-2">Registre o resultado de cada partida e consulte o histórico.</p>
+            </div>
+            <a href="/Index.html" class="btn btn-secondary"><i class="bi bi-arrow-left"></i> Voltar ao ranking</a>
+        </header>
+
+        <section class="card-app mb-4">
+            <div class="card-header"><i class="bi bi-plus-circle"></i> Nova partida</div>
+            <div class="card-body">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-6">
+                        <label for="player1" class="form-label">Jogador 1</label>
+                        <select id="player1" class="form-select">
+                            <option value="">Selecione…</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="deck1" class="form-label">Deck do Jogador 1</label>
+                        <input type="text" id="deck1" class="form-control" placeholder="Ex.: Aggro Burn">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="player2" class="form-label">Jogador 2</label>
+                        <select id="player2" class="form-select">
+                            <option value="">Selecione…</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="deck2" class="form-label">Deck do Jogador 2</label>
+                        <input type="text" id="deck2" class="form-control" placeholder="Ex.: Control Mill">
+                    </div>
+                </div>
+                <div class="divider"></div>
+                <div class="d-flex flex-wrap gap-2">
+                    <button class="btn btn-success" onclick="registerMatch(1)">
+                        <i class="bi bi-trophy"></i> Vitória do Jogador 1
+                    </button>
+                    <button class="btn btn-info" onclick="registerMatch(2)">
+                        <i class="bi bi-trophy"></i> Vitória do Jogador 2
+                    </button>
+                    <button class="btn btn-warning" onclick="registerMatch(0)">
+                        <i class="bi bi-handshake"></i> Empate
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <section class="card-app mb-4">
+            <div class="card-header"><i class="bi bi-funnel"></i> Filtrar histórico</div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label for="filterPlayer" class="form-label">Jogador</label>
+                        <select id="filterPlayer" class="form-select">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="filterStartDate" class="form-label">Data início</label>
+                        <input type="date" id="filterStartDate" class="form-control">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="filterEndDate" class="form-label">Data fim</label>
+                        <input type="date" id="filterEndDate" class="form-control">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="filterDeck" class="form-label">Deck</label>
+                        <input type="text" id="filterDeck" class="form-control" placeholder="Ex.: Aggro">
+                    </div>
+                </div>
+                <div class="d-flex gap-2 mt-3">
+                    <button class="btn btn-primary" onclick="applyFilters()"><i class="bi bi-search"></i> Aplicar</button>
+                    <button class="btn btn-secondary" onclick="clearFilters()"><i class="bi bi-x-circle"></i> Limpar</button>
+                </div>
+            </div>
+        </section>
+
+        <section class="card-app">
+            <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <span><i class="bi bi-clock-history"></i> Histórico de partidas</span>
+                <button class="btn btn-ghost btn-sm" id="exportMatchesBtn">
+                    <i class="bi bi-download"></i> Exportar CSV
+                </button>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table-app">
+                        <thead>
+                            <tr>
+                                <th>Jogador 1</th>
+                                <th>Deck J1</th>
+                                <th>Jogador 2</th>
+                                <th>Deck J2</th>
+                                <th>Resultado</th>
+                                <th style="width: 170px;">Data</th>
+                            </tr>
+                        </thead>
+                        <tbody id="matchesTable">
+                            <tr class="loading-row">
+                                <td colspan="6">
+                                    <div class="spinner-border spinner-border-sm text-secondary" role="status"></div>
+                                    <span class="ms-2">Carregando histórico…</span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="/scripts/common.js"></script>
+    <script src="/scripts/match.js"></script>
+</body>
+</html>

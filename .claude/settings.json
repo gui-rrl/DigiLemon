@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet build *)",
+      "Bash(dotnet ef *)",
+      "Bash(powershell -NoProfile -Command \"Get-Process RankingDigi -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep -Milliseconds 500; 'ok'\")",
+      "Bash(dotnet run *)",
+      "PowerShell(Start-Sleep -Seconds 2; try { $r = Invoke-WebRequest -Uri 'http://localhost:5297/api/dashboard/stats' -Headers @{'X-API-KEY'='rankD'} -UseBasicParsing -TimeoutSec 5; Write-Output \\(\"OK: {0}, bytes: {1}\" -f $r.StatusCode, $r.RawContentLength\\) } catch { Write-Output \\(\"ERR: {0}\" -f $_.Exception.Message\\) })",
+      "PowerShell(Get-Process RankingDigi -ErrorAction SilentlyContinue)",
+      "PowerShell(Stop-Process -Force)",
+      "PowerShell(\"stopped\")"
+    ]
+  }
+}

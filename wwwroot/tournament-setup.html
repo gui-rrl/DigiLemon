@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configurar Torneio — RankingDigi</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/styles/app.css">
+</head>
+<body data-page="tournaments">
+    <main class="container py-4">
+        <header class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+            <div>
+                <h1 class="page-title">
+                    <span class="icon-badge"><i class="bi bi-gear-fill"></i></span>
+                    <span id="tournamentName">Configurar torneio</span>
+                </h1>
+                <p class="page-subtitle mt-2">Convide participantes via link, adicione manualmente ou faça os dois. Quando estiver pronto, inicie o torneio.</p>
+            </div>
+            <a href="/tournaments.html" class="btn btn-secondary"><i class="bi bi-arrow-left"></i> Voltar</a>
+        </header>
+
+        <section class="card-app mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-share-fill"></i> Link de convite</span>
+                <span class="text-muted-2" style="font-size:0.85rem;">Compartilhe para que os participantes se inscrevam</span>
+            </div>
+            <div class="card-body">
+                <div class="row g-2 align-items-end">
+                    <div class="col-12 col-md-9">
+                        <label class="form-label">URL pública</label>
+                        <input type="text" id="inviteUrlInput" class="form-control" readonly>
+                    </div>
+                    <div class="col-12 col-md-3 d-flex gap-2">
+                        <button class="btn btn-primary flex-fill" id="copyInviteBtn"><i class="bi bi-clipboard"></i> Copiar</button>
+                    </div>
+                </div>
+                <div class="d-flex flex-wrap gap-2 mt-3">
+                    <button class="btn btn-ghost btn-sm" id="openInviteBtn"><i class="bi bi-box-arrow-up-right"></i> Abrir página de inscrição</button>
+                    <button class="btn btn-ghost btn-sm" id="regenInviteBtn"><i class="bi bi-arrow-clockwise"></i> Gerar novo código</button>
+                </div>
+            </div>
+        </section>
+
+        <section class="card-app mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <span><i class="bi bi-people-fill"></i> Participantes inscritos</span>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="status-pill prep" id="participantsCountPill">0 jogadores</span>
+                    <button class="btn btn-ghost btn-sm" id="refreshParticipantsBtn" title="Recarregar"><i class="bi bi-arrow-clockwise"></i></button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="participantsList"></div>
+            </div>
+        </section>
+
+        <div class="d-flex justify-content-end gap-2 flex-wrap">
+            <a href="/tournaments.html" class="btn btn-secondary">Cancelar</a>
+            <button id="generateBracketBtn" class="btn btn-primary">
+                <i class="bi bi-play-circle"></i> Iniciar torneio
+            </button>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="/scripts/common.js"></script>
+    <script src="/scripts/tournament-setup.js"></script>
+</body>
+</html>
