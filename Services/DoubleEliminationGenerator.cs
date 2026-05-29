@@ -131,53 +131,90 @@ namespace RankingDigi.Services
                 }
             }
 
-            // ---------- 7. Conectar NextMatch no Lower (dinâmico) ----------
+            // ---------- 7. Conectar NextMatch no Lower (correto para dupla eliminação) ----------
             var lowerByRoundDb = lowerDb.GroupBy(m => m.Round).ToDictionary(g => g.Key, g => g.ToList());
             var lowerRoundsOrdered = lowerByRoundDb.Keys.OrderBy(r => r).ToList();
+
             for (int idx = 0; idx < lowerRoundsOrdered.Count - 1; idx++)
             {
                 int currentRoundNum = lowerRoundsOrdered[idx];
                 int nextRoundNum = lowerRoundsOrdered[idx + 1];
-                var currentRounds = lowerByRoundDb[currentRoundNum];
-                var nextRound = lowerByRoundDb[nextRoundNum];
-                // Cada partida da rodada atual alimenta uma partida na próxima rodada (agrupando de dois em dois)
-                for (int i = 0; i < currentRounds.Count; i++)
+                var currRoundMatches = lowerByRoundDb[currentRoundNum];
+                var nextRoundMatches = lowerByRoundDb[nextRoundNum];
+
+                // Caso 1: mesmo número de partidas (ex: rodada 1 -> rodada 2, com 2 partidas cada)
+                if (currRoundMatches.Count == nextRoundMatches.Count)
                 {
-                    int nextIdx = i / 2;
-                    if (nextIdx < nextRound.Count)
+                    for (int i = 0; i < currRoundMatches.Count; i++)
                     {
-                        currentRounds[i].NextMatchId = nextRound[nextIdx].Id;
-                        currentRounds[i].NextMatchPosition = (i % 2 == 0) ? 1 : 2;
+                        currRoundMatches[i].NextMatchId = nextRoundMatches[i].Id;
+                        // Vencedor da lower vai sempre para o primeiro slot (Player1Id)
+                        currRoundMatches[i].NextMatchPosition = 1;
+                    }
+                }
+                // Caso 2: curr tem o dobro de partidas (ex: rodada 2 -> rodada 3, 2 partidas para 1)
+                else if (currRoundMatches.Count == nextRoundMatches.Count * 2)
+                {
+                    for (int i = 0; i < currRoundMatches.Count; i++)
+                    {
+                        int nextIdx = i / 2;
+                        currRoundMatches[i].NextMatchId = nextRoundMatches[nextIdx].Id;
+                        // A primeira partida do par alimenta Player1Id, a segunda alimenta Player2Id
+                        currRoundMatches[i].NextMatchPosition = (i % 2 == 0) ? 1 : 2;
+                    }
+                }
+                // Caso genérico (fallback)
+                else
+                {
+                    for (int i = 0; i < currRoundMatches.Count; i++)
+                    {
+                        int nextIdx = i * nextRoundMatches.Count / currRoundMatches.Count;
+                        currRoundMatches[i].NextMatchId = nextRoundMatches[nextIdx].Id;
+                        currRoundMatches[i].NextMatchPosition = 1;
                     }
                 }
             }
 
-            // ---------- 8. Associar perdedores do Upper ao Lower ----------
-            // Mapeia a rodada do upper para a rodada do lower que recebe os perdedores
-            // Rodada 1 upper -> primeira rodada lower
-            // Rodada 2 upper -> segunda rodada lower (se existir)
-            // Rodada final upper -> última rodada lower
-            var lowerRoundsList = lowerRoundsOrdered.ToList();
-            for (int roundUpper = 1; roundUpper <= totalRoundsUpper; roundUpper++)
+            // ---------- 8. Associar perdedores do Upper ao Lower (CORRIGIDO) ----------
+            var upperAll = upperDb.OrderBy(m => m.Round).ThenBy(m => m.Id).ToList();
+            var lowerAll = lowerDb.OrderBy(m => m.Round).ThenBy(m => m.Id).ToList();
+
+            // Rodada 1: 4 partidas upper -> 2 partidas lower (dois perdedores por partida lower)
+            var upperRound1 = upperAll.Where(m => m.Round == 1).OrderBy(m => m.Id).ToList();
+            var lowerRound1 = lowerAll.Where(m => m.Round == 1).OrderBy(m => m.Id).ToList();
+            int lowerIdx = 0;
+            for (int i = 0; i < upperRound1.Count; i++)
             {
-                int lowerRoundIndex;
-                if (roundUpper == totalRoundsUpper)
-                    lowerRoundIndex = lowerRoundsList.Last();
-                else
-                    lowerRoundIndex = lowerRoundsList[roundUpper - 1]; // roundUpper-1 index
+                upperRound1[i].LoserGoesToMatchId = lowerRound1[lowerIdx].Id;
+                if ((i + 1) % 2 == 0) lowerIdx++;
+            }
 
-                if (!lowerByRoundDb.ContainsKey(lowerRoundIndex)) continue;
-
-                var upperRoundMatches = upperByRoundDb[roundUpper];
-                var lowerRoundMatches = lowerByRoundDb[lowerRoundIndex];
-                for (int i = 0; i < upperRoundMatches.Count; i++)
+            // Rodada 2: 2 partidas upper -> 2 partidas lower (um perdedor por partida lower, mapeamento direto 1:1)
+            var upperRound2 = upperAll.Where(m => m.Round == 2).OrderBy(m => m.Id).ToList();
+            var lowerRound2 = lowerAll.Where(m => m.Round == 2).OrderBy(m => m.Id).ToList();
+            if (upperRound2.Count == lowerRound2.Count)
+            {
+                for (int i = 0; i < upperRound2.Count; i++)
                 {
-                    int lowerIdx = i / 2;
-                    if (lowerIdx < lowerRoundMatches.Count)
-                    {
-                        upperRoundMatches[i].LoserGoesToMatchId = lowerRoundMatches[lowerIdx].Id;
-                    }
+                    upperRound2[i].LoserGoesToMatchId = lowerRound2[i].Id;
                 }
+            }
+            else
+            {
+                // Fallback: usar índices sequenciais
+                for (int i = 0; i < upperRound2.Count; i++)
+                {
+                    if (i < lowerRound2.Count)
+                        upperRound2[i].LoserGoesToMatchId = lowerRound2[i].Id;
+                }
+            }
+
+            // Rodada 3: 1 partida upper -> última partida lower (rodada mais alta)
+            var upperRound3 = upperAll.Where(m => m.Round == 3).OrderBy(m => m.Id).ToList();
+            if (upperRound3.Any())
+            {
+                var lastLower = lowerAll.Last();
+                upperRound3[0].LoserGoesToMatchId = lastLower.Id;
             }
 
             // ---------- 9. Conectar finais à Grande Final ----------
