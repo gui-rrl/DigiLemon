@@ -62,7 +62,7 @@ function addPlayerRow() {
             </div>
             <div class="col-md-5">
                 <label class="form-label">Deck</label>
-                <input type="text" class="form-control deck-input" placeholder="Ex.: Aggro Burn" required>
+                <input type="text" class="form-control deck-input" placeholder="Nome do Deck" required>
             </div>
             <div class="col-md-1 d-grid">
                 <button type="button" class="btn btn-danger remove-row" title="Remover">
