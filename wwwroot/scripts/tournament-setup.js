@@ -60,13 +60,17 @@ async function loadParticipants() {
                             <span class="avatar">${getInitials(p.playerName)}</span>
                             <div style="min-width:0; flex:1;">
                                 <div style="font-weight:600;" class="text-truncate">
-                                    <a href="/player.html?id=${p.playerId}" style="color: var(--text-1); text-decoration: none;">${escapeHtml(p.playerName)}</a>
+                                    ${p.isGuest || !p.playerId
+                                        ? `<span style="color: var(--text-1);">${escapeHtml(p.playerName)}</span>
+                                           <span class="badge bg-secondary ms-1" style="font-size:0.7rem;">Convidado</span>`
+                                        : `<a href="/player.html?id=${p.playerId}" style="color: var(--text-1); text-decoration: none;">${escapeHtml(p.playerName)}</a>`
+                                    }
                                 </div>
                                 <div class="text-muted-2 text-truncate" style="font-size:0.82rem;">
                                     <i class="bi bi-layers"></i> ${escapeHtml(p.deck)}
                                 </div>
                             </div>
-                            <button class="btn btn-ghost btn-sm" data-remove-id="${p.playerId}" data-remove-name="${escapeHtml(p.playerName)}" title="Remover participante" style="position:absolute; top:0.4rem; right:0.4rem;">
+                            <button class="btn btn-ghost btn-sm" data-remove-id="${p.id}" data-remove-name="${escapeHtml(p.playerName)}" title="Remover participante" style="position:absolute; top:0.4rem; right:0.4rem;">
                                 <i class="bi bi-x-lg"></i>
                             </button>
                         </div>
@@ -74,8 +78,10 @@ async function loadParticipants() {
                 `).join('')}
             </div>`;
 
-        pill.textContent = `${participants.length} jogador${participants.length === 1 ? '' : 'es'}`;
-        pill.className = 'status-pill ' + (isPowerOfTwo(participants.length) && participants.length >= 2 ? 'live' : 'prep');
+        const max = currentTournament?.maxPlayers || 0;
+        pill.textContent = max > 0 ? `${participants.length} / ${max} jogadores` : `${participants.length} jogador${participants.length === 1 ? '' : 'es'}`;
+        const isFull = max > 0 ? participants.length >= max : (participants.length >= 2 && participants.length % 2 === 0);
+        pill.className = 'status-pill ' + (isFull ? 'live' : 'prep');
 
         container.querySelectorAll('[data-remove-id]').forEach(btn => {
             btn.addEventListener('click', () => removeParticipant(
@@ -156,13 +162,24 @@ document.getElementById('generateBracketBtn').addEventListener('click', async ()
         const participants = await apiFetch(`${API_BASE_URL}/tournament/${tournamentId}/participants`)
             .then(r => r.json());
         const count = participants.length;
+        const max = currentTournament?.maxPlayers || 0;
         if (count < 2) {
             notifyWarning('São necessários pelo menos 2 participantes inscritos.');
             return;
         }
-        if (!isPowerOfTwo(count)) {
-            notifyWarning(`Há ${count} participantes inscritos. A quantidade precisa ser potência de 2 (2, 4, 8, 16…). Convide mais ou remova alguns antes de iniciar.`);
+        if (count % 2 !== 0) {
+            notifyWarning(`Há ${count} participante(s) inscritos. A quantidade precisa ser par.`);
             return;
+        }
+        if (max > 0 && count < max) {
+            const result = await confirmAction({
+                title: 'Iniciar com vagas abertas?',
+                text: `O torneio tem ${max} vagas mas apenas ${count} estão preenchidas. Os ${max - count} lugar(es) restantes serão BYEs (vitórias automáticas). Deseja continuar?`,
+                confirmText: 'Sim, iniciar assim',
+                cancelText: 'Cancelar',
+                icon: 'warning',
+            });
+            if (!result.isConfirmed) return;
         }
 
         const result = await confirmAction({

@@ -15,16 +15,15 @@ namespace RankingDigi.Data
         public DbSet<TournamentMatch> TournamentMatches { get; set; }
         public RankingContext(DbContextOptions<RankingContext> options) : base(options) { }
         public DbSet<TournamentPlayer> TournamentPlayers { get; set; }
+        public DbSet<AppUser> AppUsers { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            // Configurações adicionais do modelo, se necessário
-
             modelBuilder.Entity<TournamentMatch>()
                 .HasOne(m => m.LoserGoesToMatch)
                 .WithMany()
                 .HasForeignKey(m => m.LoserGoesToMatchId)
-                .OnDelete(DeleteBehavior.NoAction); // Evita exclusão em cascata
+                .OnDelete(DeleteBehavior.NoAction);
 
             modelBuilder.Entity<TournamentMatch>()
                 .HasOne(m => m.NextMatch)
@@ -37,10 +36,27 @@ namespace RankingDigi.Data
                 .WithMany(t => t.TournamentPlayers)
                 .HasForeignKey(tp => tp.TournamentId);
 
+            // PlayerId agora é opcional (guests não têm Player record)
             modelBuilder.Entity<TournamentPlayer>()
                 .HasOne(tp => tp.Player)
                 .WithMany()
-                .HasForeignKey(tp => tp.PlayerId);
+                .HasForeignKey(tp => tp.PlayerId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // Username único
+            modelBuilder.Entity<AppUser>()
+                .HasIndex(u => u.Username)
+                .IsUnique()
+                .HasDatabaseName("IX_AppUsers_Username");
+
+            // AppUser → Player (opcional)
+            modelBuilder.Entity<AppUser>()
+                .HasOne(u => u.Player)
+                .WithMany()
+                .HasForeignKey(u => u.PlayerId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.SetNull);
 
             // Índices para acelerar consultas frequentes
             modelBuilder.Entity<Match>()

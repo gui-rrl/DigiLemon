@@ -3,21 +3,25 @@
    ========================================================================== */
 
 const API_BASE_URL = '/api';
-const API_KEY = 'rankD';
 
+/** Faz fetch para a API com JWT Bearer token (ou sem auth para rotas públicas) */
 async function apiFetch(url, options = {}) {
-    const defaultOptions = {
-        headers: {
-            'X-API-KEY': API_KEY,
-            'Content-Type': 'application/json',
-        },
+    const token = authToken?.() ?? null;  // authToken() vem de auth.js
+    const headers = {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        ...(options.headers || {}),
     };
-    const merged = {
-        ...defaultOptions,
-        ...options,
-        headers: { ...defaultOptions.headers, ...(options.headers || {}) },
-    };
+    const merged = { ...options, headers };
     const response = await fetch(url, merged);
+
+    if (response.status === 401) {
+        // Token expirado ou inválido — redireciona para login
+        if (typeof authClear === 'function') authClear();
+        window.location.href = `/login.html?next=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+        throw new Error('Sessão expirada. Faça login novamente.');
+    }
+
     if (!response.ok) {
         let message = `Erro HTTP: ${response.status}`;
         try {
@@ -26,9 +30,7 @@ async function apiFetch(url, options = {}) {
                 try {
                     const json = JSON.parse(text);
                     message = json.error || json.message || text;
-                } catch (_) {
-                    message = text;
-                }
+                } catch (_) { message = text; }
             }
         } catch (_) { /* noop */ }
         throw new Error(message);
@@ -47,25 +49,15 @@ const Toast = (window.Swal && Swal.mixin({
 })) || null;
 
 function notifySuccess(message, title = 'Pronto!') {
-    if (Toast) return Toast.fire({ icon: 'success', title: title, text: message });
+    if (Toast) return Toast.fire({ icon: 'success', title, text: message });
 }
 
 function notifyError(message, title = 'Algo deu errado') {
-    return Swal.fire({
-        icon: 'error',
-        title,
-        text: message,
-        confirmButtonText: 'Entendi',
-    });
+    return Swal.fire({ icon: 'error', title, text: message, confirmButtonText: 'Entendi' });
 }
 
 function notifyWarning(message, title = 'Atenção') {
-    return Swal.fire({
-        icon: 'warning',
-        title,
-        text: message,
-        confirmButtonText: 'Ok',
-    });
+    return Swal.fire({ icon: 'warning', title, text: message, confirmButtonText: 'Ok' });
 }
 
 function notifyInfo(message, title = 'Aviso') {
@@ -74,9 +66,7 @@ function notifyInfo(message, title = 'Aviso') {
 
 function confirmAction({ title = 'Tem certeza?', text = 'Esta ação não pode ser desfeita.', confirmText = 'Confirmar', cancelText = 'Cancelar', icon = 'warning' } = {}) {
     return Swal.fire({
-        title,
-        text,
-        icon,
+        title, text, icon,
         showCancelButton: true,
         confirmButtonText: confirmText,
         cancelButtonText: cancelText,
@@ -106,20 +96,12 @@ function escapeHtml(value) {
 
 function formatDate(value) {
     if (!value) return '-';
-    try {
-        return new Date(value).toLocaleDateString('pt-BR');
-    } catch (_) {
-        return value;
-    }
+    try { return new Date(value).toLocaleDateString('pt-BR'); } catch (_) { return value; }
 }
 
 function formatDateTime(value) {
     if (!value) return '-';
-    try {
-        return new Date(value).toLocaleString('pt-BR');
-    } catch (_) {
-        return value;
-    }
+    try { return new Date(value).toLocaleString('pt-BR'); } catch (_) { return value; }
 }
 
 function tournamentStatusInfo(status) {
@@ -134,50 +116,35 @@ function tournamentStatusInfo(status) {
 /* ---------- Exportação CSV ---------- */
 
 function downloadCsv(filename, rows) {
-    if (!rows || !rows.length) {
-        notifyWarning('Não há dados para exportar.');
-        return;
-    }
+    if (!rows || !rows.length) { notifyWarning('Não há dados para exportar.'); return; }
     const headers = Object.keys(rows[0]);
     const escape = (val) => {
         if (val === null || val === undefined) return '';
         const s = String(val).replace(/"/g, '""');
         return /[",;\n\r]/.test(s) ? `"${s}"` : s;
     };
-    const csv = [
-        headers.join(';'),
-        ...rows.map(r => headers.map(h => escape(r[h])).join(';')),
-    ].join('\r\n');
-    // BOM para acentuação correta no Excel
+    const csv = [headers.join(';'), ...rows.map(r => headers.map(h => escape(r[h])).join(';'))].join('\r\n');
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    link.href = url; link.download = filename;
+    document.body.appendChild(link); link.click();
+    document.body.removeChild(link); URL.revokeObjectURL(url);
 }
 
 /* ---------- Prompts customizados (SweetAlert) ---------- */
 
 async function promptText({ title, label, defaultValue = '', placeholder = '', confirmText = 'Salvar', cancelText = 'Cancelar' }) {
     return Swal.fire({
-        title,
-        input: 'text',
-        inputLabel: label,
-        inputValue: defaultValue,
-        inputPlaceholder: placeholder,
-        showCancelButton: true,
-        confirmButtonText: confirmText,
-        cancelButtonText: cancelText,
+        title, input: 'text', inputLabel: label, inputValue: defaultValue,
+        inputPlaceholder: placeholder, showCancelButton: true,
+        confirmButtonText: confirmText, cancelButtonText: cancelText,
         reverseButtons: true,
         inputValidator: (value) => !value || !value.trim() ? 'Campo obrigatório' : null,
     });
 }
 
-/* ---------- Navbar (marca o link ativo) ---------- */
+/* ---------- Navbar ---------- */
 
 function activateNavLink(name) {
     document.querySelectorAll('.nav-pills-app .nav-link').forEach(link => {
@@ -187,6 +154,37 @@ function activateNavLink(name) {
 }
 
 function renderNavbar(activeName) {
+    const user    = typeof authUser === 'function' ? authUser() : null;
+    const isAdmin = user?.role === 'Admin';
+
+    // Links visíveis apenas para Admin
+    const adminLinks = isAdmin ? `
+      <li class="nav-item">
+        <a class="nav-link" data-nav="matches" href="/match.html">
+          <i class="bi bi-controller"></i><span class="d-none d-sm-inline">Partidas</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" data-nav="dashboard" href="/dashboard.html">
+          <i class="bi bi-graph-up"></i><span class="d-none d-sm-inline">Dashboard</span>
+        </a>
+      </li>` : '';
+
+    // Área do usuário (canto direito)
+    const userArea = user ? `
+      <div class="d-flex align-items-center gap-2 ms-3">
+        <span class="badge ${isAdmin ? 'bg-primary' : 'bg-secondary'} d-none d-sm-inline">
+          ${isAdmin ? 'Admin' : 'Jogador'}
+        </span>
+        <span class="text-muted-2 d-none d-md-inline" style="font-size:0.85rem;">${escapeHtml(user.username)}</span>
+        <button class="btn btn-ghost btn-sm" onclick="authLogout()" title="Sair">
+          <i class="bi bi-box-arrow-right"></i>
+        </button>
+      </div>` : `
+      <a href="/login.html" class="btn btn-primary btn-sm ms-3">
+        <i class="bi bi-box-arrow-in-right"></i> Login
+      </a>`;
+
     const html = `
     <nav class="navbar app-navbar">
       <div class="container-fluid px-4">
@@ -205,19 +203,12 @@ function renderNavbar(activeName) {
               <i class="bi bi-trophy"></i><span class="d-none d-sm-inline">Torneios</span>
             </a>
           </li>
-          <li class="nav-item">
-            <a class="nav-link" data-nav="matches" href="/match.html">
-              <i class="bi bi-controller"></i><span class="d-none d-sm-inline">Partidas</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" data-nav="dashboard" href="/dashboard.html">
-              <i class="bi bi-graph-up"></i><span class="d-none d-sm-inline">Dashboard</span>
-            </a>
-          </li>
+          ${adminLinks}
         </ul>
+        ${userArea}
       </div>
     </nav>`;
+
     document.body.insertAdjacentHTML('afterbegin', html);
     activateNavLink(activeName);
 }

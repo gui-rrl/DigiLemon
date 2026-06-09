@@ -1,16 +1,14 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using RankingDigi.Data;
 using RankingDigi.Data;
 using RankingDigi.DTOs;
 using RankingDigi.Models;
 using RankingDigi.Services;
-using System.Linq;
-
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]   // todas as rotas exigem login por padrão
 public class TournamentController : ControllerBase
 {
     private readonly RankingContext _context;
@@ -25,6 +23,7 @@ public class TournamentController : ControllerBase
 
    //GET: api/tournament
    [HttpGet]
+   [AllowAnonymous]
     public async Task<ActionResult<IEnumerable<TournamentDto>>> GetTournaments()
     {
         var tournaments = await _context.Tournaments
@@ -48,6 +47,7 @@ public class TournamentController : ControllerBase
             StartDate = t.StartDate,
             Status = t.Status,
             InviteCode = t.InviteCode,
+            MaxPlayers = t.MaxPlayers,
             Brackets = t.Brackets?.Select(b => new BracketDto
             {
                 Id = b.Id,
@@ -74,12 +74,19 @@ public class TournamentController : ControllerBase
 
     //POST: api/tournament
     [HttpPost]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> CreateTournament([FromBody] CreateTournamentDto dto)
     {
         if (dto == null || string.IsNullOrWhiteSpace(dto.Name))
             return BadRequest(new { error = "Informe o nome do torneio." });
 
+        if (dto.MaxPlayers < 2 || dto.MaxPlayers % 2 != 0)
+            return BadRequest(new { error = "O número máximo de jogadores deve ser par e maior ou igual a 2." });
+
         var players = dto.Players ?? new List<PlayerDeckDto>();
+
+        if (players.Count > dto.MaxPlayers)
+            return BadRequest(new { error = $"Você adicionou {players.Count} jogadores, mas o limite do torneio é {dto.MaxPlayers}." });
 
         // Permite criar torneio vazio (sem participantes) para depois convidar via link.
         // Se houver participantes informados na criação, valida normalmente.
@@ -118,6 +125,7 @@ public class TournamentController : ControllerBase
             Name = dto.Name,
             StartDate = dto.StartDate,
             Status = 0,
+            MaxPlayers = dto.MaxPlayers,
             InviteCode = await GenerateUniqueInviteCodeAsync(),
         };
         _context.Tournaments.Add(tournament);
@@ -153,8 +161,9 @@ public class TournamentController : ControllerBase
         return Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper();
     }
 
-    //GET: api/tournament/invite/{code} - rota pública (sem API key)
+    //GET: api/tournament/invite/{code} - rota pública
     [HttpGet("invite/{code}")]
+    [AllowAnonymous]
     public async Task<IActionResult> GetByInviteCode(string code)
     {
         if (string.IsNullOrWhiteSpace(code))
@@ -178,13 +187,15 @@ public class TournamentController : ControllerBase
             tournament.StartDate,
             tournament.Status,
             tournament.InviteCode,
+            tournament.MaxPlayers,
             Participants = participants,
-            IsOpenForJoin = tournament.Status == 0,
+            IsOpenForJoin = tournament.Status == 0 && (tournament.MaxPlayers == 0 || participants.Count < tournament.MaxPlayers),
         });
     }
 
-    //POST: api/tournament/invite/{code}/join - rota pública (sem API key)
+    //POST: api/tournament/invite/{code}/join - rota pública
     [HttpPost("invite/{code}/join")]
+    [AllowAnonymous]
     public async Task<IActionResult> JoinByInvite(string code, [FromBody] JoinTournamentDto dto)
     {
         if (dto == null || string.IsNullOrWhiteSpace(dto.Name) || string.IsNullOrWhiteSpace(dto.Deck))
@@ -196,42 +207,46 @@ public class TournamentController : ControllerBase
         if (tournament.Status != 0)
             return BadRequest(new { error = "Este torneio já foi iniciado. Novos jogadores não podem mais ingressar." });
 
-        var name = dto.Name.Trim();
-        var deck = dto.Deck.Trim();
-
-        // Reaproveita jogador existente pelo nome (case-insensitive) ou cria novo.
-        var player = await _context.Players.FirstOrDefaultAsync(p => p.Name.ToLower() == name.ToLower());
-        if (player == null)
+        if (tournament.MaxPlayers > 0)
         {
-            player = new Player { Name = name, Score = 0 };
-            _context.Players.Add(player);
-            await _context.SaveChangesAsync();
+            var currentCount = await _context.TournamentPlayers.CountAsync(tp => tp.TournamentId == tournament.Id);
+            if (currentCount >= tournament.MaxPlayers)
+                return BadRequest(new { error = $"Este torneio já está cheio ({tournament.MaxPlayers} vagas preenchidas)." });
         }
 
+        var guestName = dto.Name.Trim();
+        var deck      = dto.Deck.Trim();
+
+        // Convidados via link NÃO são registrados na tabela Players.
+        // Verifica duplicata pelo nome dentro do torneio.
         bool alreadyIn = await _context.TournamentPlayers
-            .AnyAsync(tp => tp.TournamentId == tournament.Id && tp.PlayerId == player.Id);
+            .AnyAsync(tp => tp.TournamentId == tournament.Id &&
+                            (tp.GuestName != null && tp.GuestName.ToLower() == guestName.ToLower() ||
+                             tp.Player    != null && tp.Player.Name.ToLower() == guestName.ToLower()));
         if (alreadyIn)
-            return Conflict(new { error = $"\"{player.Name}\" já está inscrito neste torneio." });
+            return Conflict(new { error = $"\"{guestName}\" já está inscrito neste torneio." });
 
         _context.TournamentPlayers.Add(new TournamentPlayer
         {
             TournamentId = tournament.Id,
-            PlayerId = player.Id,
-            Deck = deck,
+            PlayerId     = null,        // guest: sem vínculo com Player
+            GuestName    = guestName,
+            Deck         = deck,
         });
         await _context.SaveChangesAsync();
 
         return Ok(new
         {
             tournamentName = tournament.Name,
-            playerName = player.Name,
-            message = $"Você foi inscrito como \"{player.Name}\" com o deck \"{deck}\".",
+            playerName     = guestName,
+            message        = $"Você foi inscrito como \"{guestName}\" com o deck \"{deck}\".",
         });
     }
 
-    //DELETE: api/tournament/{id}/participants/{playerId} - remove participante (somente em preparação)
-    [HttpDelete("{id}/participants/{playerId}")]
-    public async Task<IActionResult> RemoveParticipant(int id, int playerId)
+    //DELETE: api/tournament/{id}/participants/{tpId} - remove participante por TournamentPlayer.Id
+    [HttpDelete("{id}/participants/{tpId}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> RemoveParticipant(int id, int tpId)
     {
         var tournament = await _context.Tournaments.FindAsync(id);
         if (tournament == null) return NotFound(new { error = "Torneio não encontrado." });
@@ -239,7 +254,7 @@ public class TournamentController : ControllerBase
             return BadRequest(new { error = "Não é possível remover participantes após o torneio ser iniciado." });
 
         var participation = await _context.TournamentPlayers
-            .FirstOrDefaultAsync(tp => tp.TournamentId == id && tp.PlayerId == playerId);
+            .FirstOrDefaultAsync(tp => tp.TournamentId == id && tp.Id == tpId);
         if (participation == null) return NotFound(new { error = "Participante não encontrado." });
 
         _context.TournamentPlayers.Remove(participation);
@@ -269,10 +284,10 @@ public class TournamentController : ControllerBase
 
         if (tournament == null) return NotFound();
 
-        // Carrega todos os participantes do torneio com seus decks
+        // Carrega participantes keyed por TournamentPlayer.Id (usado no chaveamento)
         var tournamentPlayers = await _context.TournamentPlayers
             .Where(tp => tp.TournamentId == id)
-            .ToDictionaryAsync(tp => tp.PlayerId, tp => tp.Deck);
+            .ToDictionaryAsync(tp => tp.Id, tp => new { tp.Deck, Name = tp.GuestName ?? tp.Player!.Name });
 
         var dto = new TournamentDto
         {
@@ -281,6 +296,7 @@ public class TournamentController : ControllerBase
             StartDate = tournament.StartDate,
             Status = tournament.Status,
             InviteCode = tournament.InviteCode,
+            MaxPlayers = tournament.MaxPlayers,
             Brackets = tournament.Brackets?.Select(b => new BracketDto
             {
                 Id = b.Id,
@@ -299,10 +315,10 @@ public class TournamentController : ControllerBase
                     Date = m.Date,
                     IsPlayed = m.IsPlayed,
                     Player1Deck = m.Player1Id.HasValue && tournamentPlayers.ContainsKey(m.Player1Id.Value)
-                        ? tournamentPlayers[m.Player1Id.Value]
+                        ? tournamentPlayers[m.Player1Id.Value].Deck
                         : null,
                     Player2Deck = m.Player2Id.HasValue && tournamentPlayers.ContainsKey(m.Player2Id.Value)
-                        ? tournamentPlayers[m.Player2Id.Value]
+                        ? tournamentPlayers[m.Player2Id.Value].Deck
                         : null
                 }).ToList() ?? new List<TournamentMatchDto>()
             }).ToList() ?? new List<BracketDto>()
@@ -312,17 +328,26 @@ public class TournamentController : ControllerBase
     }
 
     [HttpGet("{id}/participants")]
+    [AllowAnonymous]
     public async Task<IActionResult> GetParticipants(int id)
     {
         var participants = await _context.TournamentPlayers
             .Where(tp => tp.TournamentId == id)
             .Include(tp => tp.Player)
-            .Select(tp => new { tp.PlayerId, PlayerName = tp.Player.Name, tp.Deck })
+            .Select(tp => new
+            {
+                Id         = tp.Id,                                          // TournamentPlayer.Id — usado no chaveamento
+                tp.PlayerId,                                                 // null para convidados
+                PlayerName = tp.GuestName ?? tp.Player!.Name,               // nome a exibir
+                IsGuest    = tp.PlayerId == null,
+                tp.Deck,
+            })
             .ToListAsync();
         return Ok(participants);
     }
 
     [HttpDelete("{id}")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> DeleteTournament(int id)
     {
         var tournament = await _context.Tournaments
@@ -367,22 +392,21 @@ public class TournamentController : ControllerBase
     //}
 
     [HttpPost("{id}/generate-double-elimination")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> GenerateDoubleElimination(int id)
     {
-        // Busca os IDs dos participantes do torneio
+        // Usa TournamentPlayer.Id como identificador no chaveamento (suporta guests)
         var playerIds = await _context.TournamentPlayers
             .Where(tp => tp.TournamentId == id)
-            .Select(tp => tp.PlayerId)
+            .Select(tp => tp.Id)
             .ToListAsync();
 
         int count = playerIds.Count;
 
         if (playerIds.Count < 2)
             return BadRequest(new { error = "Número insuficiente de participantes (mínimo 2)." });
-        if ((count & (count - 1)) != 0)  // verifica se é potência de 2
-        {
-            return BadRequest(new { error = "O número de participantes deve ser potência de 2 (2, 4, 8, 16, 32...)." });
-        }
+        if (count % 2 != 0)
+            return BadRequest(new { error = "O número de participantes deve ser par." });
 
         try
         {

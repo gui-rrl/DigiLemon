@@ -20,7 +20,7 @@
                     <span class="icon-badge"><i class="bi bi-trophy-fill"></i></span>
                     Criar novo torneio
                 </h1>
-                <p class="page-subtitle mt-2">Preencha os dados, escolha os participantes e seus decks. A quantidade total precisa ser potência de 2 (2, 4, 8, 16…).</p>
+                <p class="page-subtitle mt-2">Defina o número de vagas (apenas números pares), adicione participantes agora ou use o link de convite depois.</p>
             </div>
             <a href="/tournaments.html" class="btn btn-secondary">
                 <i class="bi bi-arrow-left"></i> Voltar
@@ -32,13 +32,28 @@
                 <div class="card-header"><i class="bi bi-info-circle"></i> Informações gerais</div>
                 <div class="card-body">
                     <div class="row g-3">
-                        <div class="col-md-8">
+                        <div class="col-md-5">
                             <label for="name" class="form-label">Nome do torneio</label>
                             <input type="text" id="name" class="form-control" placeholder="Digite o nome do Torneio" required>
                         </div>
                         <div class="col-md-4">
                             <label for="startDate" class="form-label">Data de início</label>
                             <input type="date" id="startDate" class="form-control" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="maxPlayers" class="form-label">Número de vagas</label>
+                            <select id="maxPlayers" class="form-select" required>
+                                <option value="6">6 jogadores</option>
+                                <option value="8" selected>8 jogadores</option>
+                                <option value="10">10 jogadores</option>
+                                <option value="12">12 jogadores</option>
+                                <option value="14">14 jogadores</option>
+                                <option value="16">16 jogadores</option>
+                                <option value="18">18 jogadores</option>
+                                <option value="20">20 jogadores</option>
+                                <option value="24">24 jogadores</option>
+                                <option value="32">32 jogadores</option>
+                            </select>
                         </div>
                     </div>
                 </div>
@@ -47,7 +62,7 @@
             <section class="card-app mb-4">
                 <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                     <span><i class="bi bi-people-fill"></i> Participantes e decks <small class="text-muted-2 ms-2">(opcional)</small></span>
-                    <span class="status-pill prep" id="playerCountPill">0 jogadores</span>
+                    <span class="status-pill prep" id="playerCountPill">0 / 8 jogadores</span>
                 </div>
                 <div class="card-body">
                     <div class="alert alert-info-soft mb-3" style="background: rgba(0,194,255,0.08); border: 1px solid rgba(0,194,255,0.25); color: var(--text-2); border-radius: 12px; padding: 0.85rem 1rem; font-size: 0.9rem;">
@@ -75,7 +90,9 @@
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="/scripts/auth.js"></script>
     <script src="/scripts/common.js"></script>
+    <script>authGuard(true);</script>
     <script src="/scripts/create-tournament.js"></script>
 </body>
 </html>

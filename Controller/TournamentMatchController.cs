@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using RankingDigi.Data;
 using RankingDigi.Models;
 using Microsoft.EntityFrameworkCore;
@@ -9,6 +10,7 @@ namespace RankingDigi.Controller
 {
     [ApiController]
     [Route("api/tournamentmatch")]
+    [Authorize(Roles = "Admin")]
     public class TournamentMatchController : ControllerBase
     {
         private readonly RankingContext _context;

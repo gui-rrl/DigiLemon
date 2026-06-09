@@ -1,14 +1,17 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RankingDigi.Models;
 using RankingDigi.Data;
 using System.Collections;
+using System.Security.Claims;
 
 namespace RankingDigi.Controller
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
 
     public class PlayerController : ControllerBase
     {
@@ -21,6 +24,7 @@ namespace RankingDigi.Controller
         }
 
         [HttpPost]
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult<Player>> AddPlayer(Player player)
         {
             if (player == null || string.IsNullOrWhiteSpace(player.Name))
@@ -38,6 +42,7 @@ namespace RankingDigi.Controller
         }
 
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> UpdatePlayer(int id, [FromBody] Player update)
         {
             if (update == null || string.IsNullOrWhiteSpace(update.Name))
@@ -150,7 +155,7 @@ namespace RankingDigi.Controller
                 r.Result,
             }).ToList();
 
-            // Torneios em que o jogador participou
+            // Torneios em que o jogador participou (como jogador registrado)
             var participations = await _context.TournamentPlayers
                 .Where(tp => tp.PlayerId == id)
                 .Include(tp => tp.Tournament)
@@ -163,10 +168,9 @@ namespace RankingDigi.Controller
                 if (t == null) continue;
 
                 string? finalPosition = null;
-                int? winnerOfTournamentId = null;
-                int? runnerUpId = null;
+                bool isChampion = false;
 
-                // Determina campeão e vice (grande final)
+                // Matches referenciam TournamentPlayer.Id — usamos part.Id para comparar
                 var grandFinal = await _context.TournamentMatches
                     .Where(m => m.TournamentId == t.Id && m.MatchType == 2 && m.IsPlayed && m.WinnerId.HasValue)
                     .OrderByDescending(m => m.Round)
@@ -174,10 +178,14 @@ namespace RankingDigi.Controller
 
                 if (grandFinal != null)
                 {
-                    winnerOfTournamentId = grandFinal.WinnerId;
-                    runnerUpId = grandFinal.Player1Id == grandFinal.WinnerId ? grandFinal.Player2Id : grandFinal.Player1Id;
-                    if (winnerOfTournamentId == id) finalPosition = "1º lugar";
-                    else if (runnerUpId == id) finalPosition = "2º lugar";
+                    var runnerUpId = grandFinal.Player1Id == grandFinal.WinnerId
+                        ? grandFinal.Player2Id
+                        : grandFinal.Player1Id;
+
+                    isChampion    = grandFinal.WinnerId == part.Id;
+                    finalPosition = isChampion        ? "1º lugar"
+                                  : runnerUpId == part.Id ? "2º lugar"
+                                  : null;
                 }
 
                 tournaments.Add(new
@@ -188,7 +196,7 @@ namespace RankingDigi.Controller
                     t.Status,
                     Deck = part.Deck,
                     FinalPosition = finalPosition,
-                    IsChampion = winnerOfTournamentId == id,
+                    IsChampion = isChampion,
                 });
             }
 
@@ -242,6 +250,7 @@ namespace RankingDigi.Controller
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeletePlayer(int id)
         {
             var player = await _context.Players.FindAsync(id);
@@ -265,6 +274,7 @@ namespace RankingDigi.Controller
         }
 
         [HttpGet]
+        [AllowAnonymous]
         public async Task<ActionResult<IEnumerable<Player>>> GetPlayer(string? orderBy = "score")
         {
             IQueryable<Player> query = _context.Players;
@@ -282,6 +292,7 @@ namespace RankingDigi.Controller
         }
 
         [HttpGet("{id}")]
+        [AllowAnonymous]
         public async Task<ActionResult<Player>> GetPlayerById(int id)
         {
             var player = await _context.Players.FindAsync(id);

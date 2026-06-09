@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login — RankingDigi</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/styles/app.css">
+    <style>
+        body { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--gradient-bg); }
+        .login-card {
+            width: 100%; max-width: 400px;
+            background: var(--bg-1);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 2.5rem 2rem;
+            box-shadow: var(--shadow-lg);
+        }
+        .login-logo {
+            font-size: 2.5rem;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .login-title { font-family: 'Sora', sans-serif; font-weight: 700; color: var(--text-1); }
+        .login-sub   { color: var(--text-3); font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <div class="login-card text-center">
+        <div class="login-logo mb-2"><i class="bi bi-trophy-fill"></i></div>
+        <h1 class="login-title h4 mb-1">RankingDigi</h1>
+        <p class="login-sub mb-4">Faça login para continuar</p>
+
+        <form id="loginForm" novalidate>
+            <div class="mb-3 text-start">
+                <label for="username" class="form-label">Usuário</label>
+                <input type="text" id="username" class="form-control" placeholder="Seu usuário" autocomplete="username" required>
+            </div>
+            <div class="mb-4 text-start">
+                <label for="password" class="form-label">Senha</label>
+                <input type="password" id="password" class="form-control" placeholder="Sua senha" autocomplete="current-password" required>
+            </div>
+            <button type="submit" class="btn btn-primary w-100" id="loginBtn">
+                <i class="bi bi-box-arrow-in-right"></i> Entrar
+            </button>
+        </form>
+
+        <p class="mt-4 mb-0" style="font-size:0.8rem; color: var(--text-3);">
+            <i class="bi bi-shield-lock"></i> Acesso restrito aos membros cadastrados.
+        </p>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="/scripts/auth.js"></script>
+    <script>
+        // Redireciona se já está logado
+        if (authIsLoggedIn()) {
+            const next = new URLSearchParams(window.location.search).get('next') || '/Index.html';
+            window.location.href = next;
+        }
+
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const btn = document.getElementById('loginBtn');
+
+            if (!username || !password) {
+                Swal.fire({ icon: 'warning', title: 'Atenção', text: 'Informe usuário e senha.', confirmButtonText: 'Ok' });
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Entrando…';
+
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password }),
+                });
+                const data = await res.json();
+
+                if (!res.ok) {
+                    throw new Error(data.error || 'Credenciais inválidas.');
+                }
+
+                authSave(data.token, {
+                    username:   data.username,
+                    role:       data.role,
+                    playerId:   data.playerId,
+                    playerName: data.playerName,
+                });
+
+                const next = new URLSearchParams(window.location.search).get('next') || '/Index.html';
+                window.location.href = next;
+            } catch (err) {
+                Swal.fire({ icon: 'error', title: 'Erro ao entrar', text: err.message, confirmButtonText: 'Tentar novamente' });
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-box-arrow-in-right"></i> Entrar';
+            }
+        });
+    </script>
+</body>
+</html>

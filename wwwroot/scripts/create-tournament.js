@@ -12,6 +12,10 @@ async function loadPlayers() {
     }
 }
 
+function getMaxPlayers() {
+    return parseInt(document.getElementById('maxPlayers').value, 10);
+}
+
 function buildPlayerOptions(selectedId) {
     const usedIds = getSelectedPlayerIds().filter(id => id !== selectedId);
     const options = ['<option value="">Selecione o jogador</option>'];
@@ -39,16 +43,28 @@ function refreshAllSelects() {
 function updatePlayerCount() {
     const filledCount = Array.from(document.querySelectorAll('.player-select'))
         .filter(s => s.value).length;
+    const max = getMaxPlayers();
     const pill = document.getElementById('playerCountPill');
-    pill.textContent = `${filledCount} jogador${filledCount === 1 ? '' : 'es'}`;
-    pill.className = 'status-pill ' + (isPowerOfTwo(filledCount) && filledCount >= 2 ? 'live' : 'prep');
-}
+    pill.textContent = `${filledCount} / ${max} jogadores`;
 
-function isPowerOfTwo(n) {
-    return n >= 1 && (n & (n - 1)) === 0;
+    const addBtn = document.getElementById('addPlayerBtn');
+    const rowCount = document.querySelectorAll('.player-row').length;
+
+    if (filledCount === max) {
+        pill.className = 'status-pill live';
+    } else {
+        pill.className = 'status-pill prep';
+    }
+
+    // Bloqueia botão de adicionar quando atingir o limite
+    addBtn.disabled = rowCount >= max;
 }
 
 function addPlayerRow() {
+    const max = getMaxPlayers();
+    const rowCount = document.querySelectorAll('.player-row').length;
+    if (rowCount >= max) return;
+
     const container = document.getElementById('playersContainer');
     const row = document.createElement('div');
     row.className = 'player-row';
@@ -82,10 +98,22 @@ function addPlayerRow() {
 
 document.getElementById('addPlayerBtn').addEventListener('click', addPlayerRow);
 
+document.getElementById('maxPlayers').addEventListener('change', () => {
+    // Remove linhas excedentes ao reduzir o número de vagas
+    const max = getMaxPlayers();
+    const rows = Array.from(document.querySelectorAll('.player-row'));
+    if (rows.length > max) {
+        rows.slice(max).forEach(r => r.remove());
+        refreshAllSelects();
+    }
+    updatePlayerCount();
+});
+
 document.getElementById('createTournamentForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const name = document.getElementById('name').value.trim();
     const startDate = document.getElementById('startDate').value;
+    const maxPlayers = getMaxPlayers();
 
     if (!name) {
         notifyWarning('Informe o nome do torneio.');
@@ -120,27 +148,22 @@ document.getElementById('createTournamentForm').addEventListener('submit', async
         return;
     }
 
-    // Permite criar vazio (sem jogadores)
-    if (players.length > 0 && players.length < 2) {
-        notifyWarning('Adicione ao menos 2 jogadores (ou nenhum, para inscrever via link de convite).');
-        return;
-    }
-    if (players.length > 0 && !isPowerOfTwo(players.length)) {
-        notifyWarning(`Você tem ${players.length} jogadores. A quantidade precisa ser potência de 2 (2, 4, 8, 16, 32…).`);
+    if (players.length > maxPlayers) {
+        notifyWarning(`Você adicionou ${players.length} jogadores, mas o limite é ${maxPlayers}.`);
         return;
     }
 
     try {
         const response = await apiFetch(`${API_BASE_URL}/tournament`, {
             method: 'POST',
-            body: JSON.stringify({ name, startDate, players }),
+            body: JSON.stringify({ name, startDate, maxPlayers, players }),
         });
         const result = await response.json();
         await Swal.fire({
             icon: 'success',
             title: 'Torneio criado!',
             text: players.length === 0
-                ? 'Torneio criado vazio. Use o link de convite para inscrever os participantes.'
+                ? `Torneio criado com ${maxPlayers} vagas. Use o link de convite para inscrever os participantes.`
                 : 'Vamos para a tela de configuração.',
             timer: 1800,
             showConfirmButton: false,

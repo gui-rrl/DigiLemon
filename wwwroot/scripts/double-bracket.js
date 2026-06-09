@@ -1,14 +1,8 @@
 /* ========== Bracket - Dupla Eliminação ========== */
 
-let allPlayers = [];
-let playerDeckMap = new Map();
-let playersMap = new Map();
+// participantsMap: TournamentPlayer.Id → { playerName, deck, playerId, isGuest }
+let participantsMap = new Map();
 let allMatchesCache = [];
-
-async function loadPlayers() {
-    const response = await apiFetch(`${API_BASE_URL}/player`);
-    return await response.json();
-}
 
 async function loadTournamentParticipants(tournamentId) {
     const response = await apiFetch(`${API_BASE_URL}/tournament/${tournamentId}/participants`);
@@ -38,17 +32,22 @@ function groupMatchesByTypeAndRound(matches) {
     return { upper, lower, finals };
 }
 
-function renderPlayerLine(playerId, isWinner, isLoser) {
-    const cls = isWinner ? 'winner' : isLoser ? 'loser' : (!playerId ? 'waiting' : '');
-    if (!playerId) {
+function renderPlayerLine(tpId, isWinner, isLoser) {
+    // tpId = TournamentPlayer.Id (identificador no chaveamento)
+    const cls = isWinner ? 'winner' : isLoser ? 'loser' : (!tpId ? 'waiting' : '');
+    if (!tpId) {
         return `<div class="player waiting"><span class="player-name">Aguardando</span></div>`;
     }
-    const player = playersMap.get(playerId);
-    const name = player ? player.name : 'Desconhecido';
-    const deck = playerDeckMap.get(playerId);
+    const p    = participantsMap.get(tpId);
+    const name = p ? p.playerName : 'Desconhecido';
+    const deck = p ? p.deck : null;
+    const link = p && p.playerId ? `/player.html?id=${p.playerId}` : null;
+    const nameHtml = link
+        ? `<a href="${link}" style="color:inherit;text-decoration:none;">${escapeHtml(name)}</a>`
+        : escapeHtml(name);
     return `
         <div class="player ${cls}">
-            <span class="player-name">${escapeHtml(name)}</span>
+            <span class="player-name">${nameHtml}</span>
             ${deck ? `<span class="deck-tag" title="${escapeHtml(deck)}"><i class="bi bi-layers"></i> ${escapeHtml(deck)}</span>` : ''}
         </div>`;
 }
@@ -115,11 +114,12 @@ function openResultModal(matchId, player1Id, player2Id) {
     currentPlayer2Id = player2Id;
     const winnerSelect = document.getElementById('winnerSelect');
     winnerSelect.innerHTML = '<option value="">Selecione o vencedor…</option>';
-    [player1Id, player2Id].forEach(id => {
-        if (!id) return;
-        const p = playersMap.get(id);
-        const deck = playerDeckMap.get(id) || 'Sem deck';
-        winnerSelect.innerHTML += `<option value="${id}">${escapeHtml(p.name)} (${escapeHtml(deck)})</option>`;
+    [player1Id, player2Id].forEach(tpId => {
+        if (!tpId) return;
+        const p    = participantsMap.get(tpId);
+        const name = p ? p.playerName : 'Desconhecido';
+        const deck = p ? (p.deck || 'Sem deck') : 'Sem deck';
+        winnerSelect.innerHTML += `<option value="${tpId}">${escapeHtml(name)} (${escapeHtml(deck)})</option>`;
     });
     new bootstrap.Modal(document.getElementById('resultModal')).show();
 }
@@ -158,11 +158,9 @@ async function init() {
     }
 
     try {
-        allPlayers = await loadPlayers();
-        playersMap = new Map(allPlayers.map(p => [p.id, p]));
-
         const participants = await loadTournamentParticipants(tournamentId);
-        participants.forEach(p => playerDeckMap.set(p.playerId, p.deck));
+        // Mapeia TournamentPlayer.Id → dados do participante
+        participants.forEach(p => participantsMap.set(p.id, p));
 
         allMatchesCache = await loadTournamentMatches(tournamentId);
 

@@ -1,9 +1,43 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using RankingDigi.Data;
 using RankingDigi.Models;
 
 namespace RankingDigi.Services
 {
+    /*
+     * Double-Elimination Generator — estrutura para qualquer número par de jogadores.
+     *
+     * Para N jogadores, arredondamos para a próxima potência de 2 (size) e preenchemos
+     * com BYEs (null). Seja U = log2(size) o total de rodadas do Upper Bracket.
+     *
+     * ── Upper Bracket ────────────────────────────────────────────────────────────
+     *   Rodada r  →  size >> r  partidas   (r = 1 … U)
+     *   Vencedores avançam para a rodada seguinte (r+1).
+     *   Perdedores descem para o Lower Bracket.
+     *
+     * ── Lower Bracket ────────────────────────────────────────────────────────────
+     *   Total de rodadas lower: LRtotal = 2 × (U − 1)
+     *
+     *   Para a rodada lower lr (1 … LRtotal):
+     *     k = (lr + 1) / 2   (divisão inteira)
+     *     partidas = size >> (k + 1)
+     *
+     *   Rodadas ímpar  → rodada "pura lower": os dois jogadores vêm do lower anterior.
+     *   Rodadas par    → rodada "drop-in":    um jogador vem do lower anterior (P1)
+     *                                          e outro do upper correspondente (P2).
+     *
+     *   Mapeamento Upper → Lower (quem cai em qual rodada lower):
+     *     UR1 losers  →  LR1  (2 losers por partida lower — emparelhados)
+     *     UR(k+1)     →  LR(2k)   para k = 1 … U-1
+     *
+     * ── Grand Final ──────────────────────────────────────────────────────────────
+     *   Vencedor do Upper Final (P1) vs Vencedor do Lower Final (P2).
+     *
+     * ── Convenção de slots ───────────────────────────────────────────────────────
+     *   NextMatchPosition = 1  →  Player1Id da próxima partida  (vencedor do lower)
+     *   NextMatchPosition = 2  →  Player2Id da próxima partida  (vencedor do upper / drop-in)
+     *   LoserGoesToMatchId     →  preenchido pelo SetMatchResult: P2Id primeiro, depois P1Id.
+     */
     public class DoubleEliminationGenerator
     {
         private readonly RankingContext _context;
@@ -15,240 +49,185 @@ namespace RankingDigi.Services
 
         public async Task GenerateAsync(int tournamentId, List<int> playerIds)
         {
-            // Remove chaveamento anterior
-            var oldMatches = await _context.TournamentMatches
+            // ── Limpar chaveamento anterior ───────────────────────────────────────
+            var old = await _context.TournamentMatches
                 .Where(m => m.TournamentId == tournamentId)
                 .ToListAsync();
-            _context.TournamentMatches.RemoveRange(oldMatches);
+            _context.TournamentMatches.RemoveRange(old);
             await _context.SaveChangesAsync();
 
-            int size = GetNextPowerOfTwo(playerIds.Count);
-            var slots = new List<int?>(playerIds.Select(p => (int?)p));
+            int size = NextPowerOfTwo(playerIds.Count);
+            var slots = playerIds.Select(p => (int?)p).ToList();
             while (slots.Count < size) slots.Add(null);
             slots = Shuffle(slots);
 
-            // ---------- 1. Upper bracket ----------
-            int totalRoundsUpper = (int)Math.Log2(size);
-            var upperMatches = new List<TournamentMatch>();
-            var upperByRound = new Dictionary<int, List<TournamentMatch>>();
+            int U       = (int)Math.Log2(size); // rodadas do upper
+            int totalLR = 2 * (U - 1);          // rodadas do lower
 
-            for (int round = 1; round <= totalRoundsUpper; round++)
+            // ── 1. Criar partidas Upper ──────────────────────────────────────────
+            var upper = new List<TournamentMatch>();
+            for (int r = 1; r <= U; r++)
             {
-                int matchesInRound = size / (int)Math.Pow(2, round);
-                var roundMatches = new List<TournamentMatch>();
-                for (int i = 0; i < matchesInRound; i++)
+                int count = size >> r;
+                for (int i = 0; i < count; i++)
                 {
-                    var match = new TournamentMatch
+                    var m = new TournamentMatch
                     {
                         TournamentId = tournamentId,
-                        MatchType = 0,
-                        Round = round,
-                        IsPlayed = false
+                        MatchType    = 0,   // Upper
+                        Round        = r,
                     };
-                    if (round == 1)
+                    if (r == 1)
                     {
-                        match.Player1Id = slots[i * 2];
-                        match.Player2Id = slots[i * 2 + 1];
+                        m.Player1Id = slots[i * 2];
+                        m.Player2Id = slots[i * 2 + 1];
                     }
-                    roundMatches.Add(match);
+                    upper.Add(m);
                 }
-                upperMatches.AddRange(roundMatches);
-                upperByRound[round] = roundMatches;
             }
 
-            // ---------- 2. Lower bracket (dinâmico) ----------
-            // Total de partidas lower = size - 2 (para dupla eliminação sem partida extra)
-            int totalLowerMatches = size - 2;
-            var lowerMatches = new List<TournamentMatch>();
-
-            // Distribui as partidas lower por rodadas
-            // Exemplo: size=4 -> rodadas: R1:1, R2:1 (total 2)
-            // size=8 -> rodadas: R1:2, R2:2, R3:1, R4:1 (total 6)
-            // size=16 -> rodadas: R1:4, R2:4, R3:2, R4:2, R5:1, R6:1 (total 14)
-            var lowerRounds = new List<int>();
-            int matchesLeft = totalLowerMatches;
-            int currentRound = 1;
-            while (matchesLeft > 0)
+            // ── 2. Criar partidas Lower ──────────────────────────────────────────
+            // lr ímpar  → rodada pura lower (emparelhamento dos sobreviventes)
+            // lr par    → rodada drop-in    (sobrevivente lower vs perdedor upper)
+            //
+            // Contagem por rodada lr:
+            //   k = (lr + 1) / 2  →  partidas = size >> (k + 1)
+            var lower = new List<TournamentMatch>();
+            for (int lr = 1; lr <= totalLR; lr++)
             {
-                int matchesThisRound = Math.Min(size / (int)Math.Pow(2, (currentRound + 1) / 2 + 1), matchesLeft);
-                if (matchesThisRound < 1) matchesThisRound = 1;
-                for (int i = 0; i < matchesThisRound; i++)
+                int k     = (lr + 1) / 2;
+                int count = size >> (k + 1);
+                for (int i = 0; i < count; i++)
                 {
-                    lowerRounds.Add(currentRound);
-                    matchesLeft--;
+                    lower.Add(new TournamentMatch
+                    {
+                        TournamentId = tournamentId,
+                        MatchType    = 1,   // Lower
+                        Round        = lr,
+                    });
                 }
-                currentRound++;
             }
 
-            for (int i = 0; i < totalLowerMatches; i++)
-            {
-                var match = new TournamentMatch
-                {
-                    TournamentId = tournamentId,
-                    MatchType = 1,
-                    Round = lowerRounds[i],
-                    IsPlayed = false
-                };
-                lowerMatches.Add(match);
-            }
-
-            // ---------- 3. Grande final ----------
+            // ── 3. Grande Final ──────────────────────────────────────────────────
             var grandFinal = new TournamentMatch
             {
                 TournamentId = tournamentId,
-                MatchType = 2,
-                Round = 1,
-                IsPlayed = false
+                MatchType    = 2,   // Grand Final
+                Round        = 1,
             };
 
-            // ---------- 4. Persistir ----------
-            _context.TournamentMatches.AddRange(upperMatches);
-            _context.TournamentMatches.AddRange(lowerMatches);
+            _context.TournamentMatches.AddRange(upper);
+            _context.TournamentMatches.AddRange(lower);
             _context.TournamentMatches.Add(grandFinal);
             await _context.SaveChangesAsync();
 
-            // ---------- 5. Recarregar com IDs ----------
-            var allMatchesDb = await _context.TournamentMatches
+            // ── 4. Recarregar com IDs gerados pelo banco ─────────────────────────
+            var all = await _context.TournamentMatches
                 .Where(m => m.TournamentId == tournamentId)
                 .ToListAsync();
 
-            var upperDb = allMatchesDb.Where(m => m.MatchType == 0).OrderBy(m => m.Round).ThenBy(m => m.Id).ToList();
-            var lowerDb = allMatchesDb.Where(m => m.MatchType == 1).OrderBy(m => m.Round).ThenBy(m => m.Id).ToList();
-            var finalDb = allMatchesDb.First(m => m.MatchType == 2);
+            var uByR = all
+                .Where(m => m.MatchType == 0)
+                .GroupBy(m => m.Round)
+                .ToDictionary(g => g.Key, g => g.OrderBy(x => x.Id).ToList());
 
-            var upperByRoundDb = upperDb.GroupBy(m => m.Round).ToDictionary(g => g.Key, g => g.ToList());
+            var lByR = all
+                .Where(m => m.MatchType == 1)
+                .GroupBy(m => m.Round)
+                .ToDictionary(g => g.Key, g => g.OrderBy(x => x.Id).ToList());
 
-            // ---------- 6. Conectar NextMatch no Upper ----------
-            for (int round = 1; round < totalRoundsUpper; round++)
+            var final = all.First(m => m.MatchType == 2);
+
+            // ── 5. Ligar NextMatchId no Upper ────────────────────────────────────
+            // Cada par de partidas da rodada r avança para 1 partida da rodada r+1.
+            for (int r = 1; r < U; r++)
             {
-                var current = upperByRoundDb[round];
-                var next = upperByRoundDb[round + 1];
-                for (int i = 0; i < current.Count; i++)
+                var curr = uByR[r];
+                var next = uByR[r + 1];
+                for (int i = 0; i < curr.Count; i++)
                 {
-                    int nextIdx = i / 2;
-                    current[i].NextMatchId = next[nextIdx].Id;
-                    current[i].NextMatchPosition = (i % 2 == 0) ? 1 : 2;
+                    curr[i].NextMatchId       = next[i / 2].Id;
+                    curr[i].NextMatchPosition = (i % 2 == 0) ? 1 : 2;
                 }
             }
+            // Upper Final → Grand Final (P1)
+            uByR[U][0].NextMatchId       = final.Id;
+            uByR[U][0].NextMatchPosition = 1;
 
-            // ---------- 7. Conectar NextMatch no Lower (correto para dupla eliminação) ----------
-            var lowerByRoundDb = lowerDb.GroupBy(m => m.Round).ToDictionary(g => g.Key, g => g.ToList());
-            var lowerRoundsOrdered = lowerByRoundDb.Keys.OrderBy(r => r).ToList();
-
-            for (int idx = 0; idx < lowerRoundsOrdered.Count - 1; idx++)
+            // ── 6. Ligar NextMatchId no Lower ────────────────────────────────────
+            // lr ímpar → lr+1 : mesma quantidade → 1:1 (vencedor vira P1)
+            // lr par   → lr+1 : dobro de partidas → emparelhar (P1 / P2)
+            for (int lr = 1; lr < totalLR; lr++)
             {
-                int currentRoundNum = lowerRoundsOrdered[idx];
-                int nextRoundNum = lowerRoundsOrdered[idx + 1];
-                var currRoundMatches = lowerByRoundDb[currentRoundNum];
-                var nextRoundMatches = lowerByRoundDb[nextRoundNum];
+                var curr = lByR[lr];
+                var next = lByR[lr + 1];
 
-                // Caso 1: mesmo número de partidas (ex: rodada 1 -> rodada 2, com 2 partidas cada)
-                if (currRoundMatches.Count == nextRoundMatches.Count)
+                if (curr.Count == next.Count)
                 {
-                    for (int i = 0; i < currRoundMatches.Count; i++)
+                    // Rodada ímpar → par : 1:1, vencedor vai para P1 da próxima
+                    for (int i = 0; i < curr.Count; i++)
                     {
-                        currRoundMatches[i].NextMatchId = nextRoundMatches[i].Id;
-                        // Vencedor da lower vai sempre para o primeiro slot (Player1Id)
-                        currRoundMatches[i].NextMatchPosition = 1;
+                        curr[i].NextMatchId       = next[i].Id;
+                        curr[i].NextMatchPosition = 1;
                     }
                 }
-                // Caso 2: curr tem o dobro de partidas (ex: rodada 2 -> rodada 3, 2 partidas para 1)
-                else if (currRoundMatches.Count == nextRoundMatches.Count * 2)
-                {
-                    for (int i = 0; i < currRoundMatches.Count; i++)
-                    {
-                        int nextIdx = i / 2;
-                        currRoundMatches[i].NextMatchId = nextRoundMatches[nextIdx].Id;
-                        // A primeira partida do par alimenta Player1Id, a segunda alimenta Player2Id
-                        currRoundMatches[i].NextMatchPosition = (i % 2 == 0) ? 1 : 2;
-                    }
-                }
-                // Caso genérico (fallback)
                 else
                 {
-                    for (int i = 0; i < currRoundMatches.Count; i++)
+                    // Rodada par → ímpar : 2:1, emparelhar (P1 e P2)
+                    for (int i = 0; i < curr.Count; i++)
                     {
-                        int nextIdx = i * nextRoundMatches.Count / currRoundMatches.Count;
-                        currRoundMatches[i].NextMatchId = nextRoundMatches[nextIdx].Id;
-                        currRoundMatches[i].NextMatchPosition = 1;
+                        curr[i].NextMatchId       = next[i / 2].Id;
+                        curr[i].NextMatchPosition = (i % 2 == 0) ? 1 : 2;
                     }
                 }
             }
+            // Lower Final → Grand Final (P2)
+            lByR[totalLR][0].NextMatchId       = final.Id;
+            lByR[totalLR][0].NextMatchPosition = 2;
 
-            // ---------- 8. Associar perdedores do Upper ao Lower (CORRIGIDO) ----------
-            var upperAll = upperDb.OrderBy(m => m.Round).ThenBy(m => m.Id).ToList();
-            var lowerAll = lowerDb.OrderBy(m => m.Round).ThenBy(m => m.Id).ToList();
+            // ── 7. Perdedores do Upper → Lower ───────────────────────────────────
+            //
+            // UR1 : cada par de partidas upper alimenta 1 partida de LR1
+            //        UR1[0], UR1[1] → LR1[0]
+            //        UR1[2], UR1[3] → LR1[1]   etc.
+            var ur1 = uByR[1];
+            var lr1 = lByR[1];
+            for (int i = 0; i < ur1.Count; i++)
+                ur1[i].LoserGoesToMatchId = lr1[i / 2].Id;
 
-            // Rodada 1: 4 partidas upper -> 2 partidas lower (dois perdedores por partida lower)
-            var upperRound1 = upperAll.Where(m => m.Round == 1).OrderBy(m => m.Id).ToList();
-            var lowerRound1 = lowerAll.Where(m => m.Round == 1).OrderBy(m => m.Id).ToList();
-            int lowerIdx = 0;
-            for (int i = 0; i < upperRound1.Count; i++)
+            // UR(k+1) → LR(2k)  para k = 1 … U-1  (1:1, perdedor vira P2 via controller)
+            for (int k = 1; k <= U - 1; k++)
             {
-                upperRound1[i].LoserGoesToMatchId = lowerRound1[lowerIdx].Id;
-                if ((i + 1) % 2 == 0) lowerIdx++;
+                var urRound = uByR[k + 1];
+                var lrRound = lByR[2 * k];
+                for (int i = 0; i < urRound.Count; i++)
+                    urRound[i].LoserGoesToMatchId = lrRound[i].Id;
             }
-
-            // Rodada 2: 2 partidas upper -> 2 partidas lower (um perdedor por partida lower, mapeamento direto 1:1)
-            var upperRound2 = upperAll.Where(m => m.Round == 2).OrderBy(m => m.Id).ToList();
-            var lowerRound2 = lowerAll.Where(m => m.Round == 2).OrderBy(m => m.Id).ToList();
-            if (upperRound2.Count == lowerRound2.Count)
-            {
-                for (int i = 0; i < upperRound2.Count; i++)
-                {
-                    upperRound2[i].LoserGoesToMatchId = lowerRound2[i].Id;
-                }
-            }
-            else
-            {
-                // Fallback: usar índices sequenciais
-                for (int i = 0; i < upperRound2.Count; i++)
-                {
-                    if (i < lowerRound2.Count)
-                        upperRound2[i].LoserGoesToMatchId = lowerRound2[i].Id;
-                }
-            }
-
-            // Rodada 3: 1 partida upper -> última partida lower (rodada mais alta)
-            var upperRound3 = upperAll.Where(m => m.Round == 3).OrderBy(m => m.Id).ToList();
-            if (upperRound3.Any())
-            {
-                var lastLower = lowerAll.Last();
-                upperRound3[0].LoserGoesToMatchId = lastLower.Id;
-            }
-
-            // ---------- 9. Conectar finais à Grande Final ----------
-            var upperFinal = upperByRoundDb[totalRoundsUpper].First();
-            upperFinal.NextMatchId = finalDb.Id;
-            upperFinal.NextMatchPosition = 1;
-
-            var lowerFinal = lowerDb.Last();
-            lowerFinal.NextMatchId = finalDb.Id;
-            lowerFinal.NextMatchPosition = 2;
 
             await _context.SaveChangesAsync();
 
-            // ---------- 10. Resolver byes ----------
+            // ── 8. Resolver BYEs automaticamente ────────────────────────────────
             await ResolveByes(tournamentId);
         }
 
-        // ----------------------- MÉTODOS AUXILIARES -----------------------
-        private int GetNextPowerOfTwo(int n)
+        // ── Auxiliares ────────────────────────────────────────────────────────────
+
+        private static int NextPowerOfTwo(int n)
         {
             int p = 1;
             while (p < n) p <<= 1;
             return p;
         }
 
-        private List<int?> Shuffle(List<int?> list)
+        private static List<int?> Shuffle(List<int?> list)
         {
             var rnd = new Random();
-            return list.OrderBy(x => rnd.Next()).ToList();
+            return list.OrderBy(_ => rnd.Next()).ToList();
         }
 
         private async Task ResolveByes(int tournamentId)
         {
-            var allMatches = await _context.TournamentMatches
+            var all = await _context.TournamentMatches
                 .Where(m => m.TournamentId == tournamentId)
                 .ToListAsync();
 
@@ -256,53 +235,43 @@ namespace RankingDigi.Services
             do
             {
                 changed = false;
-                foreach (var match in allMatches)
+                foreach (var match in all)
                 {
                     if (match.IsPlayed) continue;
 
                     bool hasP1 = match.Player1Id.HasValue;
                     bool hasP2 = match.Player2Id.HasValue;
 
-                    if (hasP1 && !hasP2)
-                    {
-                        match.WinnerId = match.Player1Id;
-                        match.IsPlayed = true;
-                        match.Date = DateTime.UtcNow;
-                        changed = true;
+                    int? winnerId = null;
+                    bool resolve  = false;
 
-                        if (match.NextMatchId.HasValue)
+                    if      (hasP1 && !hasP2) { winnerId = match.Player1Id; resolve = true; }
+                    else if (!hasP1 && hasP2) { winnerId = match.Player2Id; resolve = true; }
+                    // Ambos null = partida futura aguardando jogadores → não tocar.
+
+                    if (!resolve) continue;
+
+                    match.WinnerId = winnerId;
+                    match.IsPlayed = true;
+                    match.Date     = DateTime.UtcNow;
+                    changed        = true;
+
+                    // Propaga vencedor para próxima partida
+                    if (winnerId.HasValue && match.NextMatchId.HasValue)
+                    {
+                        var next = all.FirstOrDefault(m => m.Id == match.NextMatchId);
+                        if (next != null)
                         {
-                            var nextMatch = allMatches.FirstOrDefault(m => m.Id == match.NextMatchId);
-                            if (nextMatch != null)
-                            {
-                                if (match.NextMatchPosition == 1)
-                                    nextMatch.Player1Id = match.WinnerId;
-                                else
-                                    nextMatch.Player2Id = match.WinnerId;
-                            }
+                            if (match.NextMatchPosition == 1) next.Player1Id = winnerId;
+                            else                              next.Player2Id = winnerId;
                         }
                     }
-                    else if (!hasP1 && hasP2)
-                    {
-                        match.WinnerId = match.Player2Id;
-                        match.IsPlayed = true;
-                        match.Date = DateTime.UtcNow;
-                        changed = true;
 
-                        if (match.NextMatchId.HasValue)
-                        {
-                            var nextMatch = allMatches.FirstOrDefault(m => m.Id == match.NextMatchId);
-                            if (nextMatch != null)
-                            {
-                                if (match.NextMatchPosition == 1)
-                                    nextMatch.Player1Id = match.WinnerId;
-                                else
-                                    nextMatch.Player2Id = match.WinnerId;
-                            }
-                        }
-                    }
+                    // Perdedor nulo não precisa ser propagado ao lower
+                    // (o slot fica null e a partida lower também resolverá como BYE)
                 }
-            } while (changed);
+            }
+            while (changed);
 
             await _context.SaveChangesAsync();
         }

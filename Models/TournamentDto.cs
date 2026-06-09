@@ -7,6 +7,7 @@
         public DateTime StartDate { get; set; }
         public int Status { get; set; }
         public string? InviteCode { get; set; }
+        public int MaxPlayers { get; set; }
         public List<BracketDto> ?Brackets { get; set; }
     }
 }

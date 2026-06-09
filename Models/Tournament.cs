@@ -8,6 +8,7 @@
         public DateTime? EndDate { get; set; }
         public int Status { get; set; } // 0: em preparação, 1: em andamento, 2: finalizado
         public string? InviteCode { get; set; } // código curto usado no link de convite
+        public int MaxPlayers { get; set; } = 0; // 0 = sem limite definido (legado)
         public ICollection<Bracket> Brackets { get; set; } = new List<Bracket>();
         public ICollection<TournamentPlayer>? TournamentPlayers { get; set; }
     }
