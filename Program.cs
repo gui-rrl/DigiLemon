@@ -77,6 +77,7 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddScoped<TournamentService>();
+builder.Services.AddScoped<SwissService>();
 
 var app = builder.Build();
 

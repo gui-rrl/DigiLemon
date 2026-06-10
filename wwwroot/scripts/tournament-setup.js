@@ -24,6 +24,21 @@ async function loadTournamentInfo() {
         document.getElementById('tournamentName').innerText = currentTournament.name;
         document.title = `${currentTournament.name} — Configurar`;
 
+        // Adaptar botão ao formato
+        const btn = document.getElementById('generateBracketBtn');
+        if (currentTournament.format === 1) {
+            btn.innerHTML = '<i class="bi bi-play-circle"></i> Iniciar Swiss';
+        }
+
+        // Se já em andamento, redirecionar para a página correta
+        if (currentTournament.status === 1) {
+            const target = currentTournament.format === 1
+                ? `/tournament-swiss.html?id=${tournamentId}`
+                : `/tournament-double-bracket.html?id=${tournamentId}`;
+            btn.textContent = 'Ver torneio';
+            btn.onclick = () => window.location.href = target;
+        }
+
         const inviteUrl = currentTournament.inviteCode ? buildInviteUrl(currentTournament.inviteCode) : '';
         document.getElementById('inviteUrlInput').value = inviteUrl;
 
@@ -162,45 +177,56 @@ document.getElementById('generateBracketBtn').addEventListener('click', async ()
         const participants = await apiFetch(`${API_BASE_URL}/tournament/${tournamentId}/participants`)
             .then(r => r.json());
         const count = participants.length;
-        const max = currentTournament?.maxPlayers || 0;
+        const max   = currentTournament?.maxPlayers || 0;
+        const fmt   = currentTournament?.format ?? 0;
+
         if (count < 2) {
             notifyWarning('São necessários pelo menos 2 participantes inscritos.');
             return;
         }
-        if (count % 2 !== 0) {
-            notifyWarning(`Há ${count} participante(s) inscritos. A quantidade precisa ser par.`);
-            return;
-        }
-        if (max > 0 && count < max) {
-            const result = await confirmAction({
-                title: 'Iniciar com vagas abertas?',
-                text: `O torneio tem ${max} vagas mas apenas ${count} estão preenchidas. Os ${max - count} lugar(es) restantes serão BYEs (vitórias automáticas). Deseja continuar?`,
-                confirmText: 'Sim, iniciar assim',
-                cancelText: 'Cancelar',
-                icon: 'warning',
+
+        if (fmt === 0) {
+            // ── Double Elimination ─────────────────────────────────────────
+            if (count % 2 !== 0) {
+                notifyWarning(`Há ${count} participante(s) inscritos. Para dupla eliminação a quantidade precisa ser par.`);
+                return;
+            }
+            if (max > 0 && count < max) {
+                const warn = await confirmAction({
+                    title: 'Iniciar com vagas abertas?',
+                    text: `O torneio tem ${max} vagas mas apenas ${count} estão preenchidas. Os ${max - count} lugar(es) restantes serão BYEs. Deseja continuar?`,
+                    confirmText: 'Sim, iniciar assim', cancelText: 'Cancelar', icon: 'warning',
+                });
+                if (!warn.isConfirmed) return;
+            }
+            const confirm = await confirmAction({
+                title: 'Iniciar torneio?',
+                text: `Será gerado o chaveamento de dupla eliminação com ${count} jogadores.`,
+                confirmText: 'Iniciar agora', cancelText: 'Cancelar', icon: 'question',
             });
-            if (!result.isConfirmed) return;
+            if (!confirm.isConfirmed) return;
+
+            const resp = await apiFetch(`${API_BASE_URL}/tournament/${tournamentId}/generate-double-elimination`, { method: 'POST' });
+            const json = await resp.json();
+            await Swal.fire({ icon: 'success', title: 'Torneio iniciado!', text: json.message, timer: 1600, showConfirmButton: false });
+            window.location.href = `/tournament-double-bracket.html?id=${tournamentId}`;
+
+        } else {
+            // ── Swiss + Top Cut ────────────────────────────────────────────
+            const rounds  = currentTournament.swissRounds;
+            const topCut  = currentTournament.topCutSize;
+            const confirm = await confirmAction({
+                title: 'Iniciar Swiss?',
+                text: `${count} jogadores · ${rounds} rodadas Swiss · Top ${topCut} (double elimination). Após iniciar, novos jogadores não poderão ingressar.`,
+                confirmText: 'Iniciar agora', cancelText: 'Cancelar', icon: 'question',
+            });
+            if (!confirm.isConfirmed) return;
+
+            const resp = await apiFetch(`${API_BASE_URL}/tournament/${tournamentId}/swiss/start`, { method: 'POST' });
+            const json = await resp.json();
+            await Swal.fire({ icon: 'success', title: 'Swiss iniciado!', text: json.message, timer: 1600, showConfirmButton: false });
+            window.location.href = `/tournament-swiss.html?id=${tournamentId}`;
         }
-
-        const result = await confirmAction({
-            title: 'Iniciar torneio?',
-            text: `Será gerado o chaveamento de dupla eliminação com ${count} jogadores. Após iniciar, novos jogadores não poderão mais ingressar.`,
-            confirmText: 'Iniciar agora',
-            cancelText: 'Cancelar',
-            icon: 'question',
-        });
-        if (!result.isConfirmed) return;
-
-        const response = await apiFetch(`${API_BASE_URL}/tournament/${tournamentId}/generate-double-elimination`, { method: 'POST' });
-        const json = await response.json();
-        await Swal.fire({
-            icon: 'success',
-            title: 'Torneio iniciado!',
-            text: json.message,
-            timer: 1600,
-            showConfirmButton: false,
-        });
-        window.location.href = `/tournament-double-bracket.html?id=${tournamentId}`;
     } catch (error) {
         notifyError('Erro ao iniciar torneio: ' + error.message);
     }

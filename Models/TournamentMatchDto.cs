@@ -4,6 +4,8 @@
     {
         public int Id { get; set; }
         public int BracketId { get; set; }
+        public int MatchType { get; set; }
+        public int Round { get; set; }
         public int? Player1Id { get; set; }
         public int? Player2Id { get; set; }
         public string? Player1Deck { get; set; }
@@ -13,5 +15,6 @@
         public int? NextMatchPosition { get; set; }
         public DateTime? Date { get; set; }
         public bool IsPlayed { get; set; }
+        public bool IsBye { get; set; }
     }
 }

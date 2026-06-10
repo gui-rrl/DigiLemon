@@ -25,11 +25,32 @@ namespace RankingDigi.Controller
             var match = await _context.TournamentMatches.FindAsync(id);
             if (match == null) return NotFound();
 
+            if (match.IsPlayed)
+                return BadRequest(new { error = "Esta partida já foi finalizada." });
+
             match.WinnerId = result.WinnerId;
             match.IsPlayed = true;
             match.Date = DateTime.UtcNow;
 
-            // Avança o vencedor para a próxima partida
+            // ── Swiss: atualizar pontos dos jogadores ──────────────────────────
+            if (match.MatchType == 3 && !match.IsBye)
+            {
+                int? loserId = match.Player1Id == (int?)result.WinnerId ? match.Player2Id : match.Player1Id;
+
+                var winner = await _context.TournamentPlayers.FindAsync(result.WinnerId);
+                if (winner != null) { winner.SwissPoints += 3; winner.SwissWins += 1; }
+
+                if (loserId.HasValue)
+                {
+                    var loser = await _context.TournamentPlayers.FindAsync(loserId.Value);
+                    if (loser != null) loser.SwissLosses += 1;
+                }
+
+                await _context.SaveChangesAsync();
+                return Ok();
+            }
+
+            // ── Double Elimination: avança vencedor/perdedor ───────────────────
             if (match.NextMatchId.HasValue)
             {
                 var nextMatch = await _context.TournamentMatches.FindAsync(match.NextMatchId.Value);
@@ -42,13 +63,11 @@ namespace RankingDigi.Controller
                 }
             }
 
-            // Avança o perdedor para a partida lower
             if (match.LoserGoesToMatchId.HasValue && result.LoserId.HasValue)
             {
                 var loserMatch = await _context.TournamentMatches.FindAsync(match.LoserGoesToMatchId.Value);
                 if (loserMatch != null)
                 {
-                    // Prioriza Player2Id (slot 2) para o perdedor do upper
                     if (loserMatch.Player2Id == null)
                         loserMatch.Player2Id = result.LoserId;
                     else if (loserMatch.Player1Id == null)

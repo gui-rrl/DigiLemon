@@ -56,10 +56,25 @@ namespace RankingDigi.Services
             _context.TournamentMatches.RemoveRange(old);
             await _context.SaveChangesAsync();
 
-            int size = NextPowerOfTwo(playerIds.Count);
-            var slots = playerIds.Select(p => (int?)p).ToList();
-            while (slots.Count < size) slots.Add(null);
-            slots = Shuffle(slots);
+            int size     = NextPowerOfTwo(playerIds.Count);
+            int byeCount = size - playerIds.Count;
+
+            // Embaralha apenas os jogadores reais.
+            var reals = Shuffle(playerIds.Select(p => (int?)p).ToList());
+
+            // Distribui BYEs garantindo que nenhum par (UR1) tenha dois nulls.
+            // Os primeiros `byeCount` pares ficam (real, null); o restante (real, real).
+            var slots = new List<int?>(size);
+            for (int i = 0; i < byeCount; i++)
+            {
+                slots.Add(reals[i]);
+                slots.Add(null);
+            }
+            for (int i = byeCount; i < reals.Count; i += 2)
+            {
+                slots.Add(reals[i]);
+                slots.Add(i + 1 < reals.Count ? reals[i + 1] : (int?)null);
+            }
 
             int U       = (int)Math.Log2(size); // rodadas do upper
             int totalLR = 2 * (U - 1);          // rodadas do lower

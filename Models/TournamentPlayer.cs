@@ -17,11 +17,16 @@ namespace RankingDigi.Models
 
         public string? Deck { get; set; }
 
+        // Swiss standings
+        public int SwissPoints { get; set; } = 0;
+        public int SwissWins   { get; set; } = 0;
+        public int SwissLosses { get; set; } = 0;
+        public int SwissDraws  { get; set; } = 0;
+
         // Navegação
         public Tournament? Tournament { get; set; }
         public Player? Player { get; set; }
 
-        /// <summary>Retorna o nome a exibir independentemente de ser guest ou jogador registrado.</summary>
         public string DisplayName => GuestName ?? Player?.Name ?? "Desconhecido";
     }
 }

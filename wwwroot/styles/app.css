@@ -914,3 +914,129 @@ a {
     ::-webkit-scrollbar-thumb:hover {
         background: rgba(255, 255, 255, 0.18);
     }
+
+/* ---------- Seletor de formato (criar torneio) ---------- */
+
+.format-option {
+    flex: 1;
+    min-width: 220px;
+    padding: 1rem 1.2rem;
+    border-radius: var(--radius);
+    border: 2px solid var(--border);
+    background: var(--surface);
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+    user-select: none;
+}
+
+    .format-option:hover {
+        border-color: var(--border-strong);
+        background: var(--surface-strong);
+    }
+
+    .format-option.selected {
+        border-color: var(--accent);
+        background: rgba(22, 224, 189, 0.07);
+        box-shadow: 0 0 0 3px rgba(22, 224, 189, 0.15);
+    }
+
+/* ---------- Swiss standings table ---------- */
+
+.standings-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+    .standings-table th {
+        padding: 0.6rem 0.8rem;
+        border-bottom: 1px solid var(--border-strong);
+        color: var(--text-3);
+        font-weight: 600;
+        text-align: left;
+        white-space: nowrap;
+    }
+
+    .standings-table td {
+        padding: 0.55rem 0.8rem;
+        border-bottom: 1px solid var(--border);
+        vertical-align: middle;
+    }
+
+    .standings-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .standings-table tr.topcut-line td {
+        border-bottom: 2px dashed var(--accent);
+    }
+
+    .standings-table .pos-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        font-weight: 700;
+        font-size: 0.8rem;
+        background: var(--surface-strong);
+        color: var(--text-2);
+    }
+
+    .standings-table .pos-badge.gold   { background: rgba(255,181,71,0.2);  color: var(--warning); }
+    .standings-table .pos-badge.silver { background: rgba(185,192,217,0.15); color: var(--text-2); }
+    .standings-table .pos-badge.bronze { background: rgba(205,127,50,0.15);  color: #cd7f32; }
+
+/* ---------- Swiss round card ---------- */
+
+.swiss-round-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 1rem;
+}
+
+    .swiss-round-card .round-header {
+        padding: 0.7rem 1.1rem;
+        background: var(--surface-strong);
+        border-bottom: 1px solid var(--border);
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .swiss-round-card .swiss-match {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.75rem 1.1rem;
+        border-bottom: 1px solid var(--border);
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
+    .swiss-round-card .swiss-match:last-child {
+        border-bottom: none;
+    }
+
+    .swiss-match .player-slot {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        min-width: 140px;
+    }
+
+    .swiss-match .player-slot.winner { color: var(--success); font-weight: 600; }
+    .swiss-match .player-slot.loser  { color: var(--text-3); }
+
+    .swiss-match .vs-badge {
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: var(--text-3);
+        padding: 0.1rem 0.5rem;
+        background: var(--surface-strong);
+        border-radius: 4px;
+    }

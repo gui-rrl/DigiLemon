@@ -116,10 +116,10 @@ function openResultModal(matchId, player1Id, player2Id) {
     winnerSelect.innerHTML = '<option value="">Selecione o vencedor…</option>';
     [player1Id, player2Id].forEach(tpId => {
         if (!tpId) return;
-        const p    = participantsMap.get(tpId);
-        const name = p ? p.playerName : 'Desconhecido';
-        const deck = p ? (p.deck || 'Sem deck') : 'Sem deck';
-        winnerSelect.innerHTML += `<option value="${tpId}">${escapeHtml(name)} (${escapeHtml(deck)})</option>`;
+        const p           = participantsMap.get(tpId);
+        const displayName = p ? (p.playerName || 'Desconhecido') : 'Desconhecido';
+        const deck        = p ? (p.deck || 'Sem deck') : 'Sem deck';
+        winnerSelect.innerHTML += `<option value="${tpId}">${escapeHtml(displayName)} (${escapeHtml(deck)})</option>`;
     });
     new bootstrap.Modal(document.getElementById('resultModal')).show();
 }

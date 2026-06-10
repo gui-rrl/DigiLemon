@@ -14,6 +14,7 @@
         public int? NextMatchPosition { get; set; } // indica se este vencedor vai para o "slot" esquerdo ou direito da próxima partida
         public DateTime? Date { get; set; }
         public bool IsPlayed { get; set; }
+        public bool IsBye { get; set; } = false;
         public Tournament ?LoserGoesToMatch { get; set; }
         public TournamentMatch ?NextMatch { get; set; }
 

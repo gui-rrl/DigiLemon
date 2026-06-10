@@ -45,6 +45,10 @@ async function loadTournaments() {
                 <tr>
                     <td><span class="text-muted-2">#${t.id}</span></td>
                     <td><strong>${escapeHtml(t.name)}</strong></td>
+                    <td>${t.format === 1
+                        ? `<span class="status-pill prep" title="${t.swissRounds} rodadas Swiss · Top ${t.topCutSize}"><i class="bi bi-grid-3x3-gap-fill"></i> Swiss</span>`
+                        : `<span class="status-pill" style="background:rgba(109,111,255,0.15);color:var(--primary)"><i class="bi bi-diagram-3"></i> Dupla Elim.</span>`
+                    }</td>
                     <td>${formatDate(t.startDate)}</td>
                     <td><span class="status-pill ${info.cls}">${info.label}</span></td>
                     <td style="text-align:right;">
@@ -53,9 +57,12 @@ async function loadTournaments() {
                             <a href="/tournament-setup.html?id=${t.id}" class="btn btn-sm btn-secondary" title="Configurar">
                                 <i class="bi bi-gear"></i> Configurar
                             </a>
-                            <a href="/tournament-double-bracket.html?id=${t.id}" class="btn btn-sm btn-info" title="Visualizar bracket">
-                                <i class="bi bi-diagram-3"></i> Bracket
-                            </a>
+                            ${t.status >= 1
+                                ? (t.format === 1
+                                    ? `<a href="/tournament-swiss.html?id=${t.id}" class="btn btn-sm btn-info" title="Ver Swiss"><i class="bi bi-grid-3x3-gap-fill"></i> Swiss</a>`
+                                    : `<a href="/tournament-double-bracket.html?id=${t.id}" class="btn btn-sm btn-info" title="Visualizar bracket"><i class="bi bi-diagram-3"></i> Bracket</a>`)
+                                : ''
+                            }
                             <button class="btn btn-sm btn-danger" onclick="deleteTournament(${t.id}, '${escapeHtml(t.name)}')" title="Excluir">
                                 <i class="bi bi-trash3"></i>
                             </button>

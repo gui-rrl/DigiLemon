@@ -2,6 +2,53 @@
 
 let allPlayers = [];
 
+// ── Seletor de formato ──────────────────────────────────────────────────────
+function selectFormat(fmt) {
+    document.getElementById('format').value = fmt;
+    document.getElementById('fmtDoubleElim').classList.toggle('selected', fmt === 0);
+    document.getElementById('fmtSwiss').classList.toggle('selected', fmt === 1);
+
+    const swissOpts = document.getElementById('swissOptions');
+    swissOpts.style.setProperty('display', fmt === 1 ? 'flex' : 'none', 'important');
+
+    // Recalcular info de rodadas
+    if (fmt === 1) updateSwissRoundsInfo();
+
+    // Atualizar opções de vagas (Swiss permite ímpar)
+    updateMaxPlayersOptions(fmt);
+}
+
+function updateSwissRoundsInfo() {
+    const n = parseInt(document.getElementById('maxPlayers').value, 10);
+    const rounds = n <= 2 ? 1 : n <= 4 ? 2 : n <= 8 ? 3 : n <= 16 ? 4 : n <= 32 ? 5 : 6;
+    const topCut = document.getElementById('topCutSize').value;
+    document.getElementById('swissRoundsInfo').textContent =
+        `Com ${n} jogadores: ${rounds} rodadas Swiss → Top ${topCut} (double elimination).`;
+}
+
+function updateMaxPlayersOptions(fmt) {
+    const sel = document.getElementById('maxPlayers');
+    const current = sel.value;
+    sel.innerHTML = '';
+    const options = fmt === 1
+        ? [4,5,6,7,8,9,10,11,12,14,16,18,20,24,32]
+        : [6,8,10,12,14,16,18,20,24,32];
+    options.forEach(n => {
+        const opt = document.createElement('option');
+        opt.value = n;
+        opt.textContent = `${n} jogadores`;
+        if (String(n) === current) opt.selected = true;
+        sel.appendChild(opt);
+    });
+    if (!sel.value) sel.value = fmt === 1 ? '8' : '8';
+    if (fmt === 1) updateSwissRoundsInfo();
+}
+
+document.getElementById('topCutSize').addEventListener('change', updateSwissRoundsInfo);
+
+// Inicializar seleção
+selectFormat(0);
+
 async function loadPlayers() {
     try {
         const response = await apiFetch(`${API_BASE_URL}/player`);
@@ -99,7 +146,6 @@ function addPlayerRow() {
 document.getElementById('addPlayerBtn').addEventListener('click', addPlayerRow);
 
 document.getElementById('maxPlayers').addEventListener('change', () => {
-    // Remove linhas excedentes ao reduzir o número de vagas
     const max = getMaxPlayers();
     const rows = Array.from(document.querySelectorAll('.player-row'));
     if (rows.length > max) {
@@ -107,6 +153,8 @@ document.getElementById('maxPlayers').addEventListener('change', () => {
         refreshAllSelects();
     }
     updatePlayerCount();
+    const fmt = parseInt(document.getElementById('format').value, 10);
+    if (fmt === 1) updateSwissRoundsInfo();
 });
 
 document.getElementById('createTournamentForm').addEventListener('submit', async (e) => {
@@ -153,10 +201,13 @@ document.getElementById('createTournamentForm').addEventListener('submit', async
         return;
     }
 
+    const format     = parseInt(document.getElementById('format').value, 10);
+    const topCutSize = parseInt(document.getElementById('topCutSize').value, 10);
+
     try {
         const response = await apiFetch(`${API_BASE_URL}/tournament`, {
             method: 'POST',
-            body: JSON.stringify({ name, startDate, maxPlayers, players }),
+            body: JSON.stringify({ name, startDate, maxPlayers, players, format, topCutSize }),
         });
         const result = await response.json();
         await Swal.fire({

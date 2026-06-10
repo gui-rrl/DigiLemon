@@ -8,17 +8,18 @@ using RankingDigi.Services;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]   // todas as rotas exigem login por padrão
+[Authorize]
 public class TournamentController : ControllerBase
 {
     private readonly RankingContext _context;
-    private readonly TournamentService _tournamentService; 
+    private readonly TournamentService _tournamentService;
+    private readonly SwissService _swissService;
 
-
-    public TournamentController(RankingContext context, TournamentService tournamentService)
+    public TournamentController(RankingContext context, TournamentService tournamentService, SwissService swissService)
     {
         _context = context;
         _tournamentService = tournamentService;
+        _swissService = swissService;
     }
 
    //GET: api/tournament
@@ -48,6 +49,10 @@ public class TournamentController : ControllerBase
             Status = t.Status,
             InviteCode = t.InviteCode,
             MaxPlayers = t.MaxPlayers,
+            Format = t.Format,
+            SwissRounds = t.SwissRounds,
+            TopCutSize = t.TopCutSize,
+            CurrentSwissRound = t.CurrentSwissRound,
             Brackets = t.Brackets?.Select(b => new BracketDto
             {
                 Id = b.Id,
@@ -80,8 +85,10 @@ public class TournamentController : ControllerBase
         if (dto == null || string.IsNullOrWhiteSpace(dto.Name))
             return BadRequest(new { error = "Informe o nome do torneio." });
 
-        if (dto.MaxPlayers < 2 || dto.MaxPlayers % 2 != 0)
-            return BadRequest(new { error = "O número máximo de jogadores deve ser par e maior ou igual a 2." });
+        if (dto.MaxPlayers < 2)
+            return BadRequest(new { error = "O número máximo de jogadores deve ser maior ou igual a 2." });
+        if (dto.Format == 0 && dto.MaxPlayers % 2 != 0)
+            return BadRequest(new { error = "Para o formato Double Elimination, o número de vagas deve ser par." });
 
         var players = dto.Players ?? new List<PlayerDeckDto>();
 
@@ -120,6 +127,9 @@ public class TournamentController : ControllerBase
                 return BadRequest(new { error = $"Jogador(es) não encontrado(s): {string.Join(", ", missingIds)}." });
         }
 
+        int swissRounds = dto.Format == 1 ? SwissService.CalculateRounds(dto.MaxPlayers) : 0;
+        int topCutSize  = dto.Format == 1 ? (dto.TopCutSize is 4 or 8 ? dto.TopCutSize : 8) : 0;
+
         var tournament = new Tournament
         {
             Name = dto.Name,
@@ -127,6 +137,9 @@ public class TournamentController : ControllerBase
             Status = 0,
             MaxPlayers = dto.MaxPlayers,
             InviteCode = await GenerateUniqueInviteCodeAsync(),
+            Format = dto.Format,
+            SwissRounds = swissRounds,
+            TopCutSize = topCutSize,
         };
         _context.Tournaments.Add(tournament);
         await _context.SaveChangesAsync();
@@ -287,7 +300,8 @@ public class TournamentController : ControllerBase
         // Carrega participantes keyed por TournamentPlayer.Id (usado no chaveamento)
         var tournamentPlayers = await _context.TournamentPlayers
             .Where(tp => tp.TournamentId == id)
-            .ToDictionaryAsync(tp => tp.Id, tp => new { tp.Deck, Name = tp.GuestName ?? tp.Player!.Name });
+            .Include(tp => tp.Player)
+            .ToDictionaryAsync(tp => tp.Id, tp => new { tp.Deck, Name = tp.GuestName ?? tp.Player?.Name ?? "Desconhecido" });
 
         var dto = new TournamentDto
         {
@@ -297,6 +311,10 @@ public class TournamentController : ControllerBase
             Status = tournament.Status,
             InviteCode = tournament.InviteCode,
             MaxPlayers = tournament.MaxPlayers,
+            Format = tournament.Format,
+            SwissRounds = tournament.SwissRounds,
+            TopCutSize = tournament.TopCutSize,
+            CurrentSwissRound = tournament.CurrentSwissRound,
             Brackets = tournament.Brackets?.Select(b => new BracketDto
             {
                 Id = b.Id,
@@ -331,19 +349,23 @@ public class TournamentController : ControllerBase
     [AllowAnonymous]
     public async Task<IActionResult> GetParticipants(int id)
     {
-        var participants = await _context.TournamentPlayers
+        // ToListAsync primeiro garante que .Include(Player) seja respeitado pelo EF Core.
+        // Projeção em memória evita NullReferenceException em tp.Player dentro de .Select().
+        var tps = await _context.TournamentPlayers
             .Where(tp => tp.TournamentId == id)
             .Include(tp => tp.Player)
-            .Select(tp => new
-            {
-                Id         = tp.Id,                                          // TournamentPlayer.Id — usado no chaveamento
-                tp.PlayerId,                                                 // null para convidados
-                PlayerName = tp.GuestName ?? tp.Player!.Name,               // nome a exibir
-                IsGuest    = tp.PlayerId == null,
-                tp.Deck,
-            })
             .ToListAsync();
-        return Ok(participants);
+
+        var result = tps.Select(tp => new
+        {
+            Id         = tp.Id,
+            tp.PlayerId,
+            PlayerName = tp.GuestName ?? tp.Player?.Name ?? "Desconhecido",
+            IsGuest    = tp.PlayerId == null,
+            tp.Deck,
+        });
+
+        return Ok(result);
     }
 
     [HttpDelete("{id}")]
@@ -428,5 +450,108 @@ public class TournamentController : ControllerBase
             .OrderBy(m => m.MatchType).ThenBy(m => m.Round).ThenBy(m => m.Id)
             .ToListAsync();
         return Ok(matches);
+    }
+
+    // ── Swiss endpoints ──────────────────────────────────────────────────────
+
+    [HttpPost("{id}/swiss/start")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> SwissStart(int id)
+    {
+        try
+        {
+            await _swissService.StartAsync(id);
+            return Ok(new { message = "Swiss iniciado. Rodada 1 gerada." });
+        }
+        catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
+    [HttpPost("{id}/swiss/advance")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> SwissAdvance(int id)
+    {
+        try
+        {
+            await _swissService.AdvanceRoundAsync(id);
+            var t = await _context.Tournaments.FindAsync(id);
+            return Ok(new { message = $"Rodada {t!.CurrentSwissRound} gerada.", round = t.CurrentSwissRound });
+        }
+        catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
+    [HttpPost("{id}/swiss/generate-topcut")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> SwissGenerateTopCut(int id)
+    {
+        try
+        {
+            await _swissService.GenerateTopCutAsync(id);
+            return Ok(new { message = "Top Cut gerado com sucesso." });
+        }
+        catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
+    [HttpGet("{id}/swiss/standings")]
+    [AllowAnonymous]
+    public async Task<IActionResult> SwissStandings(int id)
+    {
+        var standings = await _swissService.GetStandingsAsync(id);
+        return Ok(standings);
+    }
+
+    [HttpGet("{id}/swiss/status")]
+    [AllowAnonymous]
+    public async Task<IActionResult> SwissStatus(int id)
+    {
+        var tournament = await _context.Tournaments.FindAsync(id);
+        if (tournament == null) return NotFound();
+
+        var allMatches = await _context.TournamentMatches
+            .Where(m => m.TournamentId == id)
+            .OrderBy(m => m.Round).ThenBy(m => m.Id)
+            .ToListAsync();
+
+        var swissMatches = allMatches.Where(m => m.MatchType == 3).ToList();
+        var topCutMatches = allMatches.Where(m => m.MatchType != 3).ToList();
+
+        var standings = await _swissService.GetStandingsAsync(id);
+
+        int currentRound = tournament.CurrentSwissRound;
+        bool allSwissDone = currentRound > 0 && currentRound >= tournament.SwissRounds
+            && swissMatches.Where(m => m.Round == tournament.SwissRounds).All(m => m.IsPlayed);
+
+        bool currentRoundDone = currentRound > 0
+            && swissMatches.Where(m => m.Round == currentRound).All(m => m.IsPlayed);
+
+        bool topCutGenerated = topCutMatches.Any();
+
+        return Ok(new
+        {
+            tournament.Format,
+            tournament.SwissRounds,
+            tournament.TopCutSize,
+            tournament.CurrentSwissRound,
+            tournament.Status,
+            AllSwissDone       = allSwissDone,
+            CurrentRoundDone   = currentRoundDone,
+            TopCutGenerated    = topCutGenerated,
+            Standings          = standings,
+            SwissMatchesByRound = swissMatches
+                .GroupBy(m => m.Round)
+                .OrderBy(g => g.Key)
+                .ToDictionary(g => g.Key, g => g.OrderBy(m => m.Id).Select(m => new
+                {
+                    m.Id, m.Player1Id, m.Player2Id, m.WinnerId,
+                    m.IsPlayed, m.IsBye, m.Date,
+                }).ToList()),
+            TopCutMatches = topCutMatches.Select(m => new
+            {
+                m.Id, m.MatchType, m.Round,
+                m.Player1Id, m.Player2Id, m.WinnerId,
+                m.IsPlayed, m.IsBye,
+                m.NextMatchId, m.NextMatchPosition,
+                m.LoserGoesToMatchId, m.Date,
+            }).ToList(),
+        });
     }
 }
