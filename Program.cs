@@ -40,6 +40,18 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidAudience            = builder.Configuration["Jwt:Audience"],
             IssuerSigningKey         = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
         };
+        // Suppress WWW-Authenticate header on 401 to avoid triggering browser
+        // Basic Auth dialogs when running behind ngrok with basic-auth enabled.
+        options.Events = new Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerEvents
+        {
+            OnChallenge = context =>
+            {
+                context.HandleResponse();
+                context.Response.StatusCode = 401;
+                context.Response.ContentType = "application/json";
+                return context.Response.WriteAsync("{\"error\":\"N\\u00e3o autenticado.\"}");
+            }
+        };
     });
 
 builder.Services.AddAuthorization();

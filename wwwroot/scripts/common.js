@@ -9,6 +9,7 @@ async function apiFetch(url, options = {}) {
     const token = authToken?.() ?? null;  // authToken() vem de auth.js
     const headers = {
         'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': '1',
         ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
         ...(options.headers || {}),
     };
@@ -16,9 +17,11 @@ async function apiFetch(url, options = {}) {
     const response = await fetch(url, merged);
 
     if (response.status === 401) {
-        // Token expirado ou inválido — redireciona para login
+        // Token expirado ou inválido — redireciona para login (evita loop se já estiver em login.html)
         if (typeof authClear === 'function') authClear();
-        window.location.href = `/login.html?next=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+        if (!window.location.pathname.endsWith('login.html')) {
+            window.location.href = `/login.html?next=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+        }
         throw new Error('Sessão expirada. Faça login novamente.');
     }
 
