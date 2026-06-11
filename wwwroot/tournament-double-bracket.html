@@ -29,22 +29,34 @@
         </header>
 
         <div class="bracket-wrapper">
-            <div class="bracket-row">
+
+            <!-- Linha 1: Chave Superior + Grande Final (separados, lado a lado) -->
+            <div class="bracket-row" id="upperBracketRow">
                 <div class="upper-bracket-container">
-                    <h3 class="bracket-section-title"><i class="bi bi-arrow-up-circle-fill"></i> Chave Superior</h3>
+                    <h3 class="bracket-section-title">
+                        <i class="bi bi-arrow-up-circle-fill"></i> Chave Superior
+                    </h3>
                     <div id="upperBracketRoot" class="bracket-horizontal"></div>
                 </div>
-                <div class="grand-final-container">
-                    <h3 class="bracket-section-title"><i class="bi bi-trophy-fill"></i> Grande Final</h3>
+
+                <div class="grand-final-container" id="grandFinalSection">
+                    <h3 class="bracket-section-title grand-final-title">
+                        <i class="bi bi-trophy-fill"></i> Grande Final
+                    </h3>
                     <div id="grandFinalRoot"></div>
                 </div>
             </div>
+
+            <!-- Linha 2: Chave Inferior -->
             <div class="bracket-row">
                 <div class="lower-bracket-container">
-                    <h3 class="bracket-section-title"><i class="bi bi-arrow-down-circle-fill"></i> Chave Inferior</h3>
+                    <h3 class="bracket-section-title">
+                        <i class="bi bi-arrow-down-circle-fill"></i> Chave Inferior
+                    </h3>
                     <div id="lowerBracketRoot" class="bracket-horizontal"></div>
                 </div>
             </div>
+
         </div>
     </main>
 
