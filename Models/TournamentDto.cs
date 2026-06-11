@@ -13,5 +13,6 @@
         public int TopCutSize { get; set; }
         public int CurrentSwissRound { get; set; }
         public List<BracketDto>? Brackets { get; set; }
+        public string? WinnerName { get; set; }
     }
 }

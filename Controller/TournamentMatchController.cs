@@ -77,6 +77,13 @@ namespace RankingDigi.Controller
                 }
             }
 
+            // Quando a Grande Final é concluída, marca o torneio como Finalizado (Status = 2)
+            if (match.MatchType == 2)
+            {
+                var tournament = await _context.Tournaments.FindAsync(match.TournamentId);
+                if (tournament != null) tournament.Status = 2;
+            }
+
             await _context.SaveChangesAsync();
             return Ok();
         }

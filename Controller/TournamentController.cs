@@ -30,10 +30,26 @@ public class TournamentController : ControllerBase
         var tournaments = await _context.Tournaments
             .Include(t => t.Brackets)
                 .ThenInclude(b => b.Matches)
+            .Include(t => t.TournamentPlayers)
+                .ThenInclude(tp => tp.Player)
             .ToListAsync();
 
-        // Backfill: gera InviteCode para torneios antigos
+        // Carrega grand finals direto de TournamentMatches (gerador salva sem Bracket)
+        var tournamentIds = tournaments.Select(t => t.Id).ToList();
+        var grandFinalMatches = await _context.TournamentMatches
+            .Where(m => tournamentIds.Contains(m.TournamentId) && m.MatchType == 2 && m.WinnerId != null)
+            .ToListAsync();
+
+        // Backfill: marca como Finalizado torneios cuja Grand Final já tem vencedor
         bool changed = false;
+        var finishedIds = grandFinalMatches.Select(m => m.TournamentId).ToHashSet();
+        foreach (var t in tournaments.Where(x => x.Status != 2 && finishedIds.Contains(x.Id)))
+        {
+            t.Status = 2;
+            changed = true;
+        }
+
+        // Backfill: gera InviteCode para torneios antigos
         foreach (var t in tournaments.Where(x => string.IsNullOrEmpty(x.InviteCode)))
         {
             t.InviteCode = await GenerateUniqueInviteCodeAsync();
@@ -41,8 +57,17 @@ public class TournamentController : ControllerBase
         }
         if (changed) await _context.SaveChangesAsync();
 
-        var dtos = tournaments.Select(t => new TournamentDto
+        var dtos = tournaments.Select(t =>
         {
+            // Campeão: busca na query direta (cobre Swiss top-cut e Double Elimination)
+            var grandFinalWinnerId = grandFinalMatches
+                .FirstOrDefault(m => m.TournamentId == t.Id)?.WinnerId;
+            var winnerName = grandFinalWinnerId.HasValue
+                ? t.TournamentPlayers?.FirstOrDefault(p => p.Id == grandFinalWinnerId)?.DisplayName
+                : null;
+
+            return new TournamentDto
+            {
             Id = t.Id,
             Name = t.Name,
             StartDate = t.StartDate,
@@ -53,6 +78,7 @@ public class TournamentController : ControllerBase
             SwissRounds = t.SwissRounds,
             TopCutSize = t.TopCutSize,
             CurrentSwissRound = t.CurrentSwissRound,
+            WinnerName = winnerName,
             Brackets = t.Brackets?.Select(b => new BracketDto
             {
                 Id = b.Id,
@@ -72,6 +98,7 @@ public class TournamentController : ControllerBase
                     IsPlayed = m.IsPlayed
                 }).ToList() ?? new List<TournamentMatchDto>()
             }).ToList() ?? new List<BracketDto>()
+            };
         }).ToList();
 
         return Ok(dtos);

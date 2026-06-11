@@ -9,7 +9,7 @@ function selectFormat(fmt) {
     document.getElementById('fmtSwiss').classList.toggle('selected', fmt === 1);
 
     const swissOpts = document.getElementById('swissOptions');
-    swissOpts.style.setProperty('display', fmt === 1 ? 'flex' : 'none', 'important');
+    swissOpts.classList.toggle('d-none', fmt !== 1);
 
     // Recalcular info de rodadas
     if (fmt === 1) updateSwissRoundsInfo();
@@ -44,9 +44,12 @@ function updateMaxPlayersOptions(fmt) {
     if (fmt === 1) updateSwissRoundsInfo();
 }
 
+// Registrar listeners e inicializar após DOM pronto
+document.getElementById('fmtDoubleElim').addEventListener('click', () => selectFormat(0));
+document.getElementById('fmtSwiss').addEventListener('click', () => selectFormat(1));
 document.getElementById('topCutSize').addEventListener('change', updateSwissRoundsInfo);
 
-// Inicializar seleção
+// Inicializar seleção padrão
 selectFormat(0);
 
 async function loadPlayers() {
@@ -171,6 +174,11 @@ document.getElementById('createTournamentForm').addEventListener('submit', async
         notifyWarning('Informe a data de início.');
         return;
     }
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    if (new Date(startDate + 'T00:00:00') < today) {
+        notifyWarning('Não é permitido criar torneios com data no passado.');
+        return;
+    }
 
     const rows = document.querySelectorAll('.player-row');
     const players = [];
@@ -224,5 +232,12 @@ document.getElementById('createTournamentForm').addEventListener('submit', async
         notifyError(`Erro ao criar torneio: ${error.message}`);
     }
 });
+
+// Bloqueia seleção de datas passadas no date picker
+const startDateInput = document.getElementById('startDate');
+if (startDateInput) {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    startDateInput.min = todayStr;
+}
 
 loadPlayers();

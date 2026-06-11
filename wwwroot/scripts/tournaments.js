@@ -27,7 +27,7 @@ async function loadTournaments() {
         if (!tournaments.length) {
             tbody.innerHTML = `
                 <tr class="empty-row">
-                    <td colspan="5">
+                    <td colspan="7">
                         <div class="empty-state">
                             <div class="icon"><i class="bi bi-trophy"></i></div>
                             <div class="title">Nenhum torneio criado</div>
@@ -41,6 +41,9 @@ async function loadTournaments() {
         tbody.innerHTML = tournaments.map(t => {
             const info = tournamentStatusInfo(t.status);
             const canInvite = t.status === 0 && t.inviteCode;
+            const winner = t.winnerName
+                ? `<span style="display:inline-flex;align-items:center;gap:0.35rem;"><i class="bi bi-trophy-fill" style="color:var(--warning);font-size:0.85rem;"></i>${escapeHtml(t.winnerName)}</span>`
+                : `<span class="text-muted-2">—</span>`;
             return `
                 <tr>
                     <td><span class="text-muted-2">#${t.id}</span></td>
@@ -50,7 +53,8 @@ async function loadTournaments() {
                         : `<span class="status-pill" style="background:rgba(109,111,255,0.15);color:var(--primary)"><i class="bi bi-diagram-3"></i> Dupla Elim.</span>`
                     }</td>
                     <td>${formatDate(t.startDate)}</td>
-                    <td><span class="status-pill ${info.cls}">${info.label}</span></td>
+                    <td><span class="status-pill ${info.cls}" style="white-space:nowrap;">${info.label}</span></td>
+                    <td>${winner}</td>
                     <td style="text-align:right;">
                         <div class="d-inline-flex gap-2 flex-wrap justify-content-end">
                             ${canInvite ? `<button class="btn btn-sm btn-ghost" onclick="copyInvite('${escapeHtml(t.inviteCode)}')" title="Copiar link de convite"><i class="bi bi-link-45deg"></i> Convite</button>` : ''}
@@ -72,7 +76,7 @@ async function loadTournaments() {
         }).join('');
     } catch (error) {
         console.error(error);
-        tbody.innerHTML = `<tr class="empty-row"><td colspan="5"><div class="empty-state"><div class="icon"><i class="bi bi-exclamation-octagon"></i></div><div class="title">Erro ao carregar torneios</div><div>${escapeHtml(error.message)}</div></div></td></tr>`;
+        tbody.innerHTML = `<tr class="empty-row"><td colspan="7"><div class="empty-state"><div class="icon"><i class="bi bi-exclamation-octagon"></i></div><div class="title">Erro ao carregar torneios</div><div>${escapeHtml(error.message)}</div></div></td></tr>`;
     }
 }
 
