@@ -90,6 +90,7 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddScoped<TournamentService>();
 builder.Services.AddScoped<SwissService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
 
 var app = builder.Build();
 
@@ -105,12 +106,23 @@ using (var scope = app.Services.CreateScope())
     {
         var adminUser = new AppUser
         {
-            Username = config["AdminSeed:Username"] ?? "admin",
-            Role     = "Admin",
+            Username       = config["AdminSeed:Username"] ?? "admin",
+            Role           = "Admin",
+            EmailConfirmed = true,
         };
         var hasher = new PasswordHasher<AppUser>();
         adminUser.PasswordHash = hasher.HashPassword(adminUser, config["AdminSeed:Password"] ?? "admin123");
         db.AppUsers.Add(adminUser);
+        db.SaveChanges();
+    }
+
+    // Garante que todos os Admins existentes estejam com e-mail confirmado
+    var unconfirmedAdmins = db.AppUsers
+        .Where(u => u.Role == "Admin" && !u.EmailConfirmed)
+        .ToList();
+    if (unconfirmedAdmins.Any())
+    {
+        unconfirmedAdmins.ForEach(u => u.EmailConfirmed = true);
         db.SaveChanges();
     }
 }

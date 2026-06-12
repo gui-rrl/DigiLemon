@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confirmação de e-mail — RankingDigi</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/styles/app.css">
+    <style>
+        body { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--gradient-bg); }
+        .confirm-card {
+            width: 100%; max-width: 420px;
+            background: var(--bg-1);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 3rem 2rem;
+            box-shadow: var(--shadow-lg);
+            text-align: center;
+        }
+        .status-icon { font-size: 3.5rem; margin-bottom: 1rem; }
+        .confirm-title { font-family: 'Sora', sans-serif; font-weight: 700; color: var(--text-1); }
+        .confirm-sub { color: var(--text-3); font-size: 0.92rem; line-height: 1.6; }
+    </style>
+</head>
+<body>
+    <div class="confirm-card" id="card">
+        <!-- Carregando -->
+        <div id="stateLoading">
+            <div class="spinner-border text-primary mb-3" role="status"></div>
+            <h2 class="confirm-title h5">Verificando seu e-mail…</h2>
+        </div>
+
+        <!-- Sucesso -->
+        <div id="stateSuccess" style="display:none;">
+            <div class="status-icon">✅</div>
+            <h2 class="confirm-title h4 mb-2">E-mail confirmado!</h2>
+            <p class="confirm-sub mb-4">Sua conta foi ativada com sucesso. Agora você pode fazer login.</p>
+            <a href="/login.html" class="btn btn-primary w-100">
+                <i class="bi bi-box-arrow-in-right"></i> Ir para o login
+            </a>
+        </div>
+
+        <!-- Erro -->
+        <div id="stateError" style="display:none;">
+            <div class="status-icon">❌</div>
+            <h2 class="confirm-title h4 mb-2" id="errorTitle">Falha na confirmação</h2>
+            <p class="confirm-sub mb-4" id="errorMsg"></p>
+            <a href="/register.html" class="btn btn-secondary w-100">
+                <i class="bi bi-arrow-repeat"></i> Criar nova conta
+            </a>
+        </div>
+    </div>
+
+    <script>
+        (async function () {
+            const token = new URLSearchParams(window.location.search).get('token');
+
+            if (!token) {
+                showError('Token não encontrado.', 'Link inválido');
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/auth/confirm-email?token=${encodeURIComponent(token)}`, {
+                    headers: { 'ngrok-skip-browser-warning': '1' }
+                });
+                const data = await res.json();
+
+                if (!res.ok) {
+                    showError(data.error || 'Erro desconhecido.');
+                    return;
+                }
+
+                document.getElementById('stateLoading').style.display = 'none';
+                document.getElementById('stateSuccess').style.display = '';
+            } catch (err) {
+                showError('Não foi possível conectar ao servidor. Tente novamente mais tarde.');
+            }
+
+            function showError(msg, title = 'Falha na confirmação') {
+                document.getElementById('stateLoading').style.display = 'none';
+                document.getElementById('errorTitle').textContent = title;
+                document.getElementById('errorMsg').textContent = msg;
+                document.getElementById('stateError').style.display = '';
+            }
+        })();
+    </script>
+</body>
+</html>

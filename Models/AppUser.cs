@@ -11,9 +11,18 @@ namespace RankingDigi.Models
         public string PasswordHash { get; set; } = string.Empty;
         public string Role { get; set; } = "Player";   // "Admin" | "Player"
 
+        // E-mail e confirmação
+        public string? Email { get; set; }
+        public bool EmailConfirmed { get; set; } = true; // true = pode logar
+        public string? EmailConfirmationToken { get; set; }
+        public DateTime? EmailConfirmationTokenExpiry { get; set; }
+
+        // Recuperação de senha
+        public string? PasswordResetToken { get; set; }
+        public DateTime? PasswordResetTokenExpiry { get; set; }
+
         /// <summary>
         /// Opcional: vínculo com o registro de jogador correspondente.
-        /// Permite que um usuário com Role=Player acesse apenas seu próprio perfil.
         /// </summary>
         public int? PlayerId { get; set; }
         public Player? Player { get; set; }
