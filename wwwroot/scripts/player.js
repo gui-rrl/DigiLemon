@@ -102,10 +102,6 @@ function renderProfile(data) {
             </div>
             <div class="profile-info">
                 <h1 id="profileName">${escapeHtml(player.name)}</h1>
-                <div class="player-meta">
-                    <i class="bi bi-hash"></i> ID ${player.id}
-                    <span class="ms-2 ps-2" style="border-left:1px solid var(--border);"><i class="bi bi-stars"></i> ${player.score} pontos</span>
-                </div>
                 <div class="player-badges">
                     ${rankBadge}
                     ${totalChampionships > 0
@@ -116,40 +112,49 @@ function renderProfile(data) {
             </div>
         </section>
 
-        <section class="row g-3 mb-4">
-            <div class="col-md-3 col-6">
-                <div class="card-stat hover-lift">
-                    <span class="stat-icon"><i class="bi bi-controller"></i></span>
+        <section class="row g-2 mb-4">
+            <div class="col col-3">
+                <div class="card-stat hover-lift" style="padding:0.65rem 0.75rem;">
+                    <span class="stat-icon" style="width:1.9rem;height:1.9rem;font-size:0.85rem;flex-shrink:0;"><i class="bi bi-stars"></i></span>
                     <div>
-                        <div class="stat-label">Partidas</div>
-                        <div class="stat-value">${stats.played}</div>
+                        <div class="stat-label" style="font-size:0.68rem;">Pontos</div>
+                        <div class="stat-value" style="font-size:1.25rem;">${player.score}</div>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3 col-6">
-                <div class="card-stat hover-lift" style="border-color: rgba(22,224,189,0.3);">
-                    <span class="stat-icon" style="background: linear-gradient(135deg,#16e0bd,#4ade80);"><i class="bi bi-trophy-fill"></i></span>
+            <div class="col col-2">
+                <div class="card-stat hover-lift" style="padding:0.65rem 0.75rem;">
+                    <span class="stat-icon" style="width:1.9rem;height:1.9rem;font-size:0.85rem;flex-shrink:0;"><i class="bi bi-controller"></i></span>
                     <div>
-                        <div class="stat-label">Vitórias</div>
-                        <div class="stat-value">${stats.wins}</div>
+                        <div class="stat-label" style="font-size:0.68rem;">Partidas</div>
+                        <div class="stat-value" style="font-size:1.25rem;">${stats.played}</div>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3 col-6">
-                <div class="card-stat hover-lift" style="border-color: rgba(255,93,115,0.25);">
-                    <span class="stat-icon" style="background: linear-gradient(135deg,#ff5d73,#ff8a5b);"><i class="bi bi-x-octagon-fill"></i></span>
+            <div class="col col-2">
+                <div class="card-stat hover-lift" style="border-color:rgba(22,224,189,0.3);padding:0.65rem 0.75rem;">
+                    <span class="stat-icon" style="background:linear-gradient(135deg,#16e0bd,#4ade80);width:1.9rem;height:1.9rem;font-size:0.85rem;flex-shrink:0;"><i class="bi bi-trophy-fill"></i></span>
                     <div>
-                        <div class="stat-label">Derrotas</div>
-                        <div class="stat-value">${stats.losses}</div>
+                        <div class="stat-label" style="font-size:0.68rem;">Vitórias</div>
+                        <div class="stat-value" style="font-size:1.25rem;">${stats.wins}</div>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3 col-6">
-                <div class="card-stat hover-lift" style="border-color: rgba(255,181,71,0.3);">
-                    <span class="stat-icon" style="background: linear-gradient(135deg,#ffb547,#ff8a5b);"><i class="bi bi-percent"></i></span>
+            <div class="col col-2">
+                <div class="card-stat hover-lift" style="border-color:rgba(255,93,115,0.25);padding:0.65rem 0.75rem;">
+                    <span class="stat-icon" style="background:linear-gradient(135deg,#ff5d73,#ff8a5b);width:1.9rem;height:1.9rem;font-size:0.85rem;flex-shrink:0;"><i class="bi bi-x-octagon-fill"></i></span>
                     <div>
-                        <div class="stat-label">Aproveitamento</div>
-                        <div class="stat-value">${stats.winRate}%</div>
+                        <div class="stat-label" style="font-size:0.68rem;">Derrotas</div>
+                        <div class="stat-value" style="font-size:1.25rem;">${stats.losses}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col col-3">
+                <div class="card-stat hover-lift" style="border-color:rgba(255,181,71,0.3);padding:0.65rem 0.75rem;">
+                    <span class="stat-icon" style="background:linear-gradient(135deg,#ffb547,#ff8a5b);width:1.9rem;height:1.9rem;font-size:0.85rem;flex-shrink:0;"><i class="bi bi-percent"></i></span>
+                    <div>
+                        <div class="stat-label" style="font-size:0.68rem;">Aproveitamento</div>
+                        <div class="stat-value" style="font-size:1.25rem;">${stats.winRate}%</div>
                     </div>
                 </div>
             </div>

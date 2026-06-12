@@ -22,9 +22,7 @@
                 </h1>
                 <p class="page-subtitle mt-2">Acompanhe quem está no topo. Vitória vale <strong>3 pts</strong>, empate vale <strong>1 pt</strong>.</p>
             </div>
-            <div class="d-flex gap-2 flex-wrap">
-                <a href="/match.html" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Registrar partida</a>
-            </div>
+            <div class="d-flex gap-2 flex-wrap" id="headerActions"></div>
         </header>
 
         <section class="row g-3 mb-4" id="statsRow">
@@ -57,7 +55,7 @@
             </div>
         </section>
 
-        <section class="card-app mb-4">
+        <section class="card-app mb-4" id="addPlayerSection" style="display:none;">
             <div class="card-header">
                 <i class="bi bi-person-plus-fill"></i> Adicionar jogador
             </div>
@@ -117,6 +115,16 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="/scripts/auth.js"></script>
     <script src="/scripts/common.js"></script>
+    <script>
+        (function () {
+            const user = typeof authUser === 'function' ? authUser() : null;
+            if (user?.role === 'Admin') {
+                document.getElementById('headerActions').innerHTML =
+                    '<a href="/match.html" class="btn btn-primary"><i class="bi bi-controller"></i> Partidas</a>';
+                document.getElementById('addPlayerSection').style.display = '';
+            }
+        })();
+    </script>
     <script src="/scripts/ranking.js"></script>
 </body>
 </html>
