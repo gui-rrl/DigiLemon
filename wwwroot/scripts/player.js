@@ -113,7 +113,7 @@ function renderProfile(data) {
         </section>
 
         <section class="row g-2 mb-4">
-            <div class="col col-3">
+            <div class="col">
                 <div class="card-stat hover-lift" style="padding:0.65rem 0.75rem;">
                     <span class="stat-icon" style="width:1.9rem;height:1.9rem;font-size:0.85rem;flex-shrink:0;"><i class="bi bi-stars"></i></span>
                     <div>
@@ -122,7 +122,7 @@ function renderProfile(data) {
                     </div>
                 </div>
             </div>
-            <div class="col col-2">
+            <div class="col">
                 <div class="card-stat hover-lift" style="padding:0.65rem 0.75rem;">
                     <span class="stat-icon" style="width:1.9rem;height:1.9rem;font-size:0.85rem;flex-shrink:0;"><i class="bi bi-controller"></i></span>
                     <div>
@@ -131,7 +131,7 @@ function renderProfile(data) {
                     </div>
                 </div>
             </div>
-            <div class="col col-2">
+            <div class="col">
                 <div class="card-stat hover-lift" style="border-color:rgba(22,224,189,0.3);padding:0.65rem 0.75rem;">
                     <span class="stat-icon" style="background:linear-gradient(135deg,#16e0bd,#4ade80);width:1.9rem;height:1.9rem;font-size:0.85rem;flex-shrink:0;"><i class="bi bi-trophy-fill"></i></span>
                     <div>
@@ -140,7 +140,7 @@ function renderProfile(data) {
                     </div>
                 </div>
             </div>
-            <div class="col col-2">
+            <div class="col">
                 <div class="card-stat hover-lift" style="border-color:rgba(255,93,115,0.25);padding:0.65rem 0.75rem;">
                     <span class="stat-icon" style="background:linear-gradient(135deg,#ff5d73,#ff8a5b);width:1.9rem;height:1.9rem;font-size:0.85rem;flex-shrink:0;"><i class="bi bi-x-octagon-fill"></i></span>
                     <div>
@@ -149,7 +149,7 @@ function renderProfile(data) {
                     </div>
                 </div>
             </div>
-            <div class="col col-3">
+            <div class="col">
                 <div class="card-stat hover-lift" style="border-color:rgba(255,181,71,0.3);padding:0.65rem 0.75rem;">
                     <span class="stat-icon" style="background:linear-gradient(135deg,#ffb547,#ff8a5b);width:1.9rem;height:1.9rem;font-size:0.85rem;flex-shrink:0;"><i class="bi bi-percent"></i></span>
                     <div>
