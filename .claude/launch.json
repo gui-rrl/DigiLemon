@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "RankingDigi",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "C:\\Users\\gui_r\\source\\repos\\RankingNovo\\RankingDigi.csproj", "--launch-profile", "http"],
+      "port": 5297,
+      "autoPort": false
+    }
+  ]
+}
