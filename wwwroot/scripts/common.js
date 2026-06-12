@@ -186,7 +186,7 @@ function renderNavbar(activeName) {
         <span class="badge ${isAdmin ? 'bg-primary' : 'bg-secondary'} d-none d-sm-inline">
           ${isAdmin ? 'Admin' : 'Jogador'}
         </span>
-        <a href="/profile.html" class="btn btn-ghost btn-sm d-flex align-items-center gap-1" title="Meu perfil" style="padding:0.25rem 0.5rem;">
+        <a href="${user.playerId ? `/player.html?id=${user.playerId}` : '/profile.html'}" class="btn btn-ghost btn-sm d-flex align-items-center gap-1" title="Meu perfil" style="padding:0.25rem 0.5rem;">
           <i class="bi bi-person-circle" style="font-size:1rem;"></i>
           <span class="d-none d-md-inline" style="font-size:0.82rem;font-weight:500;">${escapeHtml(user.username)}</span>
         </a>

@@ -195,12 +195,16 @@ function renderProfile(data) {
                 ${renderTournaments(tournaments)}
             </div>
         </section>
+
+        ${isOwnProfile && currentUser ? renderAccountSection(currentUser) : ''}
     `;
 
     renderScoreHistoryChart(scoreHistory, player.score);
     renderResultsChart(stats);
 
     if (decks.length) renderDecksChart(decks);
+
+    bindAccountSection();
 
     if (isOwnProfile) {
         document.getElementById('btnEditName')?.addEventListener('click', async () => {
@@ -435,6 +439,107 @@ function renderDecksChart(decks) {
                 y: { ...baseChartOptions.scales.y, beginAtZero: undefined },
             },
         },
+    });
+}
+
+/* ── Seção de conta (só exibida no próprio perfil) ─────────────────────── */
+
+function renderAccountSection(currentUser) {
+    const isAdmin = currentUser.role === 'Admin';
+    return `
+        <section class="card-app mt-3" id="accountSection">
+            <div class="card-header"><i class="bi bi-person-gear"></i> Minha conta</div>
+            <div class="card-body">
+                <div class="d-flex align-items-center gap-3 mb-4">
+                    <div style="
+                        width:48px;height:48px;border-radius:50%;flex-shrink:0;
+                        background:linear-gradient(135deg,var(--accent),var(--primary));
+                        display:flex;align-items:center;justify-content:center;
+                        font-size:1.1rem;font-weight:700;color:#fff;">
+                        ${escapeHtml(getInitials(currentUser.username))}
+                    </div>
+                    <div>
+                        <div style="font-weight:700;font-size:1rem;color:var(--text-1);">${escapeHtml(currentUser.username)}</div>
+                        <span class="badge ${isAdmin ? 'bg-primary' : 'bg-secondary'} mt-1">${isAdmin ? 'Administrador' : 'Jogador'}</span>
+                    </div>
+                </div>
+
+                <h6 style="font-size:0.8rem;text-transform:uppercase;letter-spacing:.1em;color:var(--text-3);margin-bottom:1rem;">
+                    <i class="bi bi-key-fill me-1"></i> Alterar senha
+                </h6>
+                <form id="changePasswordForm" novalidate>
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Senha atual</label>
+                            <div class="input-group">
+                                <input type="password" id="currentPassword" class="form-control" placeholder="Senha atual" autocomplete="current-password">
+                                <button type="button" class="btn btn-outline-secondary toggle-pw" data-target="currentPassword" tabindex="-1"><i class="bi bi-eye"></i></button>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Nova senha</label>
+                            <div class="input-group">
+                                <input type="password" id="newPassword" class="form-control" placeholder="Mín. 4 caracteres" autocomplete="new-password">
+                                <button type="button" class="btn btn-outline-secondary toggle-pw" data-target="newPassword" tabindex="-1"><i class="bi bi-eye"></i></button>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Confirmar nova senha</label>
+                            <div class="input-group">
+                                <input type="password" id="confirmPassword" class="form-control" placeholder="Repita a senha" autocomplete="new-password">
+                                <button type="button" class="btn btn-outline-secondary toggle-pw" data-target="confirmPassword" tabindex="-1"><i class="bi bi-eye"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <button type="submit" class="btn btn-primary" id="savePasswordBtn">
+                            <i class="bi bi-check2-circle"></i> Salvar nova senha
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </section>`;
+}
+
+function bindAccountSection() {
+    const form = document.getElementById('changePasswordForm');
+    if (!form) return;
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const currentPassword = document.getElementById('currentPassword').value;
+        const newPassword     = document.getElementById('newPassword').value;
+        const confirmPassword = document.getElementById('confirmPassword').value;
+
+        if (!currentPassword) { notifyWarning('Informe a senha atual.'); return; }
+        if (!newPassword || newPassword.length < 4) { notifyWarning('A nova senha deve ter ao menos 4 caracteres.'); return; }
+        if (newPassword !== confirmPassword) { notifyWarning('As senhas não coincidem.'); return; }
+
+        const btn = document.getElementById('savePasswordBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Salvando…';
+        try {
+            await apiFetch(`${API_BASE_URL}/auth/change-password`, {
+                method: 'POST',
+                body: JSON.stringify({ currentPassword, newPassword, confirmPassword }),
+            });
+            notifySuccess('Senha alterada com sucesso!');
+            form.reset();
+        } catch (err) {
+            notifyError(err.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-check2-circle"></i> Salvar nova senha';
+        }
+    });
+
+    document.querySelectorAll('.toggle-pw').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const input = document.getElementById(btn.dataset.target);
+            const icon  = btn.querySelector('i');
+            input.type  = input.type === 'password' ? 'text' : 'password';
+            icon.className = input.type === 'password' ? 'bi bi-eye' : 'bi bi-eye-slash';
+        });
     });
 }
 
