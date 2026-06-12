@@ -147,6 +147,31 @@ namespace RankingDigi.Controller
             return Ok(new { message = "Senha alterada com sucesso." });
         }
 
+        // POST api/auth/change-password  — troca a própria senha (exige senha atual)
+        [HttpPost("change-password")]
+        [Authorize]
+        public async Task<IActionResult> ChangeOwnPassword([FromBody] ChangeOwnPasswordDto dto)
+        {
+            if (string.IsNullOrWhiteSpace(dto.CurrentPassword))
+                return BadRequest(new { error = "Informe a senha atual." });
+            if (string.IsNullOrWhiteSpace(dto.NewPassword) || dto.NewPassword.Length < 4)
+                return BadRequest(new { error = "A nova senha deve ter ao menos 4 caracteres." });
+            if (dto.NewPassword != dto.ConfirmPassword)
+                return BadRequest(new { error = "As senhas não coincidem." });
+
+            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var user   = await _context.AppUsers.FindAsync(userId);
+            if (user == null) return NotFound();
+
+            var verify = _hasher.VerifyHashedPassword(user, user.PasswordHash, dto.CurrentPassword);
+            if (verify == PasswordVerificationResult.Failed)
+                return BadRequest(new { error = "Senha atual incorreta." });
+
+            user.PasswordHash = _hasher.HashPassword(user, dto.NewPassword);
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "Senha alterada com sucesso." });
+        }
+
         // ── JWT ──────────────────────────────────────────────────────────────────
         private string GenerateJwt(AppUser user)
         {
@@ -185,5 +210,12 @@ namespace RankingDigi.Controller
     public class ChangePasswordDto
     {
         public string NewPassword { get; set; } = string.Empty;
+    }
+
+    public class ChangeOwnPasswordDto
+    {
+        public string CurrentPassword { get; set; } = string.Empty;
+        public string NewPassword     { get; set; } = string.Empty;
+        public string ConfirmPassword { get; set; } = string.Empty;
     }
 }

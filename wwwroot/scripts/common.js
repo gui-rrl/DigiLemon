@@ -186,8 +186,11 @@ function renderNavbar(activeName) {
         <span class="badge ${isAdmin ? 'bg-primary' : 'bg-secondary'} d-none d-sm-inline">
           ${isAdmin ? 'Admin' : 'Jogador'}
         </span>
-        <span class="text-muted-2 d-none d-md-inline" style="font-size:0.85rem;">${escapeHtml(user.username)}</span>
-        <button class="btn btn-ghost btn-sm" onclick="authLogout()" title="Sair">
+        <a href="/profile.html" class="btn btn-ghost btn-sm d-flex align-items-center gap-1" title="Meu perfil" style="padding:0.25rem 0.5rem;">
+          <i class="bi bi-person-circle" style="font-size:1rem;"></i>
+          <span class="d-none d-md-inline" style="font-size:0.82rem;font-weight:500;">${escapeHtml(user.username)}</span>
+        </a>
+        <button class="btn btn-ghost btn-sm" onclick="authLogout()" title="Sair" style="padding:0.25rem 0.5rem;">
           <i class="bi bi-box-arrow-right"></i>
         </button>
       </div>` : `
