@@ -62,7 +62,9 @@ function renderTable() {
                 <td><span class="rank-badge ${rankCls}">${position}º</span></td>
                 <td>
                     <a href="/player.html?id=${player.id}" class="player-cell" style="text-decoration:none;">
-                        <span class="avatar">${getInitials(player.name)}</span>
+                        ${player.avatarUrl
+                            ? `<img src="${escapeHtml(player.avatarUrl)}" class="avatar avatar-img" alt="${escapeHtml(player.name)}">`
+                            : `<span class="avatar">${getInitials(player.name)}</span>`}
                         <div>
                             <div style="font-weight:600; color: var(--text-1);">${escapeHtml(player.name)}</div>
                             <div class="text-muted-2" style="font-size:0.78rem;">ID #${player.id} · ver perfil</div>
@@ -71,6 +73,7 @@ function renderTable() {
                 </td>
                 <td><span class="score-pill"><i class="bi bi-stars"></i> ${player.score} pts</span></td>
                 <td style="text-align:right;">
+                    ${typeof authIsAdmin === 'function' && authIsAdmin() ? `
                     <div class="d-inline-flex gap-1">
                         <button class="btn btn-sm btn-ghost" onclick="editPlayer(${player.id}, '${escapeHtml(player.name)}')" title="Editar nome">
                             <i class="bi bi-pencil"></i>
@@ -78,7 +81,7 @@ function renderTable() {
                         <button class="btn btn-sm btn-ghost" onclick="deletePlayer(${player.id}, '${escapeHtml(player.name)}')" title="Excluir jogador">
                             <i class="bi bi-trash3"></i>
                         </button>
-                    </div>
+                    </div>` : ''}
                 </td>
             </tr>`;
     }).join('');

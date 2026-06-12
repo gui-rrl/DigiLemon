@@ -62,7 +62,7 @@
                         <div class="col-12">
                             <label class="form-label">Formato do torneio</label>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <div class="format-option h-100" id="fmtDoubleElim">
                                 <div class="d-flex align-items-center gap-2 mb-2">
                                     <i class="bi bi-diagram-3-fill" style="font-size:1.25rem;color:var(--accent);"></i>
@@ -72,7 +72,7 @@
                                 <div class="text-muted-2" style="font-size:0.83rem;">Bracket eliminatório. Cada jogador é eliminado após 2 derrotas. Número de vagas deve ser par.</div>
                             </div>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <div class="format-option h-100" id="fmtSwiss">
                                 <div class="d-flex align-items-center gap-2 mb-2">
                                     <i class="bi bi-grid-3x3-gap-fill" style="font-size:1.25rem;color:var(--accent);"></i>
@@ -82,12 +82,21 @@
                                 <div class="text-muted-2" style="font-size:0.83rem;">Rodadas classificatórias onde todos jogam o mesmo número de partidas, sem eliminação. Os melhores avançam ao Top Cut.</div>
                             </div>
                         </div>
+                        <div class="col-md-4">
+                            <div class="format-option h-100" id="fmtSwissPure">
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <i class="bi bi-bar-chart-steps" style="font-size:1.25rem;color:var(--accent);"></i>
+                                    <strong>Swiss Pontos Corridos</strong>
+                                </div>
+                                <div class="text-muted-2" style="font-size:0.83rem;">Apenas rodadas Swiss, sem eliminação final. Classificação por pontos, com Top 4 destacado na tabela.</div>
+                            </div>
+                        </div>
                         <input type="hidden" id="format" value="0">
                     </div>
 
                     <!-- Opções Swiss (visível apenas quando Swiss selecionado) -->
                     <div class="row g-3 mt-1 d-none" id="swissOptions">
-                        <div class="col-md-6">
+                        <div class="col-md-6" id="topCutSizeRow">
                             <label class="form-label">Tamanho do Top Cut</label>
                             <select id="topCutSize" class="form-select">
                                 <option value="8" selected>Top 8</option>

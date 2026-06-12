@@ -29,16 +29,19 @@
                 <button id="btnTopCut" class="btn btn-warning" style="display:none">
                     <i class="bi bi-trophy-fill"></i> Gerar Top Cut
                 </button>
+                <button id="btnFinish" class="btn btn-success" style="display:none">
+                    <i class="bi bi-check2-circle"></i> Encerrar Torneio
+                </button>
                 <a href="/tournaments.html" class="btn btn-secondary">
                     <i class="bi bi-arrow-left"></i> Voltar
                 </a>
             </div>
         </header>
 
-        <div class="row g-4">
+        <div class="row g-4 align-items-start">
             <!-- Classificação -->
-            <div class="col-lg-4">
-                <section class="card-app h-100">
+            <div class="col-lg-6">
+                <section class="card-app swiss-standings-card">
                     <div class="card-header">
                         <i class="bi bi-list-ol"></i> Classificação
                     </div>
@@ -51,9 +54,9 @@
             </div>
 
             <!-- Rodadas Swiss -->
-            <div class="col-lg-8">
+            <div class="col-lg-6">
                 <!-- Top Cut (aparece após geração) -->
-                <div id="topCutSection" style="display:none" class="mb-4">
+                <div id="topCutSection" style="display:none" class="mb-3">
                     <section class="card-app">
                         <div class="card-header" style="color:var(--warning)">
                             <i class="bi bi-trophy-fill"></i> Top Cut — Dupla Eliminação

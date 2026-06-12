@@ -26,13 +26,13 @@ async function loadTournamentInfo() {
 
         // Adaptar botão ao formato
         const btn = document.getElementById('generateBracketBtn');
-        if (currentTournament.format === 1) {
+        if (currentTournament.format >= 1) {
             btn.innerHTML = '<i class="bi bi-play-circle"></i> Iniciar Swiss';
         }
 
         // Se já em andamento, redirecionar para a página correta
         if (currentTournament.status === 1) {
-            const target = currentTournament.format === 1
+            const target = currentTournament.format >= 1
                 ? `/tournament-swiss.html?id=${tournamentId}`
                 : `/tournament-double-bracket.html?id=${tournamentId}`;
             btn.textContent = 'Ver torneio';
@@ -212,12 +212,15 @@ document.getElementById('generateBracketBtn').addEventListener('click', async ()
             window.location.href = `/tournament-double-bracket.html?id=${tournamentId}`;
 
         } else {
-            // ── Swiss + Top Cut ────────────────────────────────────────────
-            const rounds  = currentTournament.swissRounds;
-            const topCut  = currentTournament.topCutSize;
+            // ── Swiss (com ou sem Top Cut) ─────────────────────────────────
+            const rounds = currentTournament.swissRounds;
+            const isPure = currentTournament.format === 2;
+            const detailText = isPure
+                ? `${count} jogadores · ${rounds} rodadas Swiss · Classificação por pontos corridos.`
+                : `${count} jogadores · ${rounds} rodadas Swiss · Top ${currentTournament.topCutSize} (double elimination).`;
             const confirm = await confirmAction({
                 title: 'Iniciar Swiss?',
-                text: `${count} jogadores · ${rounds} rodadas Swiss · Top ${topCut} (double elimination). Após iniciar, novos jogadores não poderão ingressar.`,
+                text: `${detailText} Após iniciar, novos jogadores não poderão ingressar.`,
                 confirmText: 'Iniciar agora', cancelText: 'Cancelar', icon: 'question',
             });
             if (!confirm.isConfirmed) return;

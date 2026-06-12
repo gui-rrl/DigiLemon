@@ -57,14 +57,43 @@ public class TournamentController : ControllerBase
         }
         if (changed) await _context.SaveChangesAsync();
 
+        // Pré-calcula campeão dos torneios Swiss Pontos Corridos finalizados (usa OMW% como desempate)
+        var purSwissFinishedIds = tournaments
+            .Where(t => t.Format == 2 && t.Status == 2)
+            .Select(t => t.Id)
+            .ToList();
+        var pureSwissWinners = new Dictionary<int, (string? Name, string? AvatarUrl)>();
+        foreach (var tid in purSwissFinishedIds)
+        {
+            var standings = await _swissService.GetStandingsAsync(tid);
+            var top = standings.FirstOrDefault();
+            if (top != null)
+            {
+                string? avatarUrl = null;
+                if (top.PlayerId.HasValue)
+                {
+                    var topPlayer = await _context.Players.FindAsync(top.PlayerId.Value);
+                    avatarUrl = topPlayer?.AvatarUrl;
+                }
+                pureSwissWinners[tid] = (top.PlayerName, avatarUrl);
+            }
+        }
+
         var dtos = tournaments.Select(t =>
         {
-            // Campeão: busca na query direta (cobre Swiss top-cut e Double Elimination)
+            // Campeão: Grand Final (Double Elim / Swiss+TopCut) ou 1º lugar Swiss puro (com OMW%)
             var grandFinalWinnerId = grandFinalMatches
                 .FirstOrDefault(m => m.TournamentId == t.Id)?.WinnerId;
-            var winnerName = grandFinalWinnerId.HasValue
-                ? t.TournamentPlayers?.FirstOrDefault(p => p.Id == grandFinalWinnerId)?.DisplayName
+            var grandFinalWinnerTp = grandFinalWinnerId.HasValue
+                ? t.TournamentPlayers?.FirstOrDefault(p => p.Id == grandFinalWinnerId)
                 : null;
+            string? winnerName = grandFinalWinnerTp?.DisplayName;
+            string? winnerAvatarUrl = grandFinalWinnerTp?.Player?.AvatarUrl;
+            if (winnerName == null && pureSwissWinners.TryGetValue(t.Id, out var sw))
+            {
+                winnerName = sw.Name;
+                winnerAvatarUrl = sw.AvatarUrl;
+            }
 
             return new TournamentDto
             {
@@ -79,6 +108,7 @@ public class TournamentController : ControllerBase
             TopCutSize = t.TopCutSize,
             CurrentSwissRound = t.CurrentSwissRound,
             WinnerName = winnerName,
+            WinnerAvatarUrl = winnerAvatarUrl,
             Brackets = t.Brackets?.Select(b => new BracketDto
             {
                 Id = b.Id,
@@ -154,7 +184,7 @@ public class TournamentController : ControllerBase
                 return BadRequest(new { error = $"Jogador(es) não encontrado(s): {string.Join(", ", missingIds)}." });
         }
 
-        int swissRounds = dto.Format == 1 ? SwissService.CalculateRounds(dto.MaxPlayers) : 0;
+        int swissRounds = dto.Format >= 1 ? SwissService.CalculateRounds(dto.MaxPlayers) : 0;
         int topCutSize  = dto.Format == 1 ? (dto.TopCutSize is 4 or 8 ? dto.TopCutSize : 8) : 0;
 
         var tournament = new Tournament
@@ -502,6 +532,18 @@ public class TournamentController : ControllerBase
             await _swissService.AdvanceRoundAsync(id);
             var t = await _context.Tournaments.FindAsync(id);
             return Ok(new { message = $"Rodada {t!.CurrentSwissRound} gerada.", round = t.CurrentSwissRound });
+        }
+        catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
+    [HttpPost("{id}/swiss/finish")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> SwissFinish(int id)
+    {
+        try
+        {
+            await _swissService.FinishAsync(id);
+            return Ok(new { message = "Torneio encerrado com sucesso." });
         }
         catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
     }

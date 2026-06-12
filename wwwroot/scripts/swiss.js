@@ -26,8 +26,10 @@ async function loadAll() {
         const t = await apiFetch(`${API_BASE_URL}/tournament/${tournamentId}`).then(r => r.json());
         document.getElementById('tournamentTitle').textContent = t.name;
         document.title = `${t.name} — Swiss`;
-        document.getElementById('tournamentSubtitle').textContent =
-            `Swiss ${statusCache.currentSwissRound}/${statusCache.swissRounds} · Top ${statusCache.topCutSize} · ${parts.length} jogadores`;
+        const isPure = statusCache.format === 2;
+        document.getElementById('tournamentSubtitle').textContent = isPure
+            ? `Swiss Pontos Corridos · Rodada ${statusCache.currentSwissRound}/${statusCache.swissRounds} · ${parts.length} jogadores`
+            : `Swiss ${statusCache.currentSwissRound}/${statusCache.swissRounds} · Top ${statusCache.topCutSize} · ${parts.length} jogadores`;
 
         renderStandings(statusCache.standings, statusCache.topCutSize);
         renderRounds(statusCache.swissMatchesByRound);
@@ -49,10 +51,13 @@ function renderStandings(standings, topCutSize) {
         return;
     }
 
+    const isPure = statusCache?.format === 2;
+
     const rows = standings.map((s, idx) => {
         const posClass = s.position === 1 ? 'gold' : s.position === 2 ? 'silver' : s.position === 3 ? 'bronze' : '';
-        const isTopCutLine = s.position === topCutSize;
-        return `<tr class="${isTopCutLine ? 'topcut-line' : ''}">
+        const isTopCutLine = !isPure && s.position === topCutSize;
+        const isTop4 = isPure && s.position <= 4;
+        return `<tr class="${isTopCutLine ? 'topcut-line' : ''} ${isTop4 ? 'top4-row' : ''}">
             <td><span class="pos-badge ${posClass}">${s.position}</span></td>
             <td>
                 <div style="font-weight:600;line-height:1.2;">${escapeHtml(s.playerName)}</div>
@@ -63,6 +68,14 @@ function renderStandings(standings, topCutSize) {
             <td style="text-align:right;color:var(--text-3);font-size:0.78rem;">${s.omw}%</td>
         </tr>`;
     }).join('');
+
+    const legend = isPure
+        ? `<div class="px-3 py-2" style="font-size:0.75rem;color:var(--text-3);">
+               <i class="bi bi-star-fill me-1" style="color:var(--warning);"></i>Destaque = Top 4
+           </div>`
+        : `<div class="px-3 py-2" style="font-size:0.75rem;color:var(--text-3);">
+               <i class="bi bi-dash-lg me-1" style="color:var(--accent);"></i>Linha pontilhada = corte para Top ${topCutSize}
+           </div>`;
 
     container.innerHTML = `
         <table class="standings-table">
@@ -77,9 +90,7 @@ function renderStandings(standings, topCutSize) {
             </thead>
             <tbody>${rows}</tbody>
         </table>
-        <div class="px-3 py-2" style="font-size:0.75rem;color:var(--text-3);">
-            <i class="bi bi-dash-lg me-1" style="color:var(--accent);"></i>Linha pontilhada = corte para Top ${topCutSize}
-        </div>`;
+        ${legend}`;
 }
 
 // ── Rodadas Swiss ─────────────────────────────────────────────────────────────
@@ -134,16 +145,22 @@ function renderMatchRow(m, round) {
         p2Class = m.winnerId === m.player2Id ? 'winner' : (m.player2Id ? 'loser' : '');
     }
 
-    const btnResult = !m.isPlayed && !m.isBye
-        ? `<button class="btn btn-primary btn-sm btn-result"
+    const isAdmin = typeof authIsAdmin === 'function' && authIsAdmin();
+    let btnResult;
+    if (m.isBye) {
+        btnResult = '<span class="badge bg-secondary">BYE automático</span>';
+    } else if (m.isPlayed) {
+        btnResult = '<span class="status-pill live" style="font-size:0.75rem;"><i class="bi bi-check2-circle"></i> Finalizada</span>';
+    } else if (isAdmin) {
+        btnResult = `<button class="btn btn-primary btn-sm btn-result"
                 data-match-id="${m.id}"
                 data-p1="${m.player1Id}"
                 ${m.player2Id ? `data-p2="${m.player2Id}"` : ''}>
                 <i class="bi bi-flag"></i> Resultado
-           </button>`
-        : m.isBye
-            ? '<span class="badge bg-secondary">BYE automático</span>'
-            : '<span class="status-pill live" style="font-size:0.75rem;"><i class="bi bi-check2-circle"></i> Finalizada</span>';
+           </button>`;
+    } else {
+        btnResult = '<span class="status-pill prep" style="font-size:0.75rem;"><i class="bi bi-hourglass-split"></i> Em andamento</span>';
+    }
 
     return `
         <div class="swiss-match">
@@ -158,7 +175,7 @@ function renderMatchRow(m, round) {
 
 function renderTopCut(status) {
     const section = document.getElementById('topCutSection');
-    if (!status.topCutGenerated) { section.style.display = 'none'; return; }
+    if (status.format === 2 || !status.topCutGenerated) { section.style.display = 'none'; return; }
 
     section.style.display = '';
     document.getElementById('topCutLink').href = `/tournament-double-bracket.html?id=${tournamentId}`;
@@ -174,27 +191,28 @@ function renderTopCut(status) {
 function updateAdminButtons(status) {
     const btnAdvance = document.getElementById('btnAdvance');
     const btnTopCut  = document.getElementById('btnTopCut');
+    const btnFinish  = document.getElementById('btnFinish');
 
     // Só admin vê botões de ação
     const user = typeof authUser === 'function' ? authUser() : null;
     if (!user || user.role !== 'Admin') {
         btnAdvance.style.display = 'none';
         btnTopCut.style.display  = 'none';
+        btnFinish.style.display  = 'none';
         return;
     }
 
-    const canAdvance = status.currentRoundDone
-        && !status.allSwissDone
-        && !status.topCutGenerated;
-
-    const canTopCut  = status.allSwissDone && !status.topCutGenerated;
+    const isPure     = status.format === 2;
+    const canAdvance = status.currentRoundDone && !status.allSwissDone && !status.topCutGenerated;
+    const canTopCut  = !isPure && status.allSwissDone && !status.topCutGenerated;
+    const canFinish  = isPure && status.allSwissDone && status.status !== 2;
 
     btnAdvance.style.display = canAdvance ? '' : 'none';
     btnTopCut.style.display  = canTopCut  ? '' : 'none';
+    btnFinish.style.display  = canFinish  ? '' : 'none';
 
     if (canAdvance) {
-        btnAdvance.textContent = '';
-        btnAdvance.innerHTML   = `<i class="bi bi-arrow-right-circle"></i> Avançar para Rodada ${status.currentSwissRound + 1}`;
+        btnAdvance.innerHTML = `<i class="bi bi-arrow-right-circle"></i> Avançar para Rodada ${status.currentSwissRound + 1}`;
     }
 }
 
@@ -277,6 +295,24 @@ document.getElementById('btnTopCut').addEventListener('click', async () => {
         loadAll();
     } catch (err) {
         notifyError('Erro ao gerar Top Cut: ' + err.message);
+    }
+});
+
+// ── Botão encerrar torneio (Swiss Pontos Corridos) ────────────────────────────
+
+document.getElementById('btnFinish').addEventListener('click', async () => {
+    const confirm = await confirmAction({
+        title: 'Encerrar torneio?',
+        text: 'O torneio será finalizado com a classificação atual. Esta ação não pode ser desfeita.',
+        confirmText: 'Encerrar', cancelText: 'Cancelar', icon: 'warning',
+    });
+    if (!confirm.isConfirmed) return;
+    try {
+        await apiFetch(`${API_BASE_URL}/tournament/${tournamentId}/swiss/finish`, { method: 'POST' });
+        await Swal.fire({ icon: 'success', title: 'Torneio encerrado!', timer: 1600, showConfirmButton: false });
+        loadAll();
+    } catch (err) {
+        notifyError('Erro ao encerrar torneio: ' + err.message);
     }
 });
 

@@ -38,18 +38,25 @@ async function loadTournaments() {
             return;
         }
 
+        const isAdmin = typeof authIsAdmin === 'function' && authIsAdmin();
+
         tbody.innerHTML = tournaments.map(t => {
             const info = tournamentStatusInfo(t.status);
             const canInvite = t.status === 0 && t.inviteCode;
+            const winnerAvatar = t.winnerAvatarUrl
+                ? `<img src="${escapeHtml(t.winnerAvatarUrl)}" class="avatar avatar-img" style="width:26px;height:26px;" alt="${escapeHtml(t.winnerName)}">`
+                : `<span class="avatar" style="width:26px;height:26px;font-size:0.7rem;">${getInitials(t.winnerName || '')}</span>`;
             const winner = t.winnerName
-                ? `<span style="display:inline-flex;align-items:center;gap:0.35rem;"><i class="bi bi-trophy-fill" style="color:var(--warning);font-size:0.85rem;"></i>${escapeHtml(t.winnerName)}</span>`
+                ? `<span style="display:inline-flex;align-items:center;gap:0.4rem;">${winnerAvatar}<i class="bi bi-trophy-fill" style="color:var(--warning);font-size:0.78rem;"></i>${escapeHtml(t.winnerName)}</span>`
                 : `<span class="text-muted-2">—</span>`;
             return `
                 <tr>
                     <td><span class="text-muted-2">#${t.id}</span></td>
                     <td><strong>${escapeHtml(t.name)}</strong></td>
-                    <td>${t.format === 1
-                        ? `<span class="status-pill prep" title="${t.swissRounds} rodadas Swiss · Top ${t.topCutSize}"><i class="bi bi-grid-3x3-gap-fill"></i> Swiss</span>`
+                    <td style="white-space:nowrap;">${t.format === 1
+                        ? `<span class="status-pill prep" title="${t.swissRounds} rodadas Swiss · Top ${t.topCutSize}"><i class="bi bi-grid-3x3-gap-fill"></i> Swiss + Top Cut</span>`
+                        : t.format === 2
+                        ? `<span class="status-pill prep" title="${t.swissRounds} rodadas Swiss · Pontos Corridos"><i class="bi bi-bar-chart-steps"></i> Swiss P. Corridos</span>`
                         : `<span class="status-pill" style="background:rgba(109,111,255,0.15);color:var(--primary)"><i class="bi bi-diagram-3"></i> Dupla Elim.</span>`
                     }</td>
                     <td>${formatDate(t.startDate)}</td>
@@ -58,18 +65,14 @@ async function loadTournaments() {
                     <td style="text-align:right;">
                         <div class="d-inline-flex gap-2 flex-wrap justify-content-end">
                             ${canInvite ? `<button class="btn btn-sm btn-ghost" onclick="copyInvite('${escapeHtml(t.inviteCode)}')" title="Copiar link de convite"><i class="bi bi-link-45deg"></i> Convite</button>` : ''}
-                            <a href="/tournament-setup.html?id=${t.id}" class="btn btn-sm btn-secondary" title="Configurar">
-                                <i class="bi bi-gear"></i> Configurar
-                            </a>
+                            ${isAdmin && t.status === 0 ? `<a href="/tournament-setup.html?id=${t.id}" class="btn btn-sm btn-secondary" title="Configurar"><i class="bi bi-gear"></i> Configurar</a>` : ''}
                             ${t.status >= 1
-                                ? (t.format === 1
+                                ? (t.format >= 1
                                     ? `<a href="/tournament-swiss.html?id=${t.id}" class="btn btn-sm btn-info" title="Ver Swiss"><i class="bi bi-grid-3x3-gap-fill"></i> Swiss</a>`
                                     : `<a href="/tournament-double-bracket.html?id=${t.id}" class="btn btn-sm btn-info" title="Visualizar bracket"><i class="bi bi-diagram-3"></i> Bracket</a>`)
                                 : ''
                             }
-                            <button class="btn btn-sm btn-danger" onclick="deleteTournament(${t.id}, '${escapeHtml(t.name)}')" title="Excluir">
-                                <i class="bi bi-trash3"></i>
-                            </button>
+                            ${isAdmin ? `<button class="btn btn-sm btn-danger" onclick="deleteTournament(${t.id}, '${escapeHtml(t.name)}')" title="Excluir"><i class="bi bi-trash3"></i></button>` : ''}
                         </div>
                     </td>
                 </tr>`;
@@ -97,6 +100,11 @@ async function copyInvite(code) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Oculta botões de admin para usuários Player
+    if (typeof authIsAdmin === 'function' && !authIsAdmin()) {
+        const btnCreate = document.querySelector('a[href="/create-tournament.html"]');
+        if (btnCreate) btnCreate.style.display = 'none';
+    }
     loadTournaments();
     window.deleteTournament = deleteTournament;
     window.copyInvite = copyInvite;

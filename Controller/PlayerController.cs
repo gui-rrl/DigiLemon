@@ -41,6 +41,82 @@ namespace RankingDigi.Controller
             return CreatedAtAction(nameof(GetPlayerById), new { id = player.Id }, player);
         }
 
+        // PUT api/player/{id}/name — Admin ou o próprio jogador vinculado
+        [HttpPut("{id}/name")]
+        public async Task<IActionResult> UpdatePlayerName(int id, [FromBody] UpdateNameDto dto)
+        {
+            if (string.IsNullOrWhiteSpace(dto.Name))
+                return BadRequest(new { error = "Informe o novo nome." });
+
+            var currentUserId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var isAdmin = User.IsInRole("Admin");
+            if (!isAdmin)
+            {
+                var appUser = await _context.AppUsers.FindAsync(currentUserId);
+                if (appUser?.PlayerId != id) return Forbid();
+            }
+
+            var player = await _context.Players.FindAsync(id);
+            if (player == null) return NotFound(new { error = "Jogador não encontrado." });
+
+            var newName = dto.Name.Trim();
+            bool exists = await _context.Players.AnyAsync(p => p.Id != id && p.Name.ToLower() == newName.ToLower());
+            if (exists)
+                return Conflict(new { error = $"Já existe outro jogador chamado \"{newName}\"." });
+
+            player.Name = newName;
+            await _context.SaveChangesAsync();
+            return Ok(new { player.Id, player.Name, player.AvatarUrl });
+        }
+
+        // POST api/player/{id}/avatar — Admin ou o próprio jogador vinculado
+        [HttpPost("{id}/avatar")]
+        public async Task<IActionResult> UploadAvatar(int id, IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+                return BadRequest(new { error = "Nenhum arquivo enviado." });
+
+            var allowed = new[] { "image/jpeg", "image/png", "image/webp", "image/gif" };
+            if (!allowed.Contains(file.ContentType.ToLower()))
+                return BadRequest(new { error = "Formato inválido. Use JPG, PNG, WEBP ou GIF." });
+
+            if (file.Length > 2 * 1024 * 1024)
+                return BadRequest(new { error = "A imagem deve ter no máximo 2 MB." });
+
+            var currentUserId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var isAdmin = User.IsInRole("Admin");
+            if (!isAdmin)
+            {
+                var appUser = await _context.AppUsers.FindAsync(currentUserId);
+                if (appUser?.PlayerId != id) return Forbid();
+            }
+
+            var player = await _context.Players.FindAsync(id);
+            if (player == null) return NotFound(new { error = "Jogador não encontrado." });
+
+            var ext = Path.GetExtension(file.FileName).ToLower();
+            if (string.IsNullOrEmpty(ext)) ext = ".jpg";
+
+            var avatarDir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "avatars");
+            Directory.CreateDirectory(avatarDir);
+
+            // Remove avatar anterior se existir
+            if (!string.IsNullOrEmpty(player.AvatarUrl))
+            {
+                var oldFile = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", player.AvatarUrl.TrimStart('/'));
+                if (System.IO.File.Exists(oldFile)) System.IO.File.Delete(oldFile);
+            }
+
+            var fileName = $"{id}{ext}";
+            var filePath = Path.Combine(avatarDir, fileName);
+            using (var stream = new FileStream(filePath, FileMode.Create))
+                await file.CopyToAsync(stream);
+
+            player.AvatarUrl = $"/avatars/{fileName}";
+            await _context.SaveChangesAsync();
+            return Ok(new { avatarUrl = player.AvatarUrl });
+        }
+
         [HttpPut("{id}")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> UpdatePlayer(int id, [FromBody] Player update)
@@ -207,6 +283,7 @@ namespace RankingDigi.Controller
                     player.Id,
                     player.Name,
                     player.Score,
+                    player.AvatarUrl,
                     Position = position,
                     Initials = GetInitials(player.Name ?? ""),
                 },
@@ -299,5 +376,10 @@ namespace RankingDigi.Controller
             if (player == null) return NotFound();
             return player;
         }
+    }
+
+    public class UpdateNameDto
+    {
+        public string Name { get; set; } = string.Empty;
     }
 }

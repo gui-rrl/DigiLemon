@@ -11,7 +11,7 @@
         public int MaxPlayers { get; set; } = 0;
 
         // Swiss
-        public int Format { get; set; } = 0;          // 0=DoubleElim, 1=Swiss
+        public int Format { get; set; } = 0;          // 0=DoubleElim, 1=Swiss+TopCut, 2=SwissPure
         public int SwissRounds { get; set; } = 0;      // total de rodadas Swiss (calculado na criação)
         public int TopCutSize { get; set; } = 8;       // 4 ou 8
         public int CurrentSwissRound { get; set; } = 0; // 0 = não iniciado

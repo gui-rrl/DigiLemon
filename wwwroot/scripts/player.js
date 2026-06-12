@@ -68,21 +68,40 @@ function renderProfile(data) {
     const { player, stats, scoreHistory, decks, recentMatches, tournaments } = data;
     document.title = `${player.name} — RankingDigi`;
 
+    const currentUser = typeof authUser === 'function' ? authUser() : null;
+    const isOwnProfile = currentUser && (currentUser.playerId === player.id || currentUser.role === 'Admin');
+
     const totalChampionships = stats.championships || 0;
     const rankBadge = player.position <= 3
         ? `<span class="match-pill win"><i class="bi bi-award-fill"></i> ${player.position}º no ranking</span>`
         : `<span class="match-pill draw"><i class="bi bi-bar-chart"></i> ${player.position}º no ranking</span>`;
 
+    const avatarHtml = player.avatarUrl
+        ? `<img src="${escapeHtml(player.avatarUrl)}" class="avatar-xl-img" alt="Foto de perfil">`
+        : `<span class="avatar-xl">${escapeHtml(player.initials)}</span>`;
+
+    const editButtons = isOwnProfile ? `
+        <div class="d-flex gap-2 mt-2 flex-wrap">
+            <button class="btn btn-sm btn-secondary" id="btnEditName">
+                <i class="bi bi-pencil"></i> Editar nome
+            </button>
+            <label class="btn btn-sm btn-secondary mb-0" style="cursor:pointer;" title="Alterar foto de perfil">
+                <i class="bi bi-camera-fill"></i> Alterar foto
+                <input type="file" id="avatarInput" accept="image/jpeg,image/png,image/webp,image/gif" style="display:none;">
+            </label>
+        </div>` : '';
+
     document.getElementById('profileContent').innerHTML = `
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
             <a href="/Index.html" class="btn btn-ghost btn-sm"><i class="bi bi-arrow-left"></i> Voltar</a>
-            <small class="text-muted-2"><i class="bi bi-shield-lock"></i> Em breve: você poderá fazer login e ter o seu próprio perfil.</small>
         </div>
 
         <section class="profile-hero">
-            <span class="avatar-xl">${escapeHtml(player.initials)}</span>
+            <div class="avatar-xl-wrap" style="position:relative;display:inline-block;">
+                ${avatarHtml}
+            </div>
             <div class="profile-info">
-                <h1>${escapeHtml(player.name)}</h1>
+                <h1 id="profileName">${escapeHtml(player.name)}</h1>
                 <div class="player-meta">
                     <i class="bi bi-hash"></i> ID ${player.id}
                     <span class="ms-2 ps-2" style="border-left:1px solid var(--border);"><i class="bi bi-stars"></i> ${player.score} pontos</span>
@@ -93,6 +112,7 @@ function renderProfile(data) {
                         ? `<span class="match-pill win"><i class="bi bi-trophy-fill"></i> ${totalChampionships} título${totalChampionships === 1 ? '' : 's'}</span>`
                         : ''}
                 </div>
+                ${editButtons}
             </div>
         </section>
 
@@ -181,6 +201,57 @@ function renderProfile(data) {
     renderResultsChart(stats);
 
     if (decks.length) renderDecksChart(decks);
+
+    if (isOwnProfile) {
+        document.getElementById('btnEditName')?.addEventListener('click', async () => {
+            const result = await promptText({
+                title: 'Editar nome',
+                label: 'Novo nome',
+                defaultValue: player.name,
+                placeholder: 'Digite o novo nome',
+            });
+            if (!result.isConfirmed) return;
+            const newName = result.value.trim();
+            if (newName === player.name) { notifyInfo('O nome não foi alterado.'); return; }
+            try {
+                await apiFetch(`${API_BASE_URL}/player/${player.id}/name`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ name: newName }),
+                });
+                notifySuccess(`Nome atualizado para "${newName}".`);
+                loadProfile();
+            } catch (err) {
+                notifyError(err.message, 'Não foi possível salvar');
+            }
+        });
+
+        document.getElementById('avatarInput')?.addEventListener('change', async (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            if (file.size > 2 * 1024 * 1024) { notifyError('A imagem deve ter no máximo 2 MB.'); return; }
+            const form = new FormData();
+            form.append('file', file);
+            try {
+                const token = typeof authToken === 'function' ? authToken() : null;
+                const resp = await fetch(`${API_BASE_URL}/player/${player.id}/avatar`, {
+                    method: 'POST',
+                    headers: {
+                        'ngrok-skip-browser-warning': '1',
+                        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+                    },
+                    body: form,
+                });
+                if (!resp.ok) {
+                    const j = await resp.json().catch(() => ({}));
+                    throw new Error(j.error || `Erro ${resp.status}`);
+                }
+                notifySuccess('Foto de perfil atualizada!');
+                loadProfile();
+            } catch (err) {
+                notifyError(err.message, 'Não foi possível enviar a foto');
+            }
+        });
+    }
 }
 
 function renderDecksSection(decks) {

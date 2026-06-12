@@ -68,7 +68,12 @@ namespace RankingDigi.Services
                 throw new InvalidOperationException("Todas as partidas da rodada atual precisam ser finalizadas antes de avançar.");
 
             if (currentRound >= tournament.SwissRounds)
-                throw new InvalidOperationException("Todas as rodadas Swiss já foram concluídas. Gere o Top Cut.");
+            {
+                var msg = tournament.Format == 2
+                    ? "Todas as rodadas Swiss já foram concluídas. Encerre o torneio."
+                    : "Todas as rodadas Swiss já foram concluídas. Gere o Top Cut.";
+                throw new InvalidOperationException(msg);
+            }
 
             tournament.CurrentSwissRound++;
             await _context.SaveChangesAsync();
@@ -79,6 +84,30 @@ namespace RankingDigi.Services
                 .ToListAsync();
 
             await GenerateRoundAsync(tournamentId, tournament.CurrentSwissRound, tpIds);
+        }
+
+        // ── Encerrar Swiss Pontos Corridos (sem top cut) ─────────────────────
+        public async Task FinishAsync(int tournamentId)
+        {
+            var tournament = await _context.Tournaments.FindAsync(tournamentId)
+                ?? throw new InvalidOperationException("Torneio não encontrado.");
+
+            if (tournament.Format != 2)
+                throw new InvalidOperationException("Este endpoint é apenas para Swiss Pontos Corridos.");
+
+            if (tournament.CurrentSwissRound < tournament.SwissRounds)
+                throw new InvalidOperationException("O Swiss ainda não terminou.");
+
+            var lastRoundMatches = await _context.TournamentMatches
+                .Where(m => m.TournamentId == tournamentId && m.MatchType == 3 && m.Round == tournament.SwissRounds)
+                .ToListAsync();
+
+            if (lastRoundMatches.Any(m => !m.IsPlayed))
+                throw new InvalidOperationException("Finalize todas as partidas da última rodada antes de encerrar.");
+
+            tournament.Status  = 2;
+            tournament.EndDate = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
         }
 
         // ── Gerar Top Cut (double elimination com os top N) ──────────────────
@@ -255,6 +284,7 @@ namespace RankingDigi.Services
                 {
                     Position   = idx + 1,
                     TpId       = tp.Id,
+                    PlayerId   = tp.PlayerId,
                     PlayerName = tp.DisplayName,
                     Deck       = tp.Deck,
                     Points     = tp.SwissPoints,
@@ -271,6 +301,7 @@ namespace RankingDigi.Services
     {
         public int Position   { get; set; }
         public int TpId       { get; set; }
+        public int? PlayerId  { get; set; }
         public string? PlayerName { get; set; }
         public string? Deck    { get; set; }
         public int Points      { get; set; }

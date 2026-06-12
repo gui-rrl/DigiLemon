@@ -168,6 +168,13 @@ function renderNavbar(activeName) {
         </a>
       </li>
       <li class="nav-item">
+        <a class="nav-link" data-nav="users" href="/users.html">
+          <i class="bi bi-people-fill"></i><span class="d-none d-sm-inline">Usuários</span>
+        </a>
+      </li>` : '';
+
+    const sharedLinks = user ? `
+      <li class="nav-item">
         <a class="nav-link" data-nav="dashboard" href="/dashboard.html">
           <i class="bi bi-graph-up"></i><span class="d-none d-sm-inline">Dashboard</span>
         </a>
@@ -207,6 +214,7 @@ function renderNavbar(activeName) {
             </a>
           </li>
           ${adminLinks}
+          ${sharedLinks}
         </ul>
         ${userArea}
       </div>

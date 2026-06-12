@@ -7,12 +7,16 @@ function selectFormat(fmt) {
     document.getElementById('format').value = fmt;
     document.getElementById('fmtDoubleElim').classList.toggle('selected', fmt === 0);
     document.getElementById('fmtSwiss').classList.toggle('selected', fmt === 1);
+    document.getElementById('fmtSwissPure').classList.toggle('selected', fmt === 2);
 
     const swissOpts = document.getElementById('swissOptions');
-    swissOpts.classList.toggle('d-none', fmt !== 1);
+    swissOpts.classList.toggle('d-none', fmt === 0);
 
-    // Recalcular info de rodadas
-    if (fmt === 1) updateSwissRoundsInfo();
+    // Top Cut só faz sentido no formato 1
+    const topCutRow = document.getElementById('topCutSizeRow');
+    if (topCutRow) topCutRow.classList.toggle('d-none', fmt !== 1);
+
+    if (fmt >= 1) updateSwissRoundsInfo();
 
     // Atualizar opções de vagas (Swiss permite ímpar)
     updateMaxPlayersOptions(fmt);
@@ -21,16 +25,21 @@ function selectFormat(fmt) {
 function updateSwissRoundsInfo() {
     const n = parseInt(document.getElementById('maxPlayers').value, 10);
     const rounds = n <= 2 ? 1 : n <= 4 ? 2 : n <= 8 ? 3 : n <= 16 ? 4 : n <= 32 ? 5 : 6;
-    const topCut = document.getElementById('topCutSize').value;
-    document.getElementById('swissRoundsInfo').textContent =
-        `Com ${n} jogadores: ${rounds} rodadas Swiss → Top ${topCut} (double elimination).`;
+    const fmt = parseInt(document.getElementById('format').value, 10);
+    const info = document.getElementById('swissRoundsInfo');
+    if (fmt === 2) {
+        info.textContent = `Com ${n} jogadores: ${rounds} rodadas Swiss. Classificação final por pontos, Top 4 destacado.`;
+    } else {
+        const topCut = document.getElementById('topCutSize').value;
+        info.textContent = `Com ${n} jogadores: ${rounds} rodadas Swiss → Top ${topCut} (double elimination).`;
+    }
 }
 
 function updateMaxPlayersOptions(fmt) {
     const sel = document.getElementById('maxPlayers');
     const current = sel.value;
     sel.innerHTML = '';
-    const options = fmt === 1
+    const options = fmt >= 1
         ? [4,5,6,7,8,9,10,11,12,14,16,18,20,24,32]
         : [6,8,10,12,14,16,18,20,24,32];
     options.forEach(n => {
@@ -40,13 +49,14 @@ function updateMaxPlayersOptions(fmt) {
         if (String(n) === current) opt.selected = true;
         sel.appendChild(opt);
     });
-    if (!sel.value) sel.value = fmt === 1 ? '8' : '8';
-    if (fmt === 1) updateSwissRoundsInfo();
+    if (!sel.value) sel.value = '8';
+    if (fmt >= 1) updateSwissRoundsInfo();
 }
 
 // Registrar listeners e inicializar após DOM pronto
 document.getElementById('fmtDoubleElim').addEventListener('click', () => selectFormat(0));
 document.getElementById('fmtSwiss').addEventListener('click', () => selectFormat(1));
+document.getElementById('fmtSwissPure').addEventListener('click', () => selectFormat(2));
 document.getElementById('topCutSize').addEventListener('change', updateSwissRoundsInfo);
 
 // Inicializar seleção padrão
@@ -157,7 +167,7 @@ document.getElementById('maxPlayers').addEventListener('change', () => {
     }
     updatePlayerCount();
     const fmt = parseInt(document.getElementById('format').value, 10);
-    if (fmt === 1) updateSwissRoundsInfo();
+    if (fmt >= 1) updateSwissRoundsInfo();
 });
 
 document.getElementById('createTournamentForm').addEventListener('submit', async (e) => {
