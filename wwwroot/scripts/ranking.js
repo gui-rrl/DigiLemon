@@ -67,7 +67,6 @@ function renderTable() {
                             : `<span class="avatar">${getInitials(player.name)}</span>`}
                         <div>
                             <div style="font-weight:600; color: var(--text-1);">${escapeHtml(player.name)}</div>
-                            <div class="text-muted-2" style="font-size:0.78rem;">ID #${player.id} · ver perfil</div>
                         </div>
                     </a>
                 </td>
