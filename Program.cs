@@ -94,7 +94,7 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 
 var app = builder.Build();
 
-// ── Seed: cria admin padrão se não existir ────────────────────────────────────
+// ── Seed: cria admin padrão se não existir ─────────────────────────────────
 using (var scope = app.Services.CreateScope())
 {
     var db       = scope.ServiceProvider.GetRequiredService<RankingContext>();

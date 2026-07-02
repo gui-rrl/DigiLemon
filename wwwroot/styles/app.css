@@ -4,15 +4,16 @@
    ========================================================================== */
 
 :root {
-    /* Paleta */
+    /* Paleta — tema escuro (padrão) */
     --bg-0: #0b1020;
     --bg-1: #121933;
     --bg-2: #1a2347;
     --bg-3: #232d59;
-    --surface: rgba(255, 255, 255, 0.04);
-    --surface-strong: rgba(255, 255, 255, 0.08);
-    --border: rgba(255, 255, 255, 0.10);
-    --border-strong: rgba(255, 255, 255, 0.18);
+    --surface-rgb: 255, 255, 255;
+    --surface: rgba(var(--surface-rgb), 0.04);
+    --surface-strong: rgba(var(--surface-rgb), 0.08);
+    --border: rgba(var(--surface-rgb), 0.10);
+    --border-strong: rgba(var(--surface-rgb), 0.18);
 
     --text-1: #f5f7ff;
     --text-2: #b9c0d9;
@@ -34,6 +35,13 @@
                    radial-gradient(900px 600px at -10% 110%, rgba(22, 224, 189, 0.12), transparent 60%),
                    linear-gradient(180deg, #0b1020 0%, #0a0f1f 100%);
 
+    --navbar-bg: rgba(11, 16, 32, 0.85);
+    --modal-bg: linear-gradient(180deg, #1a2347 0%, #121933 100%);
+    --toast-bg: rgba(18, 25, 51, 0.95);
+    --tooltip-bg: rgba(11, 16, 32, 0.95);
+    --btn-close-invert: 1;
+    --color-scheme: dark;
+
     --radius-sm: 8px;
     --radius: 14px;
     --radius-lg: 20px;
@@ -42,6 +50,40 @@
     --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
     --shadow-lg: 0 25px 60px rgba(0, 0, 0, 0.45);
     --shadow-glow: 0 0 0 1px rgba(109, 111, 255, 0.4), 0 8px 28px rgba(109, 111, 255, 0.35);
+}
+
+[data-theme="light"] {
+    /* Paleta — tema claro */
+    --bg-0: #f3f5fb;
+    --bg-1: #ffffff;
+    --bg-2: #ffffff;
+    --bg-3: #e7eaf5;
+    --surface-rgb: 15, 23, 42;
+    --surface: rgba(var(--surface-rgb), 0.035);
+    --surface-strong: rgba(var(--surface-rgb), 0.06);
+    --border: rgba(var(--surface-rgb), 0.10);
+    --border-strong: rgba(var(--surface-rgb), 0.18);
+
+    --text-1: #12162b;
+    --text-2: #454e6e;
+    --text-3: #6b7394;
+
+    --accent-2: #0090c2;
+
+    --gradient-bg: radial-gradient(1200px 600px at 80% -10%, rgba(141, 107, 255, 0.10), transparent 60%),
+                   radial-gradient(900px 600px at -10% 110%, rgba(22, 224, 189, 0.08), transparent 60%),
+                   linear-gradient(180deg, #f6f7fc 0%, #eef0f8 100%);
+
+    --navbar-bg: rgba(255, 255, 255, 0.85);
+    --modal-bg: linear-gradient(180deg, #ffffff 0%, #f2f4fa 100%);
+    --toast-bg: rgba(255, 255, 255, 0.95);
+    --tooltip-bg: rgba(18, 22, 43, 0.92);
+    --btn-close-invert: 0;
+    --color-scheme: light;
+
+    --shadow-sm: 0 2px 6px rgba(16, 21, 42, 0.07);
+    --shadow: 0 10px 30px rgba(16, 21, 42, 0.09);
+    --shadow-lg: 0 25px 60px rgba(16, 21, 42, 0.12);
 }
 
 * {
@@ -55,6 +97,8 @@ html, body {
     font-family: 'Inter', system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     min-height: 100vh;
     letter-spacing: 0.01em;
+    color-scheme: var(--color-scheme);
+    transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 body {
@@ -114,7 +158,7 @@ h1, h2, h3, h4, h5, h6 {
     left: 0;
     right: 0;
     z-index: 1030;
-    background: rgba(11, 16, 32, 0.85);
+    background: var(--navbar-bg);
     backdrop-filter: saturate(180%) blur(14px);
     -webkit-backdrop-filter: saturate(180%) blur(14px);
     border-bottom: 1px solid var(--border);
@@ -172,7 +216,7 @@ h1, h2, h3, h4, h5, h6 {
 /* ---------- Cards ---------- */
 
 .card-app {
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.015) 100%);
+    background: linear-gradient(180deg, rgba(var(--surface-rgb), 0.04) 0%, rgba(var(--surface-rgb), 0.015) 100%);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow);
@@ -199,7 +243,7 @@ h1, h2, h3, h4, h5, h6 {
     gap: 1rem;
     padding: 1.1rem 1.3rem;
     border-radius: var(--radius);
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.015) 100%);
+    background: linear-gradient(180deg, rgba(var(--surface-rgb), 0.05) 0%, rgba(var(--surface-rgb), 0.015) 100%);
     border: 1px solid var(--border);
 }
 
@@ -244,7 +288,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .form-control, .form-select {
-    background-color: rgba(255, 255, 255, 0.05);
+    background-color: rgba(var(--surface-rgb), 0.05);
     border: 1px solid var(--border);
     color: var(--text-1);
     border-radius: 10px;
@@ -257,7 +301,7 @@ h1, h2, h3, h4, h5, h6 {
     }
 
     .form-control:focus, .form-select:focus {
-        background-color: rgba(255, 255, 255, 0.07);
+        background-color: rgba(var(--surface-rgb), 0.07);
         border-color: var(--primary);
         color: var(--text-1);
         box-shadow: 0 0 0 4px var(--primary-glow);
@@ -269,7 +313,7 @@ h1, h2, h3, h4, h5, h6 {
     }
 
 input[type="date"] {
-    color-scheme: dark;
+    color-scheme: var(--color-scheme);
 }
 
 /* ---------- Botões ---------- */
@@ -393,7 +437,7 @@ input[type="date"] {
 }
 
     .table-app thead th {
-        background: rgba(255, 255, 255, 0.04);
+        background: rgba(var(--surface-rgb), 0.04);
         color: var(--text-2);
         font-size: 0.75rem;
         text-transform: uppercase;
@@ -421,7 +465,7 @@ input[type="date"] {
     }
 
         .table-app tbody tr:hover {
-            background: rgba(255, 255, 255, 0.03);
+            background: rgba(var(--surface-rgb), 0.03);
         }
 
     .table-app .empty-row td,
@@ -517,7 +561,7 @@ input[type="date"] {
 /* ---------- Modal (Bootstrap) ---------- */
 
 .modal-content {
-    background: linear-gradient(180deg, #1a2347 0%, #121933 100%);
+    background: var(--modal-bg);
     color: var(--text-1);
     border: 1px solid var(--border-strong);
     border-radius: var(--radius-lg);
@@ -539,17 +583,17 @@ input[type="date"] {
 }
 
 .btn-close {
-    filter: invert(1) opacity(0.6);
+    filter: invert(var(--btn-close-invert)) opacity(0.6);
 }
 
     .btn-close:hover {
-        filter: invert(1) opacity(1);
+        filter: invert(var(--btn-close-invert)) opacity(1);
     }
 
 /* ---------- SweetAlert customizations ---------- */
 
 .swal2-popup.swal2-modal {
-    background: linear-gradient(180deg, #1a2347 0%, #121933 100%) !important;
+    background: var(--modal-bg) !important;
     color: var(--text-1) !important;
     border: 1px solid var(--border-strong);
     border-radius: var(--radius-lg) !important;
@@ -595,14 +639,14 @@ input[type="date"] {
 .swal2-icon.swal2-question { color: var(--primary) !important; }
 
 .swal2-input, .swal2-select, .swal2-textarea {
-    background: rgba(255, 255, 255, 0.06) !important;
+    background: rgba(var(--surface-rgb), 0.06) !important;
     border: 1px solid var(--border-strong) !important;
     color: var(--text-1) !important;
     border-radius: 10px !important;
 }
 
 .swal2-toast {
-    background: rgba(18, 25, 51, 0.95) !important;
+    background: var(--toast-bg) !important;
     color: var(--text-1) !important;
     border: 1px solid var(--border-strong);
     border-radius: 12px !important;
@@ -705,7 +749,7 @@ a {
 /* ---------- Dashboard ---------- */
 
 .chart-card {
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.015) 100%);
+    background: linear-gradient(180deg, rgba(var(--surface-rgb), 0.04) 0%, rgba(var(--surface-rgb), 0.015) 100%);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     padding: 1.25rem 1.4rem;
@@ -737,7 +781,7 @@ a {
     background:
         radial-gradient(800px 300px at 20% -10%, rgba(141, 107, 255, 0.20), transparent 60%),
         radial-gradient(600px 300px at 100% 100%, rgba(22, 224, 189, 0.15), transparent 60%),
-        linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%);
+        linear-gradient(180deg, rgba(var(--surface-rgb), 0.06) 0%, rgba(var(--surface-rgb), 0.02) 100%);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     padding: 2rem 2rem;
@@ -834,13 +878,13 @@ a {
     padding: 0.7rem 0.9rem;
     border-radius: 10px;
     border: 1px solid var(--border);
-    background: rgba(255, 255, 255, 0.02);
+    background: rgba(var(--surface-rgb), 0.02);
     margin-bottom: 0.55rem;
     transition: background 0.15s ease;
 }
 
     .timeline-row:hover {
-        background: rgba(255, 255, 255, 0.05);
+        background: rgba(var(--surface-rgb), 0.05);
     }
 
     .timeline-row .opp-info {
@@ -865,7 +909,7 @@ a {
     }
 
 .tournament-card {
-    background: rgba(255, 255, 255, 0.03);
+    background: rgba(var(--surface-rgb), 0.03);
     border: 1px solid var(--border);
     border-radius: var(--radius);
     padding: 1rem 1.2rem;
@@ -922,12 +966,12 @@ a {
 }
 
 ::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.08);
+    background: rgba(var(--surface-rgb), 0.08);
     border-radius: 10px;
 }
 
     ::-webkit-scrollbar-thumb:hover {
-        background: rgba(255, 255, 255, 0.18);
+        background: rgba(var(--surface-rgb), 0.18);
     }
 
 /* ---------- Seletor de formato (criar torneio) ---------- */
@@ -1075,3 +1119,45 @@ a {
         text-align: center;
         justify-self: center;
     }
+
+/* ---------- Alternador de tema (claro/escuro) ---------- */
+
+.theme-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border-radius: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-2);
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+    flex-shrink: 0;
+}
+
+    .theme-toggle-btn:hover {
+        background: var(--surface-strong);
+        color: var(--text-1);
+        border-color: var(--border-strong);
+    }
+
+    .theme-toggle-btn:active {
+        transform: scale(0.92);
+    }
+
+    .theme-toggle-btn .theme-toggle-icon.bi-sun-fill {
+        color: var(--warning);
+    }
+
+.theme-toggle-floating {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 1040;
+    box-shadow: var(--shadow-sm);
+    background: var(--bg-1);
+}

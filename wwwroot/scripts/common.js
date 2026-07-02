@@ -182,7 +182,6 @@ function renderNavbar(activeName) {
 
     // Área do usuário (canto direito)
     const userArea = user ? `
-      <div class="d-flex align-items-center gap-2 ms-3">
         <span class="badge ${isAdmin ? 'bg-primary' : 'bg-secondary'} d-none d-sm-inline">
           ${isAdmin ? 'Admin' : 'Jogador'}
         </span>
@@ -192,11 +191,15 @@ function renderNavbar(activeName) {
         </a>
         <button class="btn btn-ghost btn-sm" onclick="authLogout()" title="Sair" style="padding:0.25rem 0.5rem;">
           <i class="bi bi-box-arrow-right"></i>
-        </button>
-      </div>` : `
-      <a href="/login.html" class="btn btn-primary btn-sm ms-3">
+        </button>` : `
+      <a href="/login.html" class="btn btn-primary btn-sm">
         <i class="bi bi-box-arrow-in-right"></i> Login
       </a>`;
+
+    const themeToggle = `
+        <button type="button" class="theme-toggle-btn" onclick="toggleTheme()" aria-label="Alternar tema claro/escuro">
+          <i class="bi theme-toggle-icon"></i>
+        </button>`;
 
     const html = `
     <nav class="navbar app-navbar">
@@ -219,12 +222,16 @@ function renderNavbar(activeName) {
           ${adminLinks}
           ${sharedLinks}
         </ul>
-        ${userArea}
+        <div class="d-flex align-items-center gap-2 ms-3">
+          ${themeToggle}
+          ${userArea}
+        </div>
       </div>
     </nav>`;
 
     document.body.insertAdjacentHTML('afterbegin', html);
     activateNavLink(activeName);
+    updateThemeToggleIcon(document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark');
 }
 
 document.addEventListener('DOMContentLoaded', () => {

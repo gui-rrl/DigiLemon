@@ -4,33 +4,45 @@ const params = new URLSearchParams(window.location.search);
 const playerId = params.get('id');
 const charts = {};
 
-const palette = {
-    primary: '#6d6fff',
-    accent: '#16e0bd',
-    accent2: '#00c2ff',
-    warning: '#ffb547',
-    danger: '#ff5d73',
-    success: '#4ade80',
-    text: '#b9c0d9',
-    grid: 'rgba(255, 255, 255, 0.08)',
-};
+function cssVar(name) {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
 
-const baseChartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-        legend: { labels: { color: palette.text, font: { family: 'Inter, sans-serif' } } },
-        tooltip: {
-            backgroundColor: 'rgba(11, 16, 32, 0.95)',
-            borderColor: 'rgba(255, 255, 255, 0.15)',
-            borderWidth: 1, padding: 10, cornerRadius: 8,
+function getPalette() {
+    const surfaceRgb = cssVar('--surface-rgb') || '255, 255, 255';
+    return {
+        primary: cssVar('--primary') || '#6d6fff',
+        accent: cssVar('--accent') || '#16e0bd',
+        accent2: cssVar('--accent-2') || '#00c2ff',
+        warning: cssVar('--warning') || '#ffb547',
+        danger: cssVar('--danger') || '#ff5d73',
+        success: cssVar('--success') || '#4ade80',
+        text: cssVar('--text-2') || '#b9c0d9',
+        grid: `rgba(${surfaceRgb}, 0.08)`,
+        tooltipBg: cssVar('--tooltip-bg') || 'rgba(11, 16, 32, 0.95)',
+        tooltipBorder: `rgba(${surfaceRgb}, 0.15)`,
+        chartBorder: cssVar('--bg-1') || 'rgba(11, 16, 32, 1)',
+    };
+}
+
+function buildBaseChartOptions(palette) {
+    return {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { labels: { color: palette.text, font: { family: 'Inter, sans-serif' } } },
+            tooltip: {
+                backgroundColor: palette.tooltipBg,
+                borderColor: palette.tooltipBorder,
+                borderWidth: 1, padding: 10, cornerRadius: 8,
+            },
         },
-    },
-    scales: {
-        x: { ticks: { color: palette.text }, grid: { color: palette.grid, drawBorder: false } },
-        y: { beginAtZero: true, ticks: { color: palette.text, precision: 0 }, grid: { color: palette.grid, drawBorder: false } },
-    },
-};
+        scales: {
+            x: { ticks: { color: palette.text }, grid: { color: palette.grid, drawBorder: false } },
+            y: { beginAtZero: true, ticks: { color: palette.text, precision: 0 }, grid: { color: palette.grid, drawBorder: false } },
+        },
+    };
+}
 
 function resultPillHtml(result) {
     if (result === 'win') return '<span class="match-pill win"><i class="bi bi-trophy"></i> Vitória</span>';
@@ -344,6 +356,7 @@ function renderTournaments(tournaments) {
 }
 
 function renderScoreHistoryChart(history, currentScore) {
+    const palette = getPalette();
     if (!history.length) {
         // Mostra placeholder
         const canvas = document.getElementById('chartScoreHistory');
@@ -354,6 +367,7 @@ function renderScoreHistoryChart(history, currentScore) {
         ctx.fillText('Sem partidas registradas ainda', canvas.width / 2, canvas.height / 2);
         return;
     }
+    const baseChartOptions = buildBaseChartOptions(palette);
     const ctx = document.getElementById('chartScoreHistory').getContext('2d');
     if (charts.scoreHistory) charts.scoreHistory.destroy();
     charts.scoreHistory = new Chart(ctx, {
@@ -382,6 +396,8 @@ function renderScoreHistoryChart(history, currentScore) {
 }
 
 function renderResultsChart(stats) {
+    const palette = getPalette();
+    const baseChartOptions = buildBaseChartOptions(palette);
     const ctx = document.getElementById('chartResults').getContext('2d');
     if (charts.results) charts.results.destroy();
     if (stats.played === 0) {
@@ -398,7 +414,7 @@ function renderResultsChart(stats) {
             datasets: [{
                 data: [stats.wins, stats.losses, stats.draws],
                 backgroundColor: [palette.accent, palette.danger, palette.warning],
-                borderColor: 'rgba(11, 16, 32, 1)',
+                borderColor: palette.chartBorder,
                 borderWidth: 3,
                 hoverOffset: 8,
             }],
@@ -414,6 +430,8 @@ function renderResultsChart(stats) {
 }
 
 function renderDecksChart(decks) {
+    const palette = getPalette();
+    const baseChartOptions = buildBaseChartOptions(palette);
     const top = decks.slice(0, 6);
     const ctx = document.getElementById('chartDecks').getContext('2d');
     if (charts.decks) charts.decks.destroy();
@@ -549,3 +567,4 @@ function bindAccountSection() {
 }
 
 document.addEventListener('DOMContentLoaded', loadProfile);
+window.addEventListener('themechange', loadProfile);

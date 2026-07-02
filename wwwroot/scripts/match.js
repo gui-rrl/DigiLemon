@@ -87,14 +87,14 @@ async function loadMatches() {
                             <span style="font-weight:600; color: var(--text-1);">${escapeHtml(p1Name)}</span>
                         </a>
                     </td>
-                    <td>${match.deck1 ? `<span style="font-size:0.78rem; padding:0.25rem 0.55rem; background: rgba(255,255,255,0.06); border-radius:6px;"><i class="bi bi-layers"></i> ${escapeHtml(match.deck1)}</span>` : '<span class="text-muted-2">-</span>'}</td>
+                    <td>${match.deck1 ? `<span style="font-size:0.78rem; padding:0.25rem 0.55rem; background: rgba(var(--surface-rgb),0.06); border-radius:6px;"><i class="bi bi-layers"></i> ${escapeHtml(match.deck1)}</span>` : '<span class="text-muted-2">-</span>'}</td>
                     <td>
                         <a href="/player.html?id=${match.player2Id}" class="player-cell" style="text-decoration:none;">
                             ${p2?.avatarUrl ? `<img src="${escapeHtml(p2.avatarUrl)}" class="avatar avatar-img" alt="${escapeHtml(p2Name)}">` : `<span class="avatar">${getInitials(p2Name)}</span>`}
                             <span style="font-weight:600; color: var(--text-1);">${escapeHtml(p2Name)}</span>
                         </a>
                     </td>
-                    <td>${match.deck2 ? `<span style="font-size:0.78rem; padding:0.25rem 0.55rem; background: rgba(255,255,255,0.06); border-radius:6px;"><i class="bi bi-layers"></i> ${escapeHtml(match.deck2)}</span>` : '<span class="text-muted-2">-</span>'}</td>
+                    <td>${match.deck2 ? `<span style="font-size:0.78rem; padding:0.25rem 0.55rem; background: rgba(var(--surface-rgb),0.06); border-radius:6px;"><i class="bi bi-layers"></i> ${escapeHtml(match.deck2)}</span>` : '<span class="text-muted-2">-</span>'}</td>
                     <td>${resultHtml}</td>
                     <td><span class="text-muted-2" style="font-size:0.85rem;">${formatDateTime(match.date)}</span></td>
                 </tr>`;

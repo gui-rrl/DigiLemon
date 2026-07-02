@@ -2,47 +2,59 @@
 
 const charts = {};
 
-const palette = {
-    primary: '#6d6fff',
-    primary2: '#8d6bff',
-    accent: '#16e0bd',
-    accent2: '#00c2ff',
-    warning: '#ffb547',
-    danger: '#ff5d73',
-    success: '#4ade80',
-    text: '#b9c0d9',
-    grid: 'rgba(255, 255, 255, 0.08)',
-};
+function cssVar(name) {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
 
-const baseChartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-        legend: {
-            labels: { color: palette.text, font: { family: 'Inter, sans-serif' } },
+function getPalette() {
+    const surfaceRgb = cssVar('--surface-rgb') || '255, 255, 255';
+    return {
+        primary: cssVar('--primary') || '#6d6fff',
+        primary2: cssVar('--primary-2') || '#8d6bff',
+        accent: cssVar('--accent') || '#16e0bd',
+        accent2: cssVar('--accent-2') || '#00c2ff',
+        warning: cssVar('--warning') || '#ffb547',
+        danger: cssVar('--danger') || '#ff5d73',
+        success: cssVar('--success') || '#4ade80',
+        text: cssVar('--text-2') || '#b9c0d9',
+        grid: `rgba(${surfaceRgb}, 0.08)`,
+        tooltipBg: cssVar('--tooltip-bg') || 'rgba(11, 16, 32, 0.95)',
+        tooltipBorder: `rgba(${surfaceRgb}, 0.15)`,
+        chartBorder: cssVar('--bg-1') || 'rgba(11, 16, 32, 1)',
+    };
+}
+
+function buildBaseChartOptions(palette) {
+    return {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                labels: { color: palette.text, font: { family: 'Inter, sans-serif' } },
+            },
+            tooltip: {
+                backgroundColor: palette.tooltipBg,
+                borderColor: palette.tooltipBorder,
+                borderWidth: 1,
+                titleFont: { family: 'Sora, sans-serif' },
+                bodyFont: { family: 'Inter, sans-serif' },
+                padding: 10,
+                cornerRadius: 8,
+            },
         },
-        tooltip: {
-            backgroundColor: 'rgba(11, 16, 32, 0.95)',
-            borderColor: 'rgba(255, 255, 255, 0.15)',
-            borderWidth: 1,
-            titleFont: { family: 'Sora, sans-serif' },
-            bodyFont: { family: 'Inter, sans-serif' },
-            padding: 10,
-            cornerRadius: 8,
+        scales: {
+            x: {
+                ticks: { color: palette.text },
+                grid: { color: palette.grid, drawBorder: false },
+            },
+            y: {
+                beginAtZero: true,
+                ticks: { color: palette.text, precision: 0 },
+                grid: { color: palette.grid, drawBorder: false },
+            },
         },
-    },
-    scales: {
-        x: {
-            ticks: { color: palette.text },
-            grid: { color: palette.grid, drawBorder: false },
-        },
-        y: {
-            beginAtZero: true,
-            ticks: { color: palette.text, precision: 0 },
-            grid: { color: palette.grid, drawBorder: false },
-        },
-    },
-};
+    };
+}
 
 async function loadStats(days) {
     try {
@@ -82,6 +94,7 @@ function renderTopPlayers(data) {
     destroyChart('topPlayers');
     const canvas = document.getElementById('chartTopPlayers');
     const ctx = canvas.getContext('2d');
+    const baseChartOptions = buildBaseChartOptions(getPalette());
     charts.topPlayers = new Chart(ctx, {
         type: 'bar',
         data: {
@@ -105,6 +118,7 @@ function renderTopDecks(data) {
     destroyChart('topDecks');
     const canvas = document.getElementById('chartTopDecks');
     const ctx = canvas.getContext('2d');
+    const baseChartOptions = buildBaseChartOptions(getPalette());
     charts.topDecks = new Chart(ctx, {
         type: 'bar',
         data: {
@@ -137,6 +151,8 @@ function renderMatchesPerDay(data) {
         const date = new Date(d.date + 'T00:00:00');
         return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
     });
+    const palette = getPalette();
+    const baseChartOptions = buildBaseChartOptions(palette);
     charts.matchesPerDay = new Chart(ctx, {
         type: 'line',
         data: {
@@ -166,6 +182,8 @@ function renderResults(summary) {
     destroyChart('results');
     const canvas = document.getElementById('chartResults');
     const ctx = canvas.getContext('2d');
+    const palette = getPalette();
+    const baseChartOptions = buildBaseChartOptions(palette);
     charts.results = new Chart(ctx, {
         type: 'doughnut',
         data: {
@@ -173,7 +191,7 @@ function renderResults(summary) {
             datasets: [{
                 data: [summary.decisive, summary.draws],
                 backgroundColor: [palette.primary, palette.warning],
-                borderColor: 'rgba(11, 16, 32, 1)',
+                borderColor: palette.chartBorder,
                 borderWidth: 3,
                 hoverOffset: 8,
             }],
@@ -197,6 +215,8 @@ function renderPlayerWins(data) {
     destroyChart('playerWins');
     const canvas = document.getElementById('chartPlayerWins');
     const ctx = canvas.getContext('2d');
+    const palette = getPalette();
+    const baseChartOptions = buildBaseChartOptions(palette);
     const winRate = data.map(p => p.played > 0 ? Math.round((p.wins / p.played) * 100) : 0);
     charts.playerWins = new Chart(ctx, {
         type: 'bar',
@@ -250,4 +270,5 @@ document.addEventListener('DOMContentLoaded', () => {
     const select = document.getElementById('rangeSelect');
     loadStats(parseInt(select.value));
     select.addEventListener('change', () => loadStats(parseInt(select.value)));
+    window.addEventListener('themechange', () => loadStats(parseInt(select.value)));
 });
