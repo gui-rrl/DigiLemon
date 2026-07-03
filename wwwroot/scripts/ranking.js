@@ -163,6 +163,7 @@ function renderTable() {
     const rankByScore = [...allPlayersData].sort((a, b) => scoreOf(b) - scoreOf(a));
     const positionMap = new Map(rankByScore.map((p, i) => [p.id, i + 1]));
 
+    const isAdmin = typeof authIsAdmin === 'function' && authIsAdmin();
     tbody.innerHTML = list.map(player => {
         const position = positionMap.get(player.id);
         const rankCls = position <= 3 ? `rank-${position}` : '';
@@ -180,8 +181,8 @@ function renderTable() {
                     </a>
                 </td>
                 <td><span class="score-pill"><i class="bi bi-stars"></i> ${scoreOf(player)} pts</span></td>
+                ${isAdmin ? `
                 <td style="text-align:right;">
-                    ${typeof authIsAdmin === 'function' && authIsAdmin() ? `
                     <div class="d-inline-flex gap-1">
                         <button class="btn btn-sm btn-ghost" onclick="editPlayer(${player.id}, '${escapeHtml(player.name)}')" title="Editar nome">
                             <i class="bi bi-pencil"></i>
@@ -189,8 +190,8 @@ function renderTable() {
                         <button class="btn btn-sm btn-ghost" onclick="deletePlayer(${player.id}, '${escapeHtml(player.name)}')" title="Excluir jogador">
                             <i class="bi bi-trash3"></i>
                         </button>
-                    </div>` : ''}
-                </td>
+                    </div>
+                </td>` : ''}
             </tr>`;
     }).join('');
 }
@@ -319,6 +320,9 @@ function exportRanking() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    if (!(typeof authIsAdmin === 'function' && authIsAdmin())) {
+        document.getElementById('thAcoes')?.remove();
+    }
     loadRanking();
     loadSeasonInfo();
     document.getElementById('addPlayerForm').addEventListener('submit', addPlayer);
