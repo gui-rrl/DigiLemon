@@ -26,6 +26,22 @@
             <div class="d-flex gap-2 flex-wrap" id="headerActions"></div>
         </header>
 
+        <section class="card-app mb-4" id="seasonBar">
+            <div class="card-body d-flex flex-wrap align-items-center justify-content-between gap-3" style="padding: 1rem 1.4rem;">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="icon-badge" style="width:38px;height:38px;font-size:1rem;"><i class="bi bi-calendar-range"></i></span>
+                    <div>
+                        <div style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-3); font-weight:600;">Temporada</div>
+                        <div id="seasonName" style="font-weight:700; font-size:1.05rem;">Carregando…</div>
+                    </div>
+                </div>
+                <div class="d-flex gap-2" id="seasonAdminActions" style="display:none;">
+                    <button class="btn btn-secondary btn-sm" id="startSeasonBtn"><i class="bi bi-play-circle"></i> Iniciar temporada</button>
+                    <button class="btn btn-outline-light btn-sm" id="endSeasonBtn"><i class="bi bi-flag"></i> Encerrar temporada</button>
+                </div>
+            </div>
+        </section>
+
         <section class="row g-3 mb-4" id="statsRow">
             <div class="col-md-4">
                 <div class="card-stat hover-lift">
@@ -79,6 +95,10 @@
             <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <span><i class="bi bi-list-ol"></i> Classificação geral</span>
                 <div class="d-flex gap-2 flex-wrap align-items-center">
+                    <div class="btn-group btn-group-sm" role="group" id="viewModeGroup">
+                        <button type="button" class="btn btn-ghost active" data-mode="season">Temporada</button>
+                        <button type="button" class="btn btn-ghost" data-mode="career">Geral</button>
+                    </div>
                     <div class="search-input" style="width: 420px;">
                         <i class="bi bi-search"></i>
                         <input type="search" id="rankingSearch" class="form-control" placeholder="Buscar jogador…">

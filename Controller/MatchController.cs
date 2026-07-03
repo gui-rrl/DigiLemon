@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RankingDigi.Data;
@@ -42,18 +43,25 @@ namespace RankingDigi.Controller
             if (match.WinnerId == 0)
             {
                 player1.Score += 1;
+                player1.CareerScore += 1;
                 player2.Score += 1;
+                player2.CareerScore += 1;
             }
             else if (match.WinnerId == player1.Id)
             {
                 player1.Score += 3;
+                player1.CareerScore += 3;
             }
             else
             {
                 player2.Score += 3;
+                player2.CareerScore += 3;
             }
 
             if (match.Date == default) match.Date = DateTime.UtcNow;
+
+            var currentSeason = await _context.Seasons.FirstOrDefaultAsync(s => s.IsActive);
+            match.SeasonId = currentSeason?.Id;
 
             _context.Matches.Add(match);
             await _context.SaveChangesAsync();
@@ -64,13 +72,17 @@ namespace RankingDigi.Controller
                 [FromQuery] int playerId = 0,
                 [FromQuery] DateTime startDate = default,
                 [FromQuery] DateTime endDate = default,
-                [FromQuery] string deck = "")
+                [FromQuery] string deck = "",
+                [FromQuery] int seasonId = 0)
         {
             // adapte a lógica para verificar se o parâmetro foi fornecido
             var query = _context.Matches.AsQueryable();
 
             if (playerId != 0)
                 query = query.Where(m => m.Player1Id == playerId || m.Player2Id == playerId);
+
+            if (seasonId != 0)
+                query = query.Where(m => m.SeasonId == seasonId);
 
             if (startDate != default)
                 query = query.Where(m => m.Date >= startDate);
@@ -85,6 +97,44 @@ namespace RankingDigi.Controller
                 query = query.Where(m => m.Deck1.Contains(deck) || m.Deck2.Contains(deck));
 
             return await query.OrderByDescending(m => m.Date).ToListAsync();
+        }
+
+        [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> DeleteMatch(int id)
+        {
+            var match = await _context.Matches.FindAsync(id);
+            if (match == null)
+                return NotFound();
+
+            if (match.SeasonId.HasValue)
+            {
+                var matchSeason = await _context.Seasons.FindAsync(match.SeasonId.Value);
+                if (matchSeason != null && !matchSeason.IsActive)
+                    return Conflict(new { error = "Não é possível excluir uma partida de uma temporada já encerrada." });
+            }
+
+            var player1 = await _context.Players.FindAsync(match.Player1Id);
+            var player2 = await _context.Players.FindAsync(match.Player2Id);
+
+            // Reverte os pontos que a partida havia concedido (temporada atual e geral)
+            if (match.WinnerId == 0)
+            {
+                if (player1 != null) { player1.Score -= 1; player1.CareerScore -= 1; }
+                if (player2 != null) { player2.Score -= 1; player2.CareerScore -= 1; }
+            }
+            else if (match.WinnerId == match.Player1Id)
+            {
+                if (player1 != null) { player1.Score -= 3; player1.CareerScore -= 3; }
+            }
+            else if (match.WinnerId == match.Player2Id)
+            {
+                if (player2 != null) { player2.Score -= 3; player2.CareerScore -= 3; }
+            }
+
+            _context.Matches.Remove(match);
+            await _context.SaveChangesAsync();
+            return NoContent();
         }
 
     }

@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+<script>(function(){var t=localStorage.getItem("rankingdigi-theme")||(matchMedia("(prefers-color-scheme: light)").matches?"light":"dark");document.documentElement.setAttribute("data-theme",t);})();</script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Temporada — RankingDigi</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/styles/app.css">
+</head>
+<body data-page="ranking">
+    <main class="container py-4">
+        <header class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+            <div>
+                <h1 class="page-title">
+                    <span class="icon-badge"><i class="bi bi-calendar-range"></i></span>
+                    <span id="seasonTitle">Temporada</span>
+                </h1>
+                <p class="page-subtitle mt-2" id="seasonSubtitle">Carregando…</p>
+            </div>
+            <div class="d-flex gap-2 flex-wrap align-items-center">
+                <select id="seasonPicker" class="form-select" style="min-width:220px;"></select>
+                <a href="/Index.html" class="btn btn-secondary"><i class="bi bi-arrow-left"></i> Ranking</a>
+            </div>
+        </header>
+
+        <div id="seasonEmptyState" class="card-app" style="display:none;">
+            <div class="card-body">
+                <div class="empty-state">
+                    <div class="icon"><i class="bi bi-calendar-x"></i></div>
+                    <div class="title">Nenhuma temporada encontrada</div>
+                    <div>Inicie uma temporada na página do ranking para começar.</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="seasonContent" style="display:none;">
+            <div class="row g-4">
+                <div class="col-lg-5">
+                    <section class="card-app mb-4">
+                        <div class="card-header"><i class="bi bi-list-ol"></i> Classificação da temporada</div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table-app">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 70px;">#</th>
+                                            <th>Jogador</th>
+                                            <th style="width: 140px;">Pontuação</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="seasonStandingsTable">
+                                        <tr class="loading-row">
+                                            <td colspan="3">
+                                                <div class="spinner-border spinner-border-sm text-secondary" role="status"></div>
+                                                <span class="ms-2">Carregando classificação…</span>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+                <div class="col-lg-7">
+                    <section class="card-app mb-4">
+                        <div class="card-header"><i class="bi bi-clock-history"></i> Partidas da temporada</div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table-app">
+                                    <thead>
+                                        <tr>
+                                            <th>Jogador 1</th>
+                                            <th>Jogador 2</th>
+                                            <th>Resultado</th>
+                                            <th style="width: 150px;">Data</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="seasonMatchesTable">
+                                        <tr class="loading-row">
+                                            <td colspan="4">
+                                                <div class="spinner-border spinner-border-sm text-secondary" role="status"></div>
+                                                <span class="ms-2">Carregando partidas…</span>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="/scripts/auth.js"></script>
+    <script src="/scripts/common.js"></script>
+    <script src="/scripts/theme.js"></script>
+    <script src="/scripts/season.js"></script>
+</body>
+</html>

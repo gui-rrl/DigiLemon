@@ -3,6 +3,12 @@
 let allPlayersData = [];
 let sortConfig = { key: 'score', direction: 'desc' };
 let searchTerm = '';
+let viewMode = 'season'; // 'season' (Score, reseta a cada temporada) | 'career' (CareerScore, geral)
+let currentSeason = null;
+
+function scoreOf(player) {
+    return viewMode === 'career' ? (player.careerScore || 0) : (player.score || 0);
+}
 
 async function loadRanking() {
     const tbody = document.getElementById('rankingTable');
@@ -17,6 +23,108 @@ async function loadRanking() {
     }
 }
 
+async function loadSeasonInfo() {
+    try {
+        const response = await apiFetch(`${API_BASE_URL}/season/current`);
+        currentSeason = response.status === 204 ? null : await response.json();
+    } catch (error) {
+        console.error(error);
+        currentSeason = null;
+    }
+    renderSeasonBar();
+}
+
+function renderSeasonBar() {
+    const nameEl = document.getElementById('seasonName');
+    const actionsEl = document.getElementById('seasonAdminActions');
+    const startBtn = document.getElementById('startSeasonBtn');
+    const endBtn = document.getElementById('endSeasonBtn');
+    const isAdmin = typeof authIsAdmin === 'function' && authIsAdmin();
+
+    nameEl.innerHTML = currentSeason
+        ? `<a href="/season.html?id=${currentSeason.id}" style="color:inherit; text-decoration:none;">${escapeHtml(currentSeason.name)} — ${formatDate(currentSeason.startDate)} a ${formatDate(currentSeason.endDate)}</a>`
+        : 'Nenhuma temporada ativa &nbsp;·&nbsp; <a href="/season.html">Ver temporadas anteriores</a>';
+
+    if (isAdmin) {
+        actionsEl.style.display = '';
+        startBtn.style.display = currentSeason ? 'none' : '';
+        endBtn.style.display = currentSeason ? '' : 'none';
+    } else {
+        actionsEl.style.display = 'none';
+    }
+}
+
+async function startSeason() {
+    const today = new Date().toISOString().slice(0, 10);
+    const result = await Swal.fire({
+        title: 'Iniciar nova temporada',
+        html: `
+            <div class="text-start">
+                <label class="form-label d-block mt-2 mb-1">Nome da temporada</label>
+                <input id="swalSeasonName" class="swal2-input" placeholder="Ex.: Temporada 2026-2" style="margin:0;">
+                <label class="form-label d-block mt-3 mb-1">Data de início</label>
+                <input id="swalSeasonStart" type="date" class="swal2-input" value="${today}" style="margin:0;">
+                <label class="form-label d-block mt-3 mb-1">Data de término (define a duração)</label>
+                <input id="swalSeasonEnd" type="date" class="swal2-input" style="margin:0;">
+            </div>`,
+        showCancelButton: true,
+        confirmButtonText: 'Iniciar',
+        cancelButtonText: 'Cancelar',
+        reverseButtons: true,
+        focusConfirm: false,
+        preConfirm: () => {
+            const name = document.getElementById('swalSeasonName').value.trim();
+            const startDate = document.getElementById('swalSeasonStart').value;
+            const endDate = document.getElementById('swalSeasonEnd').value;
+            if (!name) { Swal.showValidationMessage('Informe o nome da temporada.'); return false; }
+            if (!startDate || !endDate) { Swal.showValidationMessage('Informe as duas datas.'); return false; }
+            if (endDate <= startDate) { Swal.showValidationMessage('A data de término precisa ser depois da data de início.'); return false; }
+            return { name, startDate, endDate };
+        },
+    });
+    if (!result.isConfirmed) return;
+
+    try {
+        await apiFetch(`${API_BASE_URL}/season`, { method: 'POST', body: JSON.stringify(result.value) });
+        notifySuccess('Temporada iniciada!');
+        loadSeasonInfo();
+    } catch (error) {
+        notifyError('Erro ao iniciar temporada: ' + error.message);
+    }
+}
+
+async function endSeason() {
+    if (!currentSeason) return;
+    const result = await confirmAction({
+        title: 'Encerrar temporada?',
+        text: `A pontuação atual de todos os jogadores será arquivada e o ranking da temporada "${currentSeason.name}" será zerado. Essa ação não pode ser desfeita.`,
+        confirmText: 'Sim, encerrar',
+        cancelText: 'Cancelar',
+        icon: 'warning',
+    });
+    if (!result.isConfirmed) return;
+
+    try {
+        await apiFetch(`${API_BASE_URL}/season/${currentSeason.id}/end`, { method: 'POST' });
+        notifySuccess('Temporada encerrada e ranking reiniciado.');
+        await loadSeasonInfo();
+        await loadRanking();
+    } catch (error) {
+        notifyError('Erro ao encerrar temporada: ' + error.message);
+    }
+}
+
+function setupViewModeToggle() {
+    document.querySelectorAll('#viewModeGroup button').forEach(btn => {
+        btn.addEventListener('click', () => {
+            viewMode = btn.dataset.mode;
+            document.querySelectorAll('#viewModeGroup button').forEach(b => b.classList.toggle('active', b === btn));
+            updateStats(allPlayersData);
+            renderTable();
+        });
+    });
+}
+
 function renderTable() {
     const tbody = document.getElementById('rankingTable');
     let list = [...allPlayersData];
@@ -27,7 +135,8 @@ function renderTable() {
 
     list.sort((a, b) => {
         const key = sortConfig.key;
-        let va = a[key], vb = b[key];
+        let va = key === 'score' ? scoreOf(a) : a[key];
+        let vb = key === 'score' ? scoreOf(b) : b[key];
         if (typeof va === 'string') va = va.toLowerCase();
         if (typeof vb === 'string') vb = vb.toLowerCase();
         if (va < vb) return sortConfig.direction === 'asc' ? -1 : 1;
@@ -50,8 +159,8 @@ function renderTable() {
         return;
     }
 
-    // Posição usa o ranking ORIGINAL (por score desc), não a ordem da tabela
-    const rankByScore = [...allPlayersData].sort((a, b) => b.score - a.score);
+    // Posição usa o ranking ORIGINAL (por pontuação desc do modo atual), não a ordem da tabela
+    const rankByScore = [...allPlayersData].sort((a, b) => scoreOf(b) - scoreOf(a));
     const positionMap = new Map(rankByScore.map((p, i) => [p.id, i + 1]));
 
     tbody.innerHTML = list.map(player => {
@@ -70,7 +179,7 @@ function renderTable() {
                         </div>
                     </a>
                 </td>
-                <td><span class="score-pill"><i class="bi bi-stars"></i> ${player.score} pts</span></td>
+                <td><span class="score-pill"><i class="bi bi-stars"></i> ${scoreOf(player)} pts</span></td>
                 <td style="text-align:right;">
                     ${typeof authIsAdmin === 'function' && authIsAdmin() ? `
                     <div class="d-inline-flex gap-1">
@@ -88,9 +197,9 @@ function renderTable() {
 
 function updateStats(players) {
     document.getElementById('statPlayers').textContent = players.length;
-    const total = players.reduce((acc, p) => acc + (p.score || 0), 0);
+    const total = players.reduce((acc, p) => acc + scoreOf(p), 0);
     document.getElementById('statTotalScore').textContent = total;
-    const sorted = [...players].sort((a, b) => b.score - a.score);
+    const sorted = [...players].sort((a, b) => scoreOf(b) - scoreOf(a));
     document.getElementById('statLeader').textContent = sorted.length ? sorted[0].name : '—';
 }
 
@@ -197,12 +306,12 @@ function exportRanking() {
         notifyWarning('Não há jogadores para exportar.');
         return;
     }
-    const sorted = [...allPlayersData].sort((a, b) => b.score - a.score);
+    const sorted = [...allPlayersData].sort((a, b) => scoreOf(b) - scoreOf(a));
     const rows = sorted.map((p, i) => ({
         Posicao: i + 1,
         ID: p.id,
         Nome: p.name,
-        Pontuacao: p.score,
+        Pontuacao: scoreOf(p),
     }));
     const today = new Date().toISOString().slice(0, 10);
     downloadCsv(`ranking-${today}.csv`, rows);
@@ -211,13 +320,17 @@ function exportRanking() {
 
 document.addEventListener('DOMContentLoaded', () => {
     loadRanking();
+    loadSeasonInfo();
     document.getElementById('addPlayerForm').addEventListener('submit', addPlayer);
     document.getElementById('exportCsvBtn').addEventListener('click', exportRanking);
     document.getElementById('rankingSearch').addEventListener('input', (e) => {
         searchTerm = e.target.value.trim();
         renderTable();
     });
+    document.getElementById('startSeasonBtn').addEventListener('click', startSeason);
+    document.getElementById('endSeasonBtn').addEventListener('click', endSeason);
     setupSort();
+    setupViewModeToggle();
     window.deletePlayer = deletePlayer;
     window.editPlayer = editPlayer;
 });

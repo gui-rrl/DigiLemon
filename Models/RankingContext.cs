@@ -16,6 +16,8 @@ namespace RankingDigi.Data
         public RankingContext(DbContextOptions<RankingContext> options) : base(options) { }
         public DbSet<TournamentPlayer> TournamentPlayers { get; set; }
         public DbSet<AppUser> AppUsers { get; set; }
+        public DbSet<Season> Seasons { get; set; }
+        public DbSet<PlayerSeasonScore> PlayerSeasonScores { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -84,6 +86,32 @@ namespace RankingDigi.Data
                 .IsUnique()
                 .HasFilter("[InviteCode] IS NOT NULL")
                 .HasDatabaseName("IX_Tournaments_InviteCode");
+
+            // Temporadas: snapshot de pontuação final por jogador
+            modelBuilder.Entity<PlayerSeasonScore>()
+                .HasOne<Season>()
+                .WithMany()
+                .HasForeignKey(s => s.SeasonId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<PlayerSeasonScore>()
+                .HasOne<Player>()
+                .WithMany()
+                .HasForeignKey(s => s.PlayerId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<PlayerSeasonScore>()
+                .HasIndex(s => new { s.SeasonId, s.PlayerId })
+                .IsUnique()
+                .HasDatabaseName("IX_PlayerSeasonScores_SeasonId_PlayerId");
+
+            // Match → Season (opcional; não bloqueia exclusão de temporada)
+            modelBuilder.Entity<Match>()
+                .HasOne<Season>()
+                .WithMany()
+                .HasForeignKey(m => m.SeasonId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.SetNull);
         }
     }
 }

@@ -1,6 +1,6 @@
 /* ========== Página de Partidas ========== */
 
-let currentFilters = { playerId: '', startDate: '', endDate: '', deck: '' };
+let currentFilters = { playerId: '', startDate: '', endDate: '', deck: '', seasonId: '' };
 let playersMap = new Map();
 let lastLoadedMatches = [];
 
@@ -12,6 +12,21 @@ async function loadPlayersForFilter() {
         filterSelect.innerHTML = '<option value="">Todos</option>';
         players.forEach(p => {
             filterSelect.innerHTML += `<option value="${p.id}">${escapeHtml(p.name)}</option>`;
+        });
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+async function loadSeasonsForFilter() {
+    try {
+        const response = await apiFetch(`${API_BASE_URL}/season`);
+        const seasons = await response.json();
+        const filterSelect = document.getElementById('filterSeason');
+        filterSelect.innerHTML = '<option value="">Todas</option>';
+        seasons.forEach(s => {
+            const label = `${s.name}${s.isActive ? ' (atual)' : ''}`;
+            filterSelect.innerHTML += `<option value="${s.id}">${escapeHtml(label)}</option>`;
         });
     } catch (error) {
         console.error(error);
@@ -36,14 +51,23 @@ async function loadPlayers() {
     }
 }
 
+function isAdminUser() {
+    const user = typeof authUser === 'function' ? authUser() : null;
+    return user?.role === 'Admin';
+}
+
 async function loadMatches() {
     const tbody = document.getElementById('matchesTable');
+    const isAdmin = isAdminUser();
+    document.getElementById('actionsHeader').style.display = isAdmin ? '' : 'none';
+    const colCount = isAdmin ? 7 : 6;
     try {
         const params = new URLSearchParams();
         if (currentFilters.playerId) params.append('playerId', currentFilters.playerId);
         if (currentFilters.startDate) params.append('startDate', currentFilters.startDate);
         if (currentFilters.endDate) params.append('endDate', currentFilters.endDate);
         if (currentFilters.deck) params.append('deck', currentFilters.deck);
+        if (currentFilters.seasonId) params.append('seasonId', currentFilters.seasonId);
 
         const url = `${API_BASE_URL}/matches${params.toString() ? '?' + params.toString() : ''}`;
         const response = await apiFetch(url);
@@ -53,7 +77,7 @@ async function loadMatches() {
         if (!matches.length) {
             tbody.innerHTML = `
                 <tr class="empty-row">
-                    <td colspan="6">
+                    <td colspan="${colCount}">
                         <div class="empty-state">
                             <div class="icon"><i class="bi bi-inbox"></i></div>
                             <div class="title">Nenhuma partida encontrada</div>
@@ -97,11 +121,36 @@ async function loadMatches() {
                     <td>${match.deck2 ? `<span style="font-size:0.78rem; padding:0.25rem 0.55rem; background: rgba(var(--surface-rgb),0.06); border-radius:6px;"><i class="bi bi-layers"></i> ${escapeHtml(match.deck2)}</span>` : '<span class="text-muted-2">-</span>'}</td>
                     <td>${resultHtml}</td>
                     <td><span class="text-muted-2" style="font-size:0.85rem;">${formatDateTime(match.date)}</span></td>
+                    ${isAdmin ? `
+                    <td style="text-align: right;">
+                        <button class="btn btn-ghost btn-sm" onclick="deleteMatch(${match.id})" title="Excluir partida">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>` : ''}
                 </tr>`;
         }).join('');
     } catch (error) {
         console.error(error);
-        tbody.innerHTML = `<tr class="empty-row"><td colspan="6"><div class="empty-state"><div class="icon"><i class="bi bi-exclamation-octagon"></i></div><div class="title">Erro ao carregar histórico</div><div>${escapeHtml(error.message)}</div></div></td></tr>`;
+        tbody.innerHTML = `<tr class="empty-row"><td colspan="${colCount}"><div class="empty-state"><div class="icon"><i class="bi bi-exclamation-octagon"></i></div><div class="title">Erro ao carregar histórico</div><div>${escapeHtml(error.message)}</div></div></td></tr>`;
+    }
+}
+
+async function deleteMatch(id) {
+    const result = await confirmAction({
+        title: 'Excluir partida?',
+        text: 'A partida será removida permanentemente e os pontos concedidos por ela serão revertidos no ranking.',
+        confirmText: 'Sim, excluir',
+        cancelText: 'Cancelar',
+        icon: 'warning',
+    });
+    if (!result.isConfirmed) return;
+
+    try {
+        await apiFetch(`${API_BASE_URL}/matches/${id}`, { method: 'DELETE' });
+        notifySuccess('Partida excluída e pontuação revertida.');
+        loadMatches();
+    } catch (error) {
+        notifyError('Erro ao excluir partida: ' + error.message);
     }
 }
 
@@ -190,6 +239,7 @@ function applyFilters() {
     currentFilters.startDate = document.getElementById('filterStartDate').value;
     currentFilters.endDate = document.getElementById('filterEndDate').value;
     currentFilters.deck = document.getElementById('filterDeck').value.trim();
+    currentFilters.seasonId = document.getElementById('filterSeason').value;
     loadMatches();
 }
 
@@ -198,7 +248,8 @@ function clearFilters() {
     document.getElementById('filterStartDate').value = '';
     document.getElementById('filterEndDate').value = '';
     document.getElementById('filterDeck').value = '';
-    currentFilters = { playerId: '', startDate: '', endDate: '', deck: '' };
+    document.getElementById('filterSeason').value = '';
+    currentFilters = { playerId: '', startDate: '', endDate: '', deck: '', seasonId: '' };
     loadMatches();
 }
 
@@ -228,7 +279,7 @@ function exportMatches() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-    await Promise.all([loadPlayers(), loadPlayersForFilter()]);
+    await Promise.all([loadPlayers(), loadPlayersForFilter(), loadSeasonsForFilter()]);
     await loadMatches();
     document.getElementById('player1').addEventListener('change', () => suggestDeckForPlayer('player1', 'deck1'));
     document.getElementById('player2').addEventListener('change', () => suggestDeckForPlayer('player2', 'deck2'));

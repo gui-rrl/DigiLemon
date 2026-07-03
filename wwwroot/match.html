@@ -88,6 +88,12 @@
                         <label for="filterDeck" class="form-label">Deck</label>
                         <input type="text" id="filterDeck" class="form-control" placeholder="Nome do deck">
                     </div>
+                    <div class="col-md-3">
+                        <label for="filterSeason" class="form-label">Temporada</label>
+                        <select id="filterSeason" class="form-select">
+                            <option value="">Todas</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="d-flex gap-2 mt-3">
                     <button class="btn btn-primary" onclick="applyFilters()"><i class="bi bi-search"></i> Aplicar</button>
@@ -114,6 +120,7 @@
                                 <th>Deck J2</th>
                                 <th>Resultado</th>
                                 <th style="width: 170px;">Data</th>
+                                <th id="actionsHeader" style="width: 80px; text-align: right; display: none;">Ações</th>
                             </tr>
                         </thead>
                         <tbody id="matchesTable">

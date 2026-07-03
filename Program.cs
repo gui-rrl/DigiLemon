@@ -91,6 +91,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddScoped<TournamentService>();
 builder.Services.AddScoped<SwissService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddHostedService<SeasonAutoEndService>();
 
 var app = builder.Build();
 

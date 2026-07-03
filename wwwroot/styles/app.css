@@ -426,6 +426,12 @@ input[type="date"] {
         color: var(--text-1);
     }
 
+    .btn-ghost.active {
+        background: var(--gradient-primary);
+        color: #fff;
+        border-color: transparent;
+    }
+
 /* ---------- Tabelas ---------- */
 
 .table-app {
