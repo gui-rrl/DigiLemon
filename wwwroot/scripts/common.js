@@ -222,7 +222,7 @@ function renderNavbar(activeName) {
           ${adminLinks}
           ${sharedLinks}
         </ul>
-        <div class="d-flex align-items-center gap-2 ms-3">
+        <div class="d-flex align-items-center gap-2 ms-3 navbar-actions">
           ${themeToggle}
           ${userArea}
         </div>
