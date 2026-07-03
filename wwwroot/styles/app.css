@@ -42,6 +42,13 @@
     --btn-close-invert: 1;
     --color-scheme: dark;
 
+    /* Texto de "pills" (score/status/resultado) — tons claros, feitos para fundo escuro */
+    --pill-indigo-text: #cfd1ff;
+    --pill-amber-text: #ffd28a;
+    --pill-teal-text: #7fffdd;
+    --pill-slate-text: #b9c0d9;
+    --pill-red-text: #ffb3bf;
+
     --radius-sm: 8px;
     --radius: 14px;
     --radius-lg: 20px;
@@ -80,6 +87,13 @@
     --tooltip-bg: rgba(18, 22, 43, 0.92);
     --btn-close-invert: 0;
     --color-scheme: light;
+
+    /* Texto de "pills" — versões escurecidas para contraste sobre fundo claro */
+    --pill-indigo-text: #4338ca;
+    --pill-amber-text: #8a5a00;
+    --pill-teal-text: #0f766e;
+    --pill-slate-text: #454e6e;
+    --pill-red-text: #b91c1c;
 
     --shadow-sm: 0 2px 6px rgba(16, 21, 42, 0.07);
     --shadow: 0 10px 30px rgba(16, 21, 42, 0.09);
@@ -506,7 +520,7 @@ input[type="date"] {
     border-radius: 999px;
     background: rgba(109, 111, 255, 0.18);
     border: 1px solid rgba(109, 111, 255, 0.35);
-    color: #cfd1ff;
+    color: var(--pill-indigo-text);
     font-weight: 600;
     font-size: 0.85rem;
 }
@@ -560,9 +574,9 @@ input[type="date"] {
         box-shadow: 0 0 8px currentColor;
     }
 
-    .status-pill.prep { background: rgba(255, 181, 71, 0.15); border-color: rgba(255, 181, 71, 0.35); color: #ffd28a; }
-    .status-pill.live { background: rgba(22, 224, 189, 0.15); border-color: rgba(22, 224, 189, 0.35); color: #7fffdd; }
-    .status-pill.done { background: rgba(124, 132, 163, 0.18); border-color: rgba(124, 132, 163, 0.35); color: #b9c0d9; }
+    .status-pill.prep { background: rgba(255, 181, 71, 0.15); border-color: rgba(255, 181, 71, 0.35); color: var(--pill-amber-text); }
+    .status-pill.live { background: rgba(22, 224, 189, 0.15); border-color: rgba(22, 224, 189, 0.35); color: var(--pill-teal-text); }
+    .status-pill.done { background: rgba(124, 132, 163, 0.18); border-color: rgba(124, 132, 163, 0.35); color: var(--pill-slate-text); }
 
 /* ---------- Modal (Bootstrap) ---------- */
 
@@ -862,19 +876,19 @@ a {
     .match-pill.win {
         background: rgba(22, 224, 189, 0.15);
         border: 1px solid rgba(22, 224, 189, 0.35);
-        color: #7fffdd;
+        color: var(--pill-teal-text);
     }
 
     .match-pill.loss {
         background: rgba(255, 93, 115, 0.12);
         border: 1px solid rgba(255, 93, 115, 0.35);
-        color: #ffb3bf;
+        color: var(--pill-red-text);
     }
 
     .match-pill.draw {
         background: rgba(255, 181, 71, 0.15);
         border: 1px solid rgba(255, 181, 71, 0.35);
-        color: #ffd28a;
+        color: var(--pill-amber-text);
     }
 
 .timeline-row {
@@ -1057,7 +1071,7 @@ a {
         color: var(--text-2);
     }
 
-    .standings-table .pos-badge.gold   { background: rgba(255,181,71,0.2);  color: var(--warning); }
+    .standings-table .pos-badge.gold   { background: rgba(255,181,71,0.2);  color: var(--pill-amber-text); }
     .standings-table .pos-badge.silver { background: rgba(185,192,217,0.15); color: var(--text-2); }
     .standings-table .pos-badge.bronze { background: rgba(205,127,50,0.15);  color: #cd7f32; }
 
