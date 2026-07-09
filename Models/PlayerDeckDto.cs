@@ -2,4 +2,5 @@
 {
     public int PlayerId { get; set; }
     public string ?Deck { get; set; }
+    public int? DeckId { get; set; }
 }

@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using RankingDigi.Data;
 
@@ -11,9 +12,11 @@ using RankingDigi.Data;
 namespace RankingDigi.Migrations
 {
     [DbContext(typeof(RankingContext))]
-    partial class RankingContextModelSnapshot : ModelSnapshot
+    [Migration("20260709131723_LinkDeckToMatchesAndTournaments")]
+    partial class LinkDeckToMatchesAndTournaments
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -186,9 +189,6 @@ namespace RankingDigi.Migrations
 
                     b.Property<string>("Stage")
                         .HasColumnType("nvarchar(max)");
-
-                    b.Property<int?>("TcgplayerId")
-                        .HasColumnType("int");
 
                     b.Property<string>("Type")
                         .IsRequired()

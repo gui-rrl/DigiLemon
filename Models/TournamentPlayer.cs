@@ -16,6 +16,7 @@ namespace RankingDigi.Models
         public string? GuestName { get; set; }
 
         public string? Deck { get; set; }
+        public int? DeckId { get; set; } // deck salvo do jogador (opcional; nulo para convidados sem conta)
 
         // Swiss standings
         public int SwissPoints { get; set; } = 0;

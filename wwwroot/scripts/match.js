@@ -183,6 +183,33 @@ function applyDeckSuggestionIfEmpty(deckInputId) {
     }
 }
 
+async function loadSavedDecksForPlayer(playerSelectId, savedSelectId) {
+    const playerId = document.getElementById(playerSelectId).value;
+    const savedSelect = document.getElementById(savedSelectId);
+    savedSelect.innerHTML = '<option value="">Digitar manualmente…</option>';
+    if (!playerId) return;
+    try {
+        const response = await apiFetch(`${API_BASE_URL}/deck?playerId=${playerId}`);
+        const decks = await response.json();
+        decks.forEach(d => {
+            savedSelect.innerHTML += `<option value="${d.id}" data-name="${escapeHtml(d.name)}">${escapeHtml(d.name)} (${d.cardCount} cartas)</option>`;
+        });
+    } catch (_) { /* ignora silenciosamente */ }
+}
+
+function onSavedDeckChange(savedSelectId, deckInputId) {
+    const savedSelect = document.getElementById(savedSelectId);
+    const input = document.getElementById(deckInputId);
+    const selectedOption = savedSelect.options[savedSelect.selectedIndex];
+    if (savedSelect.value) {
+        input.value = selectedOption.dataset.name;
+        input.disabled = true;
+    } else {
+        input.value = '';
+        input.disabled = false;
+    }
+}
+
 async function registerMatch(winnerCode) {
     const player1Id = document.getElementById('player1').value;
     const player2Id = document.getElementById('player2').value;
@@ -210,12 +237,17 @@ async function registerMatch(winnerCode) {
     else if (winnerCode === 1) winnerId = parseInt(player1Id);
     else winnerId = parseInt(player2Id);
 
+    const deck1Id = document.getElementById('deck1Saved').value;
+    const deck2Id = document.getElementById('deck2Saved').value;
+
     const matchData = {
         player1Id: parseInt(player1Id),
         player2Id: parseInt(player2Id),
         winnerId,
         deck1,
         deck2,
+        deck1Id: deck1Id ? parseInt(deck1Id) : null,
+        deck2Id: deck2Id ? parseInt(deck2Id) : null,
         date: new Date().toISOString(),
     };
 
@@ -227,6 +259,10 @@ async function registerMatch(winnerCode) {
         notifySuccess('Partida registrada!');
         document.getElementById('deck1').value = '';
         document.getElementById('deck2').value = '';
+        document.getElementById('deck1').disabled = false;
+        document.getElementById('deck2').disabled = false;
+        document.getElementById('deck1Saved').value = '';
+        document.getElementById('deck2Saved').value = '';
         loadMatches();
         loadPlayers();
     } catch (error) {
@@ -281,8 +317,16 @@ function exportMatches() {
 document.addEventListener('DOMContentLoaded', async () => {
     await Promise.all([loadPlayers(), loadPlayersForFilter(), loadSeasonsForFilter()]);
     await loadMatches();
-    document.getElementById('player1').addEventListener('change', () => suggestDeckForPlayer('player1', 'deck1'));
-    document.getElementById('player2').addEventListener('change', () => suggestDeckForPlayer('player2', 'deck2'));
+    document.getElementById('player1').addEventListener('change', () => {
+        suggestDeckForPlayer('player1', 'deck1');
+        loadSavedDecksForPlayer('player1', 'deck1Saved');
+    });
+    document.getElementById('player2').addEventListener('change', () => {
+        suggestDeckForPlayer('player2', 'deck2');
+        loadSavedDecksForPlayer('player2', 'deck2Saved');
+    });
+    document.getElementById('deck1Saved').addEventListener('change', () => onSavedDeckChange('deck1Saved', 'deck1'));
+    document.getElementById('deck2Saved').addEventListener('change', () => onSavedDeckChange('deck2Saved', 'deck2'));
     document.getElementById('exportMatchesBtn').addEventListener('click', exportMatches);
     window.registerMatch = registerMatch;
     window.applyFilters = applyFilters;

@@ -18,6 +18,11 @@ namespace RankingDigi.Data
         public DbSet<AppUser> AppUsers { get; set; }
         public DbSet<Season> Seasons { get; set; }
         public DbSet<PlayerSeasonScore> PlayerSeasonScores { get; set; }
+        public DbSet<Card> Cards { get; set; }
+        public DbSet<CardRestriction> CardRestrictions { get; set; }
+        public DbSet<BannedPair> BannedPairs { get; set; }
+        public DbSet<Deck> Decks { get; set; }
+        public DbSet<DeckCard> DeckCards { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -112,6 +117,64 @@ namespace RankingDigi.Data
                 .HasForeignKey(m => m.SeasonId)
                 .IsRequired(false)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            // Decks: cartas — número da carta como chave natural
+            modelBuilder.Entity<Card>()
+                .HasIndex(c => c.CardNumber)
+                .IsUnique()
+                .HasDatabaseName("IX_Cards_CardNumber");
+
+            modelBuilder.Entity<Deck>()
+                .HasOne<Player>()
+                .WithMany()
+                .HasForeignKey(d => d.PlayerId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<DeckCard>()
+                .HasOne<Deck>()
+                .WithMany()
+                .HasForeignKey(dc => dc.DeckId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<DeckCard>()
+                .HasOne<Card>()
+                .WithMany()
+                .HasForeignKey(dc => dc.CardNumber)
+                .HasPrincipalKey(c => c.CardNumber)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<DeckCard>()
+                .HasIndex(dc => new { dc.DeckId, dc.CardNumber, dc.IsDigiEgg })
+                .IsUnique()
+                .HasDatabaseName("IX_DeckCards_DeckId_CardNumber_IsDigiEgg");
+
+            modelBuilder.Entity<CardRestriction>()
+                .HasIndex(r => r.CardNumber)
+                .IsUnique()
+                .HasDatabaseName("IX_CardRestrictions_CardNumber");
+
+            // Vínculo de deck salvo em partidas e participações de torneio (opcional).
+            // Restrict: um deck já usado não pode ser excluído (preserva a decklist para checagem).
+            modelBuilder.Entity<Match>()
+                .HasOne<Deck>()
+                .WithMany()
+                .HasForeignKey(m => m.Deck1Id)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Match>()
+                .HasOne<Deck>()
+                .WithMany()
+                .HasForeignKey(m => m.Deck2Id)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<TournamentPlayer>()
+                .HasOne<Deck>()
+                .WithMany()
+                .HasForeignKey(tp => tp.DeckId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Restrict);
         }
     }
 }

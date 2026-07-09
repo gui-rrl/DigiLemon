@@ -92,6 +92,8 @@ builder.Services.AddScoped<TournamentService>();
 builder.Services.AddScoped<SwissService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddHostedService<SeasonAutoEndService>();
+builder.Services.AddHttpClient();
+builder.Services.AddScoped<CardSyncService>();
 
 var app = builder.Build();
 

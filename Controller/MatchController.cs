@@ -27,14 +27,30 @@ namespace RankingDigi.Controller
             if (match.Player1Id == match.Player2Id)
                 return BadRequest(new { error = "Os jogadores precisam ser diferentes." });
 
-            if (string.IsNullOrWhiteSpace(match.Deck1) || string.IsNullOrWhiteSpace(match.Deck2))
-                return BadRequest(new { error = "Informe os decks de ambos os jogadores." });
-
             var player1 = await _context.Players.FindAsync(match.Player1Id);
             var player2 = await _context.Players.FindAsync(match.Player2Id);
 
             if (player1 == null || player2 == null)
                 return BadRequest(new { error = "Um dos jogadores não foi encontrado." });
+
+            // Se um deck salvo foi informado, valida o dono e usa o nome dele como texto de exibição
+            if (match.Deck1Id.HasValue)
+            {
+                var deck1 = await _context.Decks.FindAsync(match.Deck1Id.Value);
+                if (deck1 == null) return BadRequest(new { error = "Deck do jogador 1 não encontrado." });
+                if (deck1.PlayerId != match.Player1Id) return BadRequest(new { error = "O deck selecionado não pertence ao jogador 1." });
+                match.Deck1 = deck1.Name;
+            }
+            if (match.Deck2Id.HasValue)
+            {
+                var deck2 = await _context.Decks.FindAsync(match.Deck2Id.Value);
+                if (deck2 == null) return BadRequest(new { error = "Deck do jogador 2 não encontrado." });
+                if (deck2.PlayerId != match.Player2Id) return BadRequest(new { error = "O deck selecionado não pertence ao jogador 2." });
+                match.Deck2 = deck2.Name;
+            }
+
+            if (string.IsNullOrWhiteSpace(match.Deck1) || string.IsNullOrWhiteSpace(match.Deck2))
+                return BadRequest(new { error = "Informe os decks de ambos os jogadores." });
 
             // Empate ou vitória precisa ser id válido (0 = empate, ou um dos dois jogadores)
             if (match.WinnerId != 0 && match.WinnerId != player1.Id && match.WinnerId != player2.Id)

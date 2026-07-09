@@ -190,7 +190,10 @@ function renderProfile(data) {
         <section class="row g-3 mb-4">
             <div class="col-lg-7">
                 <div class="card-app h-100">
-                    <div class="card-header"><i class="bi bi-layers"></i> Decks utilizados</div>
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-layers"></i> Decks utilizados</span>
+                        ${isOwnProfile ? `<a href="/decks.html?playerId=${player.id}" class="btn btn-ghost btn-sm"><i class="bi bi-tools"></i> Meus decks</a>` : ''}
+                    </div>
                     <div class="card-body">
                         ${renderDecksSection(decks)}
                     </div>

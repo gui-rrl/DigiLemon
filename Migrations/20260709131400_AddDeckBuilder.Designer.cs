@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using RankingDigi.Data;
 
@@ -11,9 +12,11 @@ using RankingDigi.Data;
 namespace RankingDigi.Migrations
 {
     [DbContext(typeof(RankingContext))]
-    partial class RankingContextModelSnapshot : ModelSnapshot
+    [Migration("20260709131400_AddDeckBuilder")]
+    partial class AddDeckBuilder
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -187,9 +190,6 @@ namespace RankingDigi.Migrations
                     b.Property<string>("Stage")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int?>("TcgplayerId")
-                        .HasColumnType("int");
-
                     b.Property<string>("Type")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -304,14 +304,8 @@ namespace RankingDigi.Migrations
                     b.Property<string>("Deck1")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int?>("Deck1Id")
-                        .HasColumnType("int");
-
                     b.Property<string>("Deck2")
                         .HasColumnType("nvarchar(max)");
-
-                    b.Property<int?>("Deck2Id")
-                        .HasColumnType("int");
 
                     b.Property<int>("Player1Id")
                         .HasColumnType("int");
@@ -329,10 +323,6 @@ namespace RankingDigi.Migrations
 
                     b.HasIndex("Date")
                         .HasDatabaseName("IX_Matches_Date");
-
-                    b.HasIndex("Deck1Id");
-
-                    b.HasIndex("Deck2Id");
 
                     b.HasIndex("Player1Id")
                         .HasDatabaseName("IX_Matches_Player1Id");
@@ -551,9 +541,6 @@ namespace RankingDigi.Migrations
                     b.Property<string>("Deck")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int?>("DeckId")
-                        .HasColumnType("int");
-
                     b.Property<string>("GuestName")
                         .HasColumnType("nvarchar(max)");
 
@@ -576,8 +563,6 @@ namespace RankingDigi.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("DeckId");
 
                     b.HasIndex("PlayerId");
 
@@ -634,16 +619,6 @@ namespace RankingDigi.Migrations
 
             modelBuilder.Entity("RankingDigi.Models.Match", b =>
                 {
-                    b.HasOne("RankingDigi.Models.Deck", null)
-                        .WithMany()
-                        .HasForeignKey("Deck1Id")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("RankingDigi.Models.Deck", null)
-                        .WithMany()
-                        .HasForeignKey("Deck2Id")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.HasOne("RankingDigi.Models.Season", null)
                         .WithMany()
                         .HasForeignKey("SeasonId")
@@ -688,11 +663,6 @@ namespace RankingDigi.Migrations
 
             modelBuilder.Entity("RankingDigi.Models.TournamentPlayer", b =>
                 {
-                    b.HasOne("RankingDigi.Models.Deck", null)
-                        .WithMany()
-                        .HasForeignKey("DeckId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.HasOne("RankingDigi.Models.Player", "Player")
                         .WithMany()
                         .HasForeignKey("PlayerId")

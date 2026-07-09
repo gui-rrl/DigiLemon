@@ -138,6 +138,9 @@ function addPlayerRow() {
             </div>
             <div class="col-md-5">
                 <label class="form-label">Deck</label>
+                <select class="form-select deck-saved-select mb-2">
+                    <option value="">Digitar manualmente…</option>
+                </select>
                 <input type="text" class="form-control deck-input" placeholder="Nome do Deck" required>
             </div>
             <div class="col-md-1 d-grid">
@@ -148,12 +151,43 @@ function addPlayerRow() {
         </div>`;
     container.appendChild(row);
 
-    row.querySelector('.player-select').addEventListener('change', refreshAllSelects);
+    row.querySelector('.player-select').addEventListener('change', () => {
+        refreshAllSelects();
+        loadSavedDecksForRow(row);
+    });
+    row.querySelector('.deck-saved-select').addEventListener('change', () => {
+        const savedSelect = row.querySelector('.deck-saved-select');
+        const input = row.querySelector('.deck-input');
+        const selectedOption = savedSelect.options[savedSelect.selectedIndex];
+        if (savedSelect.value) {
+            input.value = selectedOption.dataset.name;
+            input.disabled = true;
+        } else {
+            input.value = '';
+            input.disabled = false;
+        }
+    });
     row.querySelector('.remove-row').addEventListener('click', () => {
         row.remove();
         refreshAllSelects();
     });
     updatePlayerCount();
+}
+
+async function loadSavedDecksForRow(row) {
+    const playerId = row.querySelector('.player-select').value;
+    const savedSelect = row.querySelector('.deck-saved-select');
+    const input = row.querySelector('.deck-input');
+    savedSelect.innerHTML = '<option value="">Digitar manualmente…</option>';
+    input.disabled = false;
+    if (!playerId) return;
+    try {
+        const response = await apiFetch(`${API_BASE_URL}/deck?playerId=${playerId}`);
+        const decks = await response.json();
+        decks.forEach(d => {
+            savedSelect.innerHTML += `<option value="${d.id}" data-name="${escapeHtml(d.name)}">${escapeHtml(d.name)} (${d.cardCount} cartas)</option>`;
+        });
+    } catch (_) { /* ignora silenciosamente */ }
 }
 
 document.getElementById('addPlayerBtn').addEventListener('click', addPlayerRow);
@@ -198,6 +232,7 @@ document.getElementById('createTournamentForm').addEventListener('submit', async
     for (const row of rows) {
         const playerId = row.querySelector('.player-select').value;
         const deck = row.querySelector('.deck-input').value.trim();
+        const deckIdValue = row.querySelector('.deck-saved-select').value;
         if (!playerId && !deck) continue;
         if (!playerId || !deck) { hasIncomplete = true; continue; }
         if (seenIds.has(playerId)) {
@@ -206,7 +241,7 @@ document.getElementById('createTournamentForm').addEventListener('submit', async
             return;
         }
         seenIds.add(playerId);
-        players.push({ playerId: parseInt(playerId), deck });
+        players.push({ playerId: parseInt(playerId), deck, deckId: deckIdValue ? parseInt(deckIdValue) : null });
     }
 
     if (hasIncomplete) {

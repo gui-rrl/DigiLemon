@@ -9,6 +9,8 @@
         public DateTime Date { get; set; }
         public string ?Deck1 { get; set; }
         public string ?Deck2 { get; set; }
+        public int? Deck1Id { get; set; } // deck salvo do jogador 1 (opcional)
+        public int? Deck2Id { get; set; } // deck salvo do jogador 2 (opcional)
         public int? SeasonId { get; set; } // temporada vigente no momento do registro (nula para partidas antigas)
     }
 }

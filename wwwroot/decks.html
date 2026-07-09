@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+<script>(function(){var t=localStorage.getItem("rankingdigi-theme")||(matchMedia("(prefers-color-scheme: light)").matches?"light":"dark");document.documentElement.setAttribute("data-theme",t);})();</script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meus Decks — RankingDigi</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/styles/app.css">
+    <link rel="stylesheet" href="/styles/deckbuilder.css">
+</head>
+<body data-page="ranking">
+    <main class="container-fluid py-4">
+        <header class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+            <div>
+                <h1 class="page-title">
+                    <span class="icon-badge"><i class="bi bi-layers-fill"></i></span>
+                    Meus Decks
+                </h1>
+                <p class="page-subtitle mt-2" id="pageSubtitle">Carregando…</p>
+            </div>
+            <a href="#" id="backLink" class="btn btn-secondary"><i class="bi bi-arrow-left"></i> Voltar ao perfil</a>
+        </header>
+
+        <!-- ===== Lista de decks ===== -->
+        <section id="deckListView">
+            <div class="d-flex justify-content-end mb-3">
+                <button class="btn btn-primary" id="newDeckBtn"><i class="bi bi-plus-circle"></i> Criar novo deck</button>
+            </div>
+            <div class="row g-3" id="deckListGrid"></div>
+        </section>
+
+        <!-- ===== Construtor de deck ===== -->
+        <section id="deckBuilderView" style="display:none;">
+            <div class="card-app mb-3">
+                <div class="card-body d-flex flex-wrap align-items-center gap-3">
+                    <div class="flex-grow-1" style="min-width:220px;">
+                        <label class="form-label">Nome do deck</label>
+                        <input type="text" id="deckNameInput" class="form-control" placeholder="Ex.: Red Aggro">
+                    </div>
+                    <div class="d-flex gap-3">
+                        <div class="deck-counter" id="mainCounter">Principal: 0/50</div>
+                        <div class="deck-counter" id="digiEggCounter">Digi-Egg: 0/5</div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-secondary" id="cancelBuilderBtn"><i class="bi bi-x-circle"></i> Cancelar</button>
+                        <button class="btn btn-success" id="saveDeckBtn"><i class="bi bi-check2-circle"></i> Salvar deck</button>
+                    </div>
+                </div>
+                <div class="card-body pt-0" id="deckErrors" style="display:none;"></div>
+            </div>
+
+            <div class="row g-3">
+                <div class="col-6">
+                    <section class="card-app h-100">
+                        <div class="card-header"><i class="bi bi-search"></i> Buscar cartas</div>
+                        <div class="card-body">
+                            <div class="row g-2 mb-2">
+                                <div class="col-12">
+                                    <input type="search" id="cardSearchInput" class="form-control" placeholder="Nome ou número da carta…">
+                                </div>
+                            </div>
+                            <div class="row g-2 mb-3">
+                                <div class="col-6 col-md-4">
+                                    <select id="cardColorFilter" class="form-select">
+                                        <option value="">Cor</option>
+                                        <option value="Red">Vermelho</option>
+                                        <option value="Blue">Azul</option>
+                                        <option value="Yellow">Amarelo</option>
+                                        <option value="Green">Verde</option>
+                                        <option value="Black">Preto</option>
+                                        <option value="Purple">Roxo</option>
+                                        <option value="White">Branco</option>
+                                        <option value="Colorless">Incolor</option>
+                                    </select>
+                                </div>
+                                <div class="col-6 col-md-4">
+                                    <select id="cardTypeFilter" class="form-select">
+                                        <option value="">Tipo</option>
+                                        <option value="Digimon">Digimon</option>
+                                        <option value="Tamer">Tamer</option>
+                                        <option value="Option">Option</option>
+                                        <option value="Digi-Egg">Digi-Egg</option>
+                                    </select>
+                                </div>
+                                <div class="col-6 col-md-4">
+                                    <select id="cardSetFilter" class="form-select">
+                                        <option value="">Coleção</option>
+                                    </select>
+                                </div>
+                                <div class="col-6 col-md-4">
+                                    <select id="cardCostFilter" class="form-select">
+                                        <option value="">Custo</option>
+                                    </select>
+                                </div>
+                                <div class="col-6 col-md-4">
+                                    <select id="cardLevelFilter" class="form-select">
+                                        <option value="">Nível</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div id="cardResults" class="card-result-list"></div>
+                            <div class="text-center mt-2">
+                                <button class="btn btn-ghost btn-sm" id="loadMoreBtn" style="display:none;">Carregar mais</button>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+                <div class="col-6">
+                    <section class="card-app h-100">
+                        <div class="card-header"><i class="bi bi-list-ul"></i> Cartas no deck</div>
+                        <div class="card-body">
+                            <h3 class="deck-zone-title">Deck principal <span class="text-muted-2" id="mainZoneCount">(0/50)</span></h3>
+                            <div id="mainZoneList" class="deck-card-list"></div>
+
+                            <h3 class="deck-zone-title mt-4">Digi-Egg <span class="text-muted-2" id="digiEggZoneCount">(0/5)</span></h3>
+                            <div id="digiEggZoneList" class="deck-card-list"></div>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="/scripts/auth.js"></script>
+    <script src="/scripts/common.js"></script>
+    <script src="/scripts/theme.js"></script>
+    <script src="/scripts/decks.js"></script>
+</body>
+</html>

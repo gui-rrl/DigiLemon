@@ -203,12 +203,24 @@ public class TournamentController : ControllerBase
 
         if (players.Count > 0)
         {
-            var tournamentPlayers = players.Select(p => new TournamentPlayer
+            var tournamentPlayers = new List<TournamentPlayer>();
+            foreach (var p in players)
             {
-                TournamentId = tournament.Id,
-                PlayerId = p.PlayerId,
-                Deck = p.Deck
-            }).ToList();
+                var deckName = p.Deck;
+                if (p.DeckId.HasValue)
+                {
+                    var savedDeck = await _context.Decks.FindAsync(p.DeckId.Value);
+                    if (savedDeck != null && savedDeck.PlayerId == p.PlayerId)
+                        deckName = savedDeck.Name;
+                }
+                tournamentPlayers.Add(new TournamentPlayer
+                {
+                    TournamentId = tournament.Id,
+                    PlayerId = p.PlayerId,
+                    Deck = deckName,
+                    DeckId = p.DeckId,
+                });
+            }
             _context.TournamentPlayers.AddRange(tournamentPlayers);
             await _context.SaveChangesAsync();
         }

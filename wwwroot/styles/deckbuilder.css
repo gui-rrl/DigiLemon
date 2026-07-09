@@ -1,0 +1,209 @@
+/* ==========================================================================
+   Deck Builder — montagem de decks do Digimon Card Game
+   ========================================================================== */
+
+.deck-counter {
+    padding: 0.4rem 0.85rem;
+    border-radius: 999px;
+    background: var(--surface-strong);
+    border: 1px solid var(--border);
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--text-2);
+    white-space: nowrap;
+}
+
+    .deck-counter.valid {
+        background: rgba(74, 222, 128, 0.15);
+        border-color: rgba(74, 222, 128, 0.4);
+        color: var(--success);
+    }
+
+    .deck-counter.invalid {
+        background: rgba(255, 93, 115, 0.12);
+        border-color: rgba(255, 93, 115, 0.35);
+        color: var(--danger);
+    }
+
+.deck-zone-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text-1);
+    margin-bottom: 0.6rem;
+}
+
+.card-result-list,
+.deck-card-list {
+    max-height: 60vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.deck-card-list:empty::before,
+.card-result-list:empty::before {
+    content: "Nada por aqui ainda.";
+    color: var(--text-3);
+    font-size: 0.85rem;
+    padding: 1rem 0;
+}
+
+.card-row {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    gap: 0.75rem;
+    padding: 0.75rem 0.75rem 0.75rem calc(0.75rem + 3px);
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    overflow: hidden;
+    width: 100%;
+}
+
+.card-row::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    /* cor principal (card.color) ocupa a metade de cima; a segunda cor (card.color2), se houver, a de baixo.
+       Sem segunda cor, --card-color-2 cai no valor de --card-color e a faixa fica sólida. */
+    background: linear-gradient(to bottom,
+        var(--card-color, var(--border)) 50%,
+        var(--card-color-2, var(--card-color, var(--border))) 50%);
+}
+
+.card-row .card-thumb {
+    width: 48px;
+    height: 67px;
+    border-radius: 6px;
+    overflow: hidden;
+    flex-shrink: 0;
+    background: var(--surface-strong);
+    border: 1px solid var(--border);
+}
+
+.card-row .card-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.card-row .card-thumb-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-3);
+    font-size: 1.2rem;
+}
+
+.card-row .card-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.card-row .card-name-line {
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    font-weight: 600;
+    color: var(--text-1);
+    font-size: 0.88rem;
+}
+
+.card-row .card-number {
+    font-size: 0.72rem;
+    color: var(--text-3);
+    font-weight: 500;
+}
+
+.card-row .card-meta {
+    font-size: 0.8rem;
+    color: var(--text-2);
+    margin-top: 0.3rem;
+    line-height: 1.4;
+}
+
+.card-row .card-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-shrink: 0;
+}
+
+.card-row .qty-badge {
+    min-width: 1.6rem;
+    text-align: center;
+    font-weight: 700;
+    color: var(--text-1);
+}
+
+.deck-card-card {
+    background: linear-gradient(180deg, rgba(var(--surface-rgb), 0.05) 0%, rgba(var(--surface-rgb), 0.015) 100%);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.1rem 1.2rem;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+    .deck-card-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow);
+    }
+
+    .deck-card-card .deck-card-name {
+        font-weight: 700;
+        color: var(--text-1);
+        font-size: 1.05rem;
+    }
+
+    .deck-card-card .deck-card-meta {
+        font-size: 0.82rem;
+        color: var(--text-3);
+        margin-top: 0.2rem;
+    }
+
+.card-hover-preview {
+    display: none;
+    position: fixed;
+    z-index: 2000;
+    width: 300px;
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    background: var(--surface);
+    pointer-events: none;
+}
+
+.card-hover-preview img {
+    display: block;
+    width: 100%;
+}
+
+/* Cores das cartas do Digimon Card Game */
+.color-Red        { --card-color: #ef4444; }
+.color-Blue       { --card-color: #3b82f6; }
+.color-Yellow     { --card-color: #eab308; }
+.color-Green      { --card-color: #22c55e; }
+.color-Black      { --card-color: #6b7280; }
+.color-Purple     { --card-color: #a855f7; }
+.color-White      { --card-color: #cbd5e1; }
+.color-Colorless  { --card-color: #94a3b8; }
+
+/* Segunda cor (cartas de duas cores, ex.: Red/Black) — mesma paleta, aplicada na metade de baixo da faixa */
+.color2-Red        { --card-color-2: #ef4444; }
+.color2-Blue       { --card-color-2: #3b82f6; }
+.color2-Yellow     { --card-color-2: #eab308; }
+.color2-Green      { --card-color-2: #22c55e; }
+.color2-Black      { --card-color-2: #6b7280; }
+.color2-Purple     { --card-color-2: #a855f7; }
+.color2-White      { --card-color-2: #cbd5e1; }
+.color2-Colorless  { --card-color-2: #94a3b8; }

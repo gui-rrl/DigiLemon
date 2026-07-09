@@ -27,16 +27,19 @@ async function apiFetch(url, options = {}) {
 
     if (!response.ok) {
         let message = `Erro HTTP: ${response.status}`;
+        let data = null;
         try {
             const text = await response.text();
             if (text) {
                 try {
-                    const json = JSON.parse(text);
-                    message = json.error || json.message || text;
+                    data = JSON.parse(text);
+                    message = data.error || data.message || text;
                 } catch (_) { message = text; }
             }
         } catch (_) { /* noop */ }
-        throw new Error(message);
+        const err = new Error(message);
+        err.data = data; // corpo JSON completo do erro, quando disponível (ex.: err.data.errors)
+        throw err;
     }
     return response;
 }
