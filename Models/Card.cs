@@ -29,14 +29,18 @@ namespace RankingDigi.Models
         // Imagem da carta via CDN público da TCGplayer (hotlink, não hospedamos a arte).
         // Nem toda carta tem tcgplayer_id (ex.: promos raras) — nesses casos fica null e o front usa um placeholder.
         [NotMapped]
-        public string? ImageUrl => TcgplayerId.HasValue
-            ? $"https://product-images.tcgplayer.com/fit-in/437x437/{TcgplayerId}.jpg"
-            : null;
+        public string? ImageUrl => BuildImageUrl(TcgplayerId);
 
         // Versão em alta resolução, usada só no preview ampliado ao passar o mouse.
         [NotMapped]
-        public string? ImageUrlLarge => TcgplayerId.HasValue
-            ? $"https://tcgplayer-cdn.tcgplayer.com/product/{TcgplayerId}_in_1000x1000.jpg"
+        public string? ImageUrlLarge => BuildImageUrlLarge(TcgplayerId);
+
+        public static string? BuildImageUrl(int? tcgplayerId) => tcgplayerId.HasValue
+            ? $"https://product-images.tcgplayer.com/fit-in/437x437/{tcgplayerId}.jpg"
+            : null;
+
+        public static string? BuildImageUrlLarge(int? tcgplayerId) => tcgplayerId.HasValue
+            ? $"https://tcgplayer-cdn.tcgplayer.com/product/{tcgplayerId}_in_1000x1000.jpg"
             : null;
     }
 }

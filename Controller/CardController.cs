@@ -56,7 +56,30 @@ namespace RankingDigi.Controller
                 .Take(pageSize)
                 .ToListAsync();
 
-            return Ok(new { total, page, pageSize, items });
+            // Contagem de variantes de arte por carta desta página — evita 1 request por linha no front
+            // só pra saber se vale a pena mostrar o seletor de arte.
+            var cardNumbers = items.Select(c => c.CardNumber).ToList();
+            var artCounts = await _context.CardArts
+                .Where(a => cardNumbers.Contains(a.CardNumber))
+                .GroupBy(a => a.CardNumber)
+                .Select(g => new { CardNumber = g.Key, Count = g.Count() })
+                .ToDictionaryAsync(x => x.CardNumber, x => x.Count);
+
+            return Ok(new { total, page, pageSize, items, artCounts });
+        }
+
+        // Variantes de arte conhecidas de uma carta (Alternate Art, Rare Pull, etc.) — mesma carta
+        // pras regras do jogo, só a imagem muda.
+        [HttpGet("{cardNumber}/arts")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetCardArts(string cardNumber)
+        {
+            var arts = await _context.CardArts
+                .Where(a => a.CardNumber == cardNumber)
+                .OrderBy(a => a.Label == "Normal" ? 0 : 1)
+                .ThenBy(a => a.Label)
+                .ToListAsync();
+            return Ok(arts);
         }
 
         // Opções disponíveis pros filtros de coleção/custo/nível — computadas a partir dos dados
@@ -112,8 +135,13 @@ namespace RankingDigi.Controller
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> SyncCards()
         {
-            var count = await _syncService.SyncCardsAsync();
-            return Ok(new { message = $"{count} cartas sincronizadas.", count });
+            var result = await _syncService.SyncCardsAsync();
+            return Ok(new
+            {
+                message = $"{result.CardsProcessed} cartas e {result.ArtsProcessed} variantes de arte sincronizadas.",
+                count = result.CardsProcessed,
+                artsCount = result.ArtsProcessed,
+            });
         }
     }
 }

@@ -23,6 +23,7 @@ namespace RankingDigi.Data
         public DbSet<BannedPair> BannedPairs { get; set; }
         public DbSet<Deck> Decks { get; set; }
         public DbSet<DeckCard> DeckCards { get; set; }
+        public DbSet<CardArt> CardArts { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -152,6 +153,20 @@ namespace RankingDigi.Data
                 .HasIndex(r => r.CardNumber)
                 .IsUnique()
                 .HasDatabaseName("IX_CardRestrictions_CardNumber");
+
+            // Variantes de arte (Alternate Art, Rare Pull, etc.) — mesma carta pras regras,
+            // só a imagem muda. CardNumber referencia a mesma chave natural que DeckCard usa.
+            modelBuilder.Entity<CardArt>()
+                .HasOne<Card>()
+                .WithMany()
+                .HasForeignKey(a => a.CardNumber)
+                .HasPrincipalKey(c => c.CardNumber)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<CardArt>()
+                .HasIndex(a => new { a.CardNumber, a.TcgplayerId })
+                .IsUnique()
+                .HasDatabaseName("IX_CardArts_CardNumber_TcgplayerId");
 
             // Vínculo de deck salvo em partidas e participações de torneio (opcional).
             // Restrict: um deck já usado não pode ser excluído (preserva a decklist para checagem).

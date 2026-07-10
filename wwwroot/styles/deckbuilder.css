@@ -78,6 +78,7 @@
 }
 
 .card-row .card-thumb {
+    position: relative;
     width: 48px;
     height: 67px;
     border-radius: 6px;
@@ -85,6 +86,26 @@
     flex-shrink: 0;
     background: var(--surface-strong);
     border: 1px solid var(--border);
+}
+
+.card-row .card-thumb.cyclable {
+    cursor: pointer;
+}
+
+.card-row .art-badge {
+    position: absolute;
+    bottom: 1px;
+    right: 1px;
+    min-width: 14px;
+    height: 14px;
+    padding: 0 3px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.7);
+    color: #fff;
+    font-size: 0.6rem;
+    font-weight: 700;
+    line-height: 14px;
+    text-align: center;
 }
 
 .card-row .card-thumb img {

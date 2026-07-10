@@ -56,6 +56,15 @@ namespace RankingDigi.Services
 
         [JsonPropertyName("tcgplayer_id")]
         public int? TcgplayerId { get; set; }
+
+        [JsonPropertyName("tcgplayer_name")]
+        public string? TcgplayerName { get; set; }
+    }
+
+    public class CardSyncResult
+    {
+        public int CardsProcessed { get; set; }
+        public int ArtsProcessed { get; set; }
     }
 
     public class CardSyncService
@@ -71,8 +80,8 @@ namespace RankingDigi.Services
         }
 
         // Busca todas as cartas da API pública do digimoncard.io e insere/atualiza na nossa tabela Card.
-        // Retorna quantas cartas foram processadas.
-        public async Task<int> SyncCardsAsync()
+        // Retorna quantas cartas e quantas variantes de arte foram processadas.
+        public async Task<CardSyncResult> SyncCardsAsync()
         {
             // Sem o parâmetro "n": a API o ignora nesse modo de busca e retorna a base inteira de uma vez
             // (a lista vem com reimpressões repetidas por set, deduplicadas abaixo pelo número da carta).
@@ -135,8 +144,40 @@ namespace RankingDigi.Services
                 processed++;
             }
 
+            // Variantes de arte: a API repete o mesmo Id uma vez por versão (normal, Alternate Art,
+            // Rare Pull...), cada uma com seu próprio tcgplayer_id — diferente do loop acima, aqui NÃO
+            // deduplicamos por Id, guardamos cada variante encontrada.
+            var existingArts = await _context.CardArts
+                .ToDictionaryAsync(a => (a.CardNumber, a.TcgplayerId));
+
+            int artsProcessed = 0;
+            foreach (var dto in cards)
+            {
+                if (string.IsNullOrWhiteSpace(dto.Id) || !dto.TcgplayerId.HasValue) continue;
+                var key = (CardNumber: dto.Id!, TcgplayerId: dto.TcgplayerId.Value);
+                if (existingArts.ContainsKey(key)) continue; // já conhecida, nada a atualizar (só a imagem, que não muda)
+
+                var art = new CardArt
+                {
+                    CardNumber = dto.Id!,
+                    TcgplayerId = dto.TcgplayerId.Value,
+                    Label = ExtractArtLabel(dto.TcgplayerName),
+                };
+                _context.CardArts.Add(art);
+                existingArts[key] = art;
+                artsProcessed++;
+            }
+
             await _context.SaveChangesAsync();
-            return processed;
+            return new CardSyncResult { CardsProcessed = processed, ArtsProcessed = artsProcessed };
+        }
+
+        // "BlackWarGreymon ACE (Alternate Art)" -> "Alternate Art"; sem parênteses -> "Normal"
+        private static string ExtractArtLabel(string? tcgplayerName)
+        {
+            if (string.IsNullOrWhiteSpace(tcgplayerName)) return "Normal";
+            var match = System.Text.RegularExpressions.Regex.Match(tcgplayerName, @"\(([^)]+)\)\s*$");
+            return match.Success ? match.Groups[1].Value.Trim() : "Normal";
         }
     }
 }

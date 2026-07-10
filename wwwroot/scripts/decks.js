@@ -14,6 +14,9 @@ let searchHasMore = false;
 let restrictionsMap = new Map(); // cardNumber -> maxCopies (0 = banida)
 let bannedPairs = [];
 
+let currentSearchResults = []; // cartas da busca atual, por índice (permite atualizar a arte escolhida sem re-buscar)
+let artsCache = new Map(); // cardNumber -> lista de variantes de arte (lazy, só busca quando o jogador clica)
+
 function cardKey(cardNumber, isDigiEgg) {
     return `${cardNumber}|${isDigiEgg ? 1 : 0}`;
 }
@@ -191,6 +194,7 @@ async function searchCards(reset) {
     if (reset) {
         searchPage = 1;
         document.getElementById('cardResults').innerHTML = '';
+        currentSearchResults = [];
     }
     const name = document.getElementById('cardSearchInput').value.trim();
     const color = document.getElementById('cardColorFilter').value;
@@ -212,7 +216,7 @@ async function searchCards(reset) {
     try {
         const response = await apiFetch(`${API_BASE_URL}/card?${qs.toString()}`);
         const data = await response.json();
-        renderCardResults(data.items, !reset);
+        renderCardResults(data.items, !reset, data.artCounts || {});
         searchHasMore = (searchPage * 40) < data.total;
         document.getElementById('loadMoreBtn').style.display = searchHasMore ? '' : 'none';
     } catch (error) {
@@ -229,20 +233,27 @@ function cardMetaLine(card) {
     return parts.join(' · ');
 }
 
-function cardThumbHtml(card) {
+function cardThumbHtml(card, artCount = 0) {
     const hasImg = !!card.imageUrl;
+    const cyclable = artCount > 1;
     return `
-        <div class="card-thumb">
+        <div class="card-thumb${cyclable ? ' cyclable' : ''}" ${cyclable ? `data-card-number="${escapeHtml(card.cardNumber)}" title="${artCount} artes disponíveis — clique para trocar"` : ''}>
             ${hasImg ? `<img src="${escapeHtml(card.imageUrl)}" alt="" loading="lazy" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">` : ''}
             <div class="card-thumb-placeholder" style="${hasImg ? 'display:none;' : ''}"><i class="bi bi-image"></i></div>
+            ${cyclable ? `<span class="art-badge">${artCount}</span>` : ''}
         </div>`;
 }
 
-function renderCardResults(items, append) {
+function renderCardResults(items, append, artCounts = {}) {
     const container = document.getElementById('cardResults');
-    const html = items.map(card => `
-        <div class="card-row ${colorClasses(card)}" ${card.imageUrlLarge ? `data-image-large="${escapeHtml(card.imageUrlLarge)}"` : ''}>
-            ${cardThumbHtml(card)}
+    const startIndex = append ? currentSearchResults.length : 0;
+    currentSearchResults.push(...items);
+
+    const html = items.map((card, i) => {
+        const index = startIndex + i;
+        return `
+        <div class="card-row ${colorClasses(card)}" data-index="${index}" ${card.imageUrlLarge ? `data-image-large="${escapeHtml(card.imageUrlLarge)}"` : ''}>
+            ${cardThumbHtml(card, artCounts[card.cardNumber] || 0)}
             <div class="card-main">
                 <div class="card-name-line">
                     <span>${escapeHtml(card.name)}</span>
@@ -251,13 +262,50 @@ function renderCardResults(items, append) {
                 <div class="card-meta" title="${escapeHtml(card.mainEffect || '')}">${escapeHtml(cardMetaLine(card))}</div>
             </div>
             <div class="card-actions">
-                <button class="btn btn-sm btn-ghost" onclick='addCardToDeck(${JSON.stringify(card).replace(/'/g, "&#39;")})' title="Adicionar ao deck">
+                <button class="btn btn-sm btn-ghost" onclick="addCardToDeckAt(${index})" title="Adicionar ao deck">
                     <i class="bi bi-plus-circle"></i>
                 </button>
             </div>
-        </div>`).join('');
+        </div>`;
+    }).join('');
 
     container.innerHTML = append ? container.innerHTML + html : html;
+}
+
+// Busca (uma vez, cacheada) as variantes de arte conhecidas de uma carta e cicla pra próxima
+// no resultado de busca de índice `index` — a arte escolhida é o que vai pro deck ao clicar "+".
+async function cycleCardArt(index) {
+    const card = currentSearchResults[index];
+    if (!card) return;
+
+    let arts = artsCache.get(card.cardNumber);
+    if (!arts) {
+        try {
+            const response = await apiFetch(`${API_BASE_URL}/card/${encodeURIComponent(card.cardNumber)}/arts`);
+            arts = await response.json();
+        } catch (_) {
+            arts = [];
+        }
+        artsCache.set(card.cardNumber, arts);
+    }
+    if (arts.length < 2) return;
+
+    const currentIdx = arts.findIndex(a => a.tcgplayerId === card.tcgplayerId);
+    const next = arts[(currentIdx + 1) % arts.length];
+
+    card.tcgplayerId = next.tcgplayerId;
+    card.imageUrl = next.imageUrl;
+    card.imageUrlLarge = next.imageUrlLarge;
+
+    const row = document.querySelector(`#cardResults .card-row[data-index="${index}"]`);
+    if (!row) return;
+    row.querySelector('.card-thumb').outerHTML = cardThumbHtml(card, arts.length);
+    if (card.imageUrlLarge) row.dataset.imageLarge = card.imageUrlLarge;
+}
+
+function addCardToDeckAt(index) {
+    const card = currentSearchResults[index];
+    if (card) addCardToDeck(card);
 }
 
 /* ---------- Montagem do deck ---------- */
@@ -384,6 +432,7 @@ async function saveDeck() {
         cardNumber: e.cardNumber,
         quantity: e.quantity,
         isDigiEgg: e.isDigiEgg,
+        tcgplayerId: e.card?.tcgplayerId ?? null,
     }));
 
     const payload = { playerId, name, cards };
@@ -446,8 +495,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('cardCostFilter').addEventListener('change', () => searchCards(true));
     document.getElementById('cardLevelFilter').addEventListener('change', () => searchCards(true));
 
+    document.getElementById('cardResults').addEventListener('click', (e) => {
+        const thumb = e.target.closest('.card-thumb[data-card-number]');
+        const row = thumb?.closest('.card-row');
+        if (!row) return;
+        cycleCardArt(parseInt(row.dataset.index, 10));
+    });
+
     window.openEditDeck = openEditDeck;
     window.deleteDeck = deleteDeck;
     window.addCardToDeck = addCardToDeck;
+    window.addCardToDeckAt = addCardToDeckAt;
     window.changeQuantity = changeQuantity;
 });

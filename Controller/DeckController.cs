@@ -12,6 +12,7 @@ namespace RankingDigi.Controller
         public string CardNumber { get; set; } = string.Empty;
         public int Quantity { get; set; }
         public bool IsDigiEgg { get; set; }
+        public int? TcgplayerId { get; set; } // arte escolhida (null = arte padrão da carta)
     }
 
     public class SaveDeckDto
@@ -161,12 +162,44 @@ namespace RankingDigi.Controller
                 .Where(c => cardNumbers.Contains(c.CardNumber))
                 .ToDictionaryAsync(c => c.CardNumber);
 
-            var shaped = deckCards.Select(dc => new
+            var shaped = deckCards.Select(dc =>
             {
-                dc.CardNumber,
-                dc.Quantity,
-                dc.IsDigiEgg,
-                Card = cardsInfo.TryGetValue(dc.CardNumber, out var card) ? card : null,
+                cardsInfo.TryGetValue(dc.CardNumber, out var card);
+                // Se o jogador escolheu uma arte específica ao adicionar, a imagem reflete essa
+                // escolha em vez da arte padrão da carta — o resto dos dados (regras) não muda.
+                var effectiveTcgplayerId = dc.TcgplayerId ?? card?.TcgplayerId;
+                return new
+                {
+                    dc.CardNumber,
+                    dc.Quantity,
+                    dc.IsDigiEgg,
+                    dc.TcgplayerId,
+                    Card = card == null ? null : new
+                    {
+                        card.Id,
+                        card.CardNumber,
+                        card.Name,
+                        card.Type,
+                        card.Level,
+                        card.PlayCost,
+                        card.EvolutionCost,
+                        card.EvolutionColor,
+                        card.EvolutionLevel,
+                        card.Color,
+                        card.Color2,
+                        card.DigiType,
+                        card.Dp,
+                        card.Attribute,
+                        card.Rarity,
+                        card.Stage,
+                        card.MainEffect,
+                        card.SourceEffect,
+                        card.SetName,
+                        TcgplayerId = effectiveTcgplayerId,
+                        ImageUrl = Card.BuildImageUrl(effectiveTcgplayerId),
+                        ImageUrlLarge = Card.BuildImageUrlLarge(effectiveTcgplayerId),
+                    },
+                };
             });
 
             return Ok(new
@@ -212,6 +245,7 @@ namespace RankingDigi.Controller
                     CardNumber = c.CardNumber,
                     Quantity = c.Quantity,
                     IsDigiEgg = c.IsDigiEgg,
+                    TcgplayerId = c.TcgplayerId,
                 });
             }
             await _context.SaveChangesAsync();
@@ -249,6 +283,7 @@ namespace RankingDigi.Controller
                     CardNumber = c.CardNumber,
                     Quantity = c.Quantity,
                     IsDigiEgg = c.IsDigiEgg,
+                    TcgplayerId = c.TcgplayerId,
                 });
             }
             await _context.SaveChangesAsync();
