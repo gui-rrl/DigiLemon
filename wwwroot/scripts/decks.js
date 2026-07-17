@@ -31,6 +31,29 @@ function colorClasses(card) {
     return `${c1} ${c2}`.trim();
 }
 
+const COLOR_OPTIONS = [
+    { value: 'Red', label: 'Vermelho' },
+    { value: 'Blue', label: 'Azul' },
+    { value: 'Yellow', label: 'Amarelo' },
+    { value: 'Green', label: 'Verde' },
+    { value: 'Black', label: 'Preto' },
+    { value: 'Purple', label: 'Roxo' },
+    { value: 'White', label: 'Branco' },
+    { value: 'Colorless', label: 'Incolor' },
+];
+
+// Monta N seletores de cor (um por "slot") quando o jogador escolhe quantas cores a carta deve ter.
+// Cada slot filtra de forma independente — a carta precisa ter TODAS as cores escolhidas (não é OU).
+function renderColorSlots(count) {
+    const container = document.getElementById('colorSlotFilters');
+    const options = COLOR_OPTIONS.map(c => `<option value="${c.value}">${c.label}</option>`).join('');
+    container.innerHTML = Array.from({ length: count }, (_, i) => `
+        <select class="form-select form-select-sm color-slot-select" style="width:auto;" data-slot="${i}">
+            <option value="">Cor ${i + 1}</option>
+            ${options}
+        </select>`).join('');
+}
+
 async function loadRestrictions() {
     try {
         const response = await apiFetch(`${API_BASE_URL}/card/restrictions`);
@@ -140,6 +163,7 @@ function openNewDeck() {
     document.getElementById('deckNameInput').value = '';
     document.getElementById('deckNameInput').disabled = false;
     document.getElementById('saveDeckBtn').style.display = '';
+    document.getElementById('importListBtn').style.display = '';
     document.getElementById('deckErrors').style.display = 'none';
     setSearchPanelEnabled(true);
     renderDeckZones();
@@ -167,6 +191,7 @@ async function openEditDeck(deckId, locked) {
         document.getElementById('deckNameInput').value = data.name;
         document.getElementById('deckNameInput').disabled = isReadOnly;
         document.getElementById('saveDeckBtn').style.display = isReadOnly ? 'none' : '';
+        document.getElementById('importListBtn').style.display = isReadOnly ? 'none' : '';
         document.getElementById('deckErrors').style.display = 'none';
         setSearchPanelEnabled(!isReadOnly);
 
@@ -181,11 +206,13 @@ async function openEditDeck(deckId, locked) {
 
 function setSearchPanelEnabled(enabled) {
     document.getElementById('cardSearchInput').disabled = !enabled;
-    document.getElementById('cardColorFilter').disabled = !enabled;
+    document.getElementById('cardColorCountFilter').disabled = !enabled;
     document.getElementById('cardTypeFilter').disabled = !enabled;
     document.getElementById('cardSetFilter').disabled = !enabled;
     document.getElementById('cardCostFilter').disabled = !enabled;
     document.getElementById('cardLevelFilter').disabled = !enabled;
+    document.getElementById('clearFiltersBtn').disabled = !enabled;
+    document.querySelectorAll('.color-slot-select').forEach(sel => { sel.disabled = !enabled; });
 }
 
 /* ---------- Busca de cartas ---------- */
@@ -197,7 +224,8 @@ async function searchCards(reset) {
         currentSearchResults = [];
     }
     const name = document.getElementById('cardSearchInput').value.trim();
-    const color = document.getElementById('cardColorFilter').value;
+    const colorCount = document.getElementById('cardColorCountFilter').value;
+    const colors = [...document.querySelectorAll('.color-slot-select')].map(s => s.value).filter(Boolean);
     const type = document.getElementById('cardTypeFilter').value;
     const set = document.getElementById('cardSetFilter').value;
     const cost = document.getElementById('cardCostFilter').value;
@@ -205,7 +233,8 @@ async function searchCards(reset) {
 
     const qs = new URLSearchParams();
     if (name) qs.append('name', name);
-    if (color) qs.append('color', color);
+    if (colorCount) qs.append('colorCount', colorCount);
+    colors.forEach(c => qs.append('colors', c));
     if (type) qs.append('type', type);
     if (set) qs.append('set', set);
     if (cost) qs.append('cost', cost);
@@ -333,12 +362,21 @@ function changeQuantity(cardNumber, isDigiEgg, delta) {
     renderDeckZones();
 }
 
-function renderDeckZones() {
-    const mainEntries = [...deckCards.values()].filter(e => !e.isDigiEgg).sort((a, b) => a.cardNumber.localeCompare(b.cardNumber));
-    const digiEggEntries = [...deckCards.values()].filter(e => e.isDigiEgg).sort((a, b) => a.cardNumber.localeCompare(b.cardNumber));
+// Ordena por nível/custo crescente (curva de mana visual), depois por número da carta.
+function sortDeckEntries(a, b) {
+    const levelA = a.card?.level ?? 0, levelB = b.card?.level ?? 0;
+    if (levelA !== levelB) return levelA - levelB;
+    const costA = a.card?.playCost ?? 0, costB = b.card?.playCost ?? 0;
+    if (costA !== costB) return costA - costB;
+    return a.cardNumber.localeCompare(b.cardNumber);
+}
 
-    document.getElementById('mainZoneList').innerHTML = mainEntries.map(renderDeckCardRow).join('');
-    document.getElementById('digiEggZoneList').innerHTML = digiEggEntries.map(renderDeckCardRow).join('');
+function renderDeckZones() {
+    const mainEntries = [...deckCards.values()].filter(e => !e.isDigiEgg).sort(sortDeckEntries);
+    const digiEggEntries = [...deckCards.values()].filter(e => e.isDigiEgg).sort(sortDeckEntries);
+
+    document.getElementById('mainZoneList').innerHTML = mainEntries.map(renderDeckCardTiles).join('');
+    document.getElementById('digiEggZoneList').innerHTML = digiEggEntries.map(renderDeckCardTiles).join('');
 
     const mainTotal = mainEntries.reduce((sum, e) => sum + e.quantity, 0);
     const digiEggTotal = digiEggEntries.reduce((sum, e) => sum + e.quantity, 0);
@@ -355,26 +393,23 @@ function renderDeckZones() {
     digiEggCounterEl.className = 'deck-counter ' + (digiEggTotal <= 5 ? 'valid' : 'invalid');
 }
 
-function renderDeckCardRow(entry) {
+// Cada cópia da carta vira um "quadradinho" próprio no grid (em vez de 1 linha com contador) —
+// clique esquerdo adiciona +1 cópia, clique direito remove -1.
+function renderDeckCardTiles(entry) {
     const card = entry.card || {};
     const maxAllowed = restrictionsMap.has(entry.cardNumber) ? restrictionsMap.get(entry.cardNumber) : 4;
     const overLimit = entry.quantity > maxAllowed;
-    return `
-        <div class="card-row ${colorClasses(card)}" ${overLimit ? 'style="border-color: var(--danger);"' : ''} ${card.imageUrlLarge ? `data-image-large="${escapeHtml(card.imageUrlLarge)}"` : ''}>
+    const title = overLimit
+        ? `${card.name || entry.cardNumber} — ${entry.quantity}/${maxAllowed} (acima do limite)`
+        : `${card.name || entry.cardNumber}${!isReadOnly ? ' — clique esquerdo: +1 · clique direito: -1' : ''}`;
+    const tile = `
+        <div class="card-row deck-grid-tile ${colorClasses(card)}${overLimit ? ' over-limit' : ''}${isReadOnly ? ' read-only' : ''}"
+             ${!isReadOnly ? `onclick="changeQuantity('${entry.cardNumber}', ${entry.isDigiEgg}, 1)" oncontextmenu="event.preventDefault(); changeQuantity('${entry.cardNumber}', ${entry.isDigiEgg}, -1)"` : ''}
+             title="${escapeHtml(title)}"
+             ${card.imageUrlLarge ? `data-image-large="${escapeHtml(card.imageUrlLarge)}"` : ''}>
             ${cardThumbHtml(card)}
-            <div class="card-main">
-                <div class="card-name-line">
-                    <span>${escapeHtml(card.name || entry.cardNumber)}</span>
-                    <span class="card-number">${escapeHtml(entry.cardNumber)}</span>
-                </div>
-                <div class="card-meta">${escapeHtml(cardMetaLine(card))}${overLimit ? ` · <span style="color:var(--danger);">limite: ${maxAllowed}</span>` : ''}</div>
-            </div>
-            <div class="card-actions">
-                ${!isReadOnly ? `<button class="btn btn-sm btn-ghost" onclick="changeQuantity('${entry.cardNumber}', ${entry.isDigiEgg}, -1)"><i class="bi bi-dash"></i></button>` : ''}
-                <span class="qty-badge">${entry.quantity}</span>
-                ${!isReadOnly ? `<button class="btn btn-sm btn-ghost" onclick="changeQuantity('${entry.cardNumber}', ${entry.isDigiEgg}, 1)"><i class="bi bi-plus"></i></button>` : ''}
-            </div>
         </div>`;
+    return tile.repeat(entry.quantity);
 }
 
 /* ---------- Preview ampliado ao passar o mouse ---------- */
@@ -417,6 +452,138 @@ function positionCardHoverPreview(x, y) {
     top = Math.max(margin, Math.min(top, window.innerHeight - height - margin));
     hoverPreviewEl.style.left = `${left}px`;
     hoverPreviewEl.style.top = `${top}px`;
+}
+
+/* ---------- Importar lista pronta ---------- */
+
+// Lê o formato de decklist do simulador DCGO: "<quantidade> <nome>   <número da carta>" por linha.
+// A imagem/arte escolhida no DCGO vem sufixada no número (ex.: "BT11-062_P1" = 1ª variante paralela);
+// isso não corresponde 1:1 às nossas variantes de arte, então só usamos o número base pra achar a carta.
+function parseDecklistText(text) {
+    const entries = [];
+    const unparsed = [];
+    text.split(/\r?\n/).forEach(rawLine => {
+        const line = rawLine.trim();
+        if (!line || line.startsWith('//') || line.startsWith('#')) return;
+        const match = line.match(/^(\d+)\s+(.+?)\s+([A-Za-z0-9]+-[A-Za-z0-9]+(?:_P\d+)?)$/i);
+        if (!match) { unparsed.push(rawLine); return; }
+        const [, qtyStr, name, rawCode] = match;
+        const quantity = parseInt(qtyStr, 10);
+        if (!quantity) { unparsed.push(rawLine); return; }
+        entries.push({ quantity, name: name.trim(), cardNumber: rawCode.replace(/_P\d+$/i, '').toUpperCase() });
+    });
+    return { entries, unparsed };
+}
+
+async function importDeckList() {
+    if (isReadOnly) return;
+
+    if (deckCards.size > 0) {
+        const result = await confirmAction({
+            title: 'Substituir cartas do deck?',
+            text: 'A lista importada vai substituir todas as cartas já adicionadas neste deck.',
+            confirmText: 'Sim, substituir',
+            cancelText: 'Cancelar',
+            icon: 'warning',
+        });
+        if (!result.isConfirmed) return;
+    }
+
+    const { value: text, isConfirmed } = await Swal.fire({
+        title: 'Importar lista de deck',
+        html: '<p class="text-muted-2 mb-2" style="font-size:0.85rem;">Cole a lista no formato do simulador DCGO (quantidade, nome e número da carta em cada linha).</p>',
+        input: 'textarea',
+        inputPlaceholder: '4 Koromon   EX10-002_P1\n4 Agumon   BT14-007\n...',
+        inputAttributes: { style: 'height: 260px; font-family: monospace; font-size: 0.8rem;' },
+        showCancelButton: true,
+        confirmButtonText: 'Importar',
+        cancelButtonText: 'Cancelar',
+        reverseButtons: true,
+    });
+    if (!isConfirmed || !text || !text.trim()) return;
+
+    const { entries, unparsed } = parseDecklistText(text);
+    if (!entries.length) {
+        notifyWarning('Nenhuma carta reconhecida na lista colada.');
+        return;
+    }
+
+    const qtyByNumber = new Map();
+    entries.forEach(e => qtyByNumber.set(e.cardNumber, (qtyByNumber.get(e.cardNumber) || 0) + e.quantity));
+
+    let cardsFound;
+    try {
+        const response = await apiFetch(`${API_BASE_URL}/card/lookup`, {
+            method: 'POST',
+            body: JSON.stringify({ cardNumbers: [...qtyByNumber.keys()] }),
+        });
+        cardsFound = await response.json();
+    } catch (error) {
+        notifyError('Erro ao buscar cartas: ' + error.message);
+        return;
+    }
+
+    const cardByNumber = new Map(cardsFound.map(c => [c.cardNumber, c]));
+    const notFound = [...qtyByNumber.keys()].filter(cn => !cardByNumber.has(cn));
+
+    deckCards = new Map();
+    qtyByNumber.forEach((quantity, cardNumber) => {
+        const card = cardByNumber.get(cardNumber);
+        if (!card) return;
+        const isDigiEgg = card.type === 'Digi-Egg';
+        deckCards.set(cardKey(cardNumber, isDigiEgg), { cardNumber, quantity, isDigiEgg, card });
+    });
+    renderDeckZones();
+
+    const warnings = [];
+    if (unparsed.length) warnings.push(`${unparsed.length} linha(s) não reconhecida(s): ${unparsed.slice(0, 5).join(' | ')}${unparsed.length > 5 ? '…' : ''}`);
+    if (notFound.length) warnings.push(`Carta(s) não encontrada(s) na base: ${notFound.join(', ')}.`);
+
+    if (warnings.length) {
+        notifyWarning(warnings.join(' '), 'Lista importada com ressalvas');
+    } else {
+        notifySuccess(`${entries.length} carta(s) importada(s).`);
+    }
+}
+
+/* ---------- Exportar lista ---------- */
+
+// Gera a lista no mesmo formato aceito pela importação (DCGO): "<quantidade> <nome>   <número da carta>".
+function buildDecklistText() {
+    const digiEggEntries = [...deckCards.values()].filter(e => e.isDigiEgg).sort(sortDeckEntries);
+    const mainEntries = [...deckCards.values()].filter(e => !e.isDigiEgg).sort(sortDeckEntries);
+    return [...digiEggEntries, ...mainEntries]
+        .map(e => `${e.quantity} ${e.card?.name || e.cardNumber}   ${e.cardNumber}`)
+        .join('\n');
+}
+
+async function exportDeckList() {
+    if (deckCards.size === 0) {
+        notifyWarning('Não há cartas no deck para exportar.');
+        return;
+    }
+
+    const text = buildDecklistText();
+    const { isConfirmed } = await Swal.fire({
+        title: 'Exportar lista de deck',
+        html: '<p class="text-muted-2 mb-2" style="font-size:0.85rem;">Lista no mesmo formato aceito por "Importar lista" — copie e cole onde precisar.</p>',
+        input: 'textarea',
+        inputValue: text,
+        inputAttributes: { readonly: true, style: 'height: 260px; font-family: monospace; font-size: 0.8rem;' },
+        showCancelButton: true,
+        confirmButtonText: 'Copiar',
+        cancelButtonText: 'Fechar',
+        reverseButtons: true,
+        didOpen: () => Swal.getInput()?.select(),
+    });
+    if (!isConfirmed) return;
+
+    try {
+        await navigator.clipboard.writeText(text);
+        notifySuccess('Lista copiada para a área de transferência.');
+    } catch (error) {
+        notifyError('Não foi possível copiar automaticamente. Selecione o texto e copie manualmente.');
+    }
 }
 
 /* ---------- Salvar ---------- */
@@ -482,6 +649,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('newDeckBtn').addEventListener('click', openNewDeck);
     document.getElementById('cancelBuilderBtn').addEventListener('click', showListView);
     document.getElementById('saveDeckBtn').addEventListener('click', saveDeck);
+    document.getElementById('importListBtn').addEventListener('click', importDeckList);
+    document.getElementById('exportListBtn').addEventListener('click', exportDeckList);
     document.getElementById('loadMoreBtn').addEventListener('click', () => { searchPage++; searchCards(false); });
 
     let searchDebounce;
@@ -489,11 +658,27 @@ document.addEventListener('DOMContentLoaded', async () => {
         clearTimeout(searchDebounce);
         searchDebounce = setTimeout(() => searchCards(true), 350);
     });
-    document.getElementById('cardColorFilter').addEventListener('change', () => searchCards(true));
+    document.getElementById('cardColorCountFilter').addEventListener('change', (e) => {
+        renderColorSlots(e.target.value ? parseInt(e.target.value, 10) : 0);
+        searchCards(true);
+    });
     document.getElementById('cardTypeFilter').addEventListener('change', () => searchCards(true));
     document.getElementById('cardSetFilter').addEventListener('change', () => searchCards(true));
     document.getElementById('cardCostFilter').addEventListener('change', () => searchCards(true));
     document.getElementById('cardLevelFilter').addEventListener('change', () => searchCards(true));
+    document.getElementById('colorSlotFilters').addEventListener('change', (e) => {
+        if (e.target.classList.contains('color-slot-select')) searchCards(true);
+    });
+    document.getElementById('clearFiltersBtn').addEventListener('click', () => {
+        document.getElementById('cardSearchInput').value = '';
+        document.getElementById('cardColorCountFilter').value = '';
+        document.getElementById('cardTypeFilter').value = '';
+        document.getElementById('cardSetFilter').value = '';
+        document.getElementById('cardCostFilter').value = '';
+        document.getElementById('cardLevelFilter').value = '';
+        renderColorSlots(0);
+        searchCards(true);
+    });
 
     document.getElementById('cardResults').addEventListener('click', (e) => {
         const thumb = e.target.closest('.card-thumb[data-card-number]');

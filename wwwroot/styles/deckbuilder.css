@@ -32,13 +32,18 @@
     margin-bottom: 0.6rem;
 }
 
-.card-result-list,
-.deck-card-list {
-    max-height: 60vh;
-    overflow-y: auto;
+.card-result-list {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
+}
+
+/* Deck montado: grid de "quadradinhos" (1 por cópia), no máximo 10 por linha */
+.deck-card-list {
+    display: grid;
+    grid-template-columns: repeat(10, minmax(0, 1fr));
+    gap: 0.4rem;
+    align-content: start;
 }
 
 .deck-card-list:empty::before,
@@ -47,6 +52,7 @@
     color: var(--text-3);
     font-size: 0.85rem;
     padding: 1rem 0;
+    grid-column: 1 / -1;
 }
 
 .card-row {
@@ -123,6 +129,43 @@
     justify-content: center;
     color: var(--text-3);
     font-size: 1.2rem;
+}
+
+/* Quadradinho do deck montado — só a arte, sem nome/contador (a quantidade vira N cópias no grid) */
+.deck-grid-tile {
+    padding: 0;
+    background: transparent;
+    display: block;
+    width: 100%;
+    aspect-ratio: 48 / 67;
+    border: 2px solid var(--card-color, var(--border));
+    cursor: pointer;
+    transition: transform 0.12s ease;
+}
+
+.deck-grid-tile::before {
+    display: none;
+}
+
+.deck-grid-tile .card-thumb {
+    width: 100%;
+    height: 100%;
+    border: none;
+    border-radius: 4px;
+}
+
+.deck-grid-tile:not(.read-only):hover {
+    transform: translateY(-3px);
+    z-index: 1;
+}
+
+.deck-grid-tile.read-only {
+    cursor: default;
+}
+
+.deck-grid-tile.over-limit {
+    border-color: var(--danger);
+    box-shadow: 0 0 0 1px var(--danger);
 }
 
 .card-row .card-main {

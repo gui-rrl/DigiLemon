@@ -48,6 +48,8 @@
                         <div class="deck-counter" id="digiEggCounter">Digi-Egg: 0/5</div>
                     </div>
                     <div class="d-flex gap-2">
+                        <button class="btn btn-secondary" id="importListBtn"><i class="bi bi-upload"></i> Importar lista</button>
+                        <button class="btn btn-secondary" id="exportListBtn"><i class="bi bi-download"></i> Exportar lista</button>
                         <button class="btn btn-secondary" id="cancelBuilderBtn"><i class="bi bi-x-circle"></i> Cancelar</button>
                         <button class="btn btn-success" id="saveDeckBtn"><i class="bi bi-check2-circle"></i> Salvar deck</button>
                     </div>
@@ -65,18 +67,12 @@
                                     <input type="search" id="cardSearchInput" class="form-control" placeholder="Nome ou número da carta…">
                                 </div>
                             </div>
-                            <div class="row g-2 mb-3">
+                            <div class="row g-2 mb-2">
                                 <div class="col-6 col-md-4">
-                                    <select id="cardColorFilter" class="form-select">
-                                        <option value="">Cor</option>
-                                        <option value="Red">Vermelho</option>
-                                        <option value="Blue">Azul</option>
-                                        <option value="Yellow">Amarelo</option>
-                                        <option value="Green">Verde</option>
-                                        <option value="Black">Preto</option>
-                                        <option value="Purple">Roxo</option>
-                                        <option value="White">Branco</option>
-                                        <option value="Colorless">Incolor</option>
+                                    <select id="cardColorCountFilter" class="form-select">
+                                        <option value="">Qtd. de cores</option>
+                                        <option value="1">1 cor</option>
+                                        <option value="2">2 cores</option>
                                     </select>
                                 </div>
                                 <div class="col-6 col-md-4">
@@ -104,6 +100,10 @@
                                     </select>
                                 </div>
                             </div>
+                            <div id="colorSlotFilters" class="d-flex flex-wrap gap-2 mb-2"></div>
+                            <div class="d-flex justify-content-end mb-2">
+                                <button class="btn btn-ghost btn-sm" id="clearFiltersBtn"><i class="bi bi-x-lg"></i> Limpar filtros</button>
+                            </div>
                             <div id="cardResults" class="card-result-list"></div>
                             <div class="text-center mt-2">
                                 <button class="btn btn-ghost btn-sm" id="loadMoreBtn" style="display:none;">Carregar mais</button>
@@ -111,8 +111,8 @@
                         </div>
                     </section>
                 </div>
-                <div class="col-6">
-                    <section class="card-app h-100">
+                <div class="col-6 align-self-start">
+                    <section class="card-app">
                         <div class="card-header"><i class="bi bi-list-ul"></i> Cartas no deck</div>
                         <div class="card-body">
                             <h3 class="deck-zone-title">Deck principal <span class="text-muted-2" id="mainZoneCount">(0/50)</span></h3>

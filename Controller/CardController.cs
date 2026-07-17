@@ -6,6 +6,11 @@ using RankingDigi.Services;
 
 namespace RankingDigi.Controller
 {
+    public class CardLookupDto
+    {
+        public List<string> CardNumbers { get; set; } = new();
+    }
+
     [ApiController]
     [Route("api/[controller]")]
     public class CardController : ControllerBase
@@ -24,6 +29,8 @@ namespace RankingDigi.Controller
         public async Task<IActionResult> GetCards(
             [FromQuery] string? name = null,
             [FromQuery] string? color = null,
+            [FromQuery] int? colorCount = null,
+            [FromQuery] List<string>? colors = null,
             [FromQuery] string? type = null,
             [FromQuery] string? set = null,
             [FromQuery] int? cost = null,
@@ -37,6 +44,16 @@ namespace RankingDigi.Controller
                 query = query.Where(c => c.Name.Contains(name) || c.CardNumber.Contains(name));
             if (!string.IsNullOrWhiteSpace(color))
                 query = query.Where(c => c.Color == color || c.Color2 == color);
+            // Quantidade de cores: hoje o jogo (e a base sincronizada) só tem cartas de 1 ou 2 cores.
+            if (colorCount == 1)
+                query = query.Where(c => c.Color2 == null);
+            else if (colorCount == 2)
+                query = query.Where(c => c.Color2 != null);
+            // Cor(es) específica(s) escolhida(s) para cada "slot" de cor — cada uma precisa aparecer
+            // entre Color/Color2 da carta (a combinação de filtros funciona como E, não OU).
+            var selectedColors = (colors ?? new List<string>()).Where(v => !string.IsNullOrWhiteSpace(v)).Distinct().ToList();
+            foreach (var selectedColor in selectedColors)
+                query = query.Where(c => c.Color == selectedColor || c.Color2 == selectedColor);
             if (!string.IsNullOrWhiteSpace(type))
                 query = query.Where(c => c.Type == type);
             if (!string.IsNullOrWhiteSpace(set))
@@ -66,6 +83,21 @@ namespace RankingDigi.Controller
                 .ToDictionaryAsync(x => x.CardNumber, x => x.Count);
 
             return Ok(new { total, page, pageSize, items, artCounts });
+        }
+
+        // Busca em lote por número da carta — usado pra importar listas de deck prontas
+        // (ex.: formato do simulador DCGO), evitando 1 request por carta.
+        [HttpPost("lookup")]
+        [AllowAnonymous]
+        public async Task<IActionResult> LookupCards(CardLookupDto dto)
+        {
+            var numbers = dto.CardNumbers.Where(n => !string.IsNullOrWhiteSpace(n)).Distinct().ToList();
+            if (numbers.Count == 0) return Ok(new List<Models.Card>());
+
+            var cards = await _context.Cards
+                .Where(c => numbers.Contains(c.CardNumber))
+                .ToListAsync();
+            return Ok(cards);
         }
 
         // Variantes de arte conhecidas de uma carta (Alternate Art, Rare Pull, etc.) — mesma carta
