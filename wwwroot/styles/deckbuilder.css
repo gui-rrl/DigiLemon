@@ -234,6 +234,84 @@
         margin-top: 0.2rem;
     }
 
+/* Deck com capa escolhida: a carta vira papel de parede do card na listagem */
+.deck-card-card.has-cover {
+    background-color: transparent;
+    background-size: cover;
+    background-position: center 22%;
+    min-height: 190px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    border-color: rgba(255, 255, 255, 0.14);
+}
+
+    .deck-card-card.has-cover .deck-card-name {
+        color: #fff;
+        text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
+    }
+
+    .deck-card-card.has-cover .deck-card-meta {
+        color: rgba(255, 255, 255, 0.85);
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+    }
+
+/* Estrela indicando qual cópia no grid do deck é a carta de capa escolhida */
+.cover-star {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    color: #ffd43b;
+    font-size: 0.7rem;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+    pointer-events: none;
+}
+
+/* Modal "Escolher capa do deck" */
+.cover-pick-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+    gap: 0.5rem;
+    max-height: 55vh;
+    overflow-y: auto;
+    padding: 0.25rem;
+}
+
+.cover-pick-option {
+    cursor: pointer;
+    border-radius: 6px;
+    overflow: hidden;
+    aspect-ratio: 48 / 67;
+    border: 2px solid transparent;
+    background: var(--surface-strong);
+    transition: border-color 0.12s ease, transform 0.12s ease;
+}
+
+    .cover-pick-option:hover {
+        transform: translateY(-2px);
+    }
+
+    .cover-pick-option.selected {
+        border-color: var(--primary, #6d6fff);
+    }
+
+    .cover-pick-option img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+
+.cover-pick-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-3);
+    font-size: 1.4rem;
+}
+
 .card-hover-preview {
     display: none;
     position: fixed;

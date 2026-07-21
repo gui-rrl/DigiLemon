@@ -20,6 +20,8 @@ namespace RankingDigi.Controller
         public int PlayerId { get; set; }
         public string Name { get; set; } = string.Empty;
         public List<DeckCardInputDto> Cards { get; set; } = new();
+        public string? CoverCardNumber { get; set; }
+        public int? CoverTcgplayerId { get; set; }
     }
 
     [ApiController]
@@ -105,6 +107,15 @@ namespace RankingDigi.Controller
             return errors;
         }
 
+        // A capa só é aceita se apontar pra uma carta que realmente está no deck sendo salvo —
+        // evita ficar com uma referência solta se o jogador remover a carta depois de escolher a capa.
+        private static (string? CoverCardNumber, int? CoverTcgplayerId) ResolveCover(SaveDeckDto dto)
+        {
+            if (string.IsNullOrWhiteSpace(dto.CoverCardNumber)) return (null, null);
+            var isInDeck = dto.Cards.Any(c => c.Quantity > 0 && c.CardNumber == dto.CoverCardNumber);
+            return isInDeck ? (dto.CoverCardNumber, dto.CoverTcgplayerId) : (null, null);
+        }
+
         [HttpGet]
         public async Task<IActionResult> GetDecks([FromQuery] int playerId)
         {
@@ -136,6 +147,39 @@ namespace RankingDigi.Controller
                     .ToListAsync())
                 .ToHashSet();
 
+            // Imagem de capa: a escolhida pelo jogador, ou (se nenhuma) a primeira carta do deck
+            // principal — assim todo deck aparece com uma capa, mesmo os salvos antes dessa opção existir.
+            var allDeckCards = await _context.DeckCards
+                .Where(dc => deckIds.Contains(dc.DeckId))
+                .ToListAsync();
+
+            var referencedCardNumbers = allDeckCards.Select(dc => dc.CardNumber)
+                .Concat(decks.Where(d => d.CoverCardNumber != null).Select(d => d.CoverCardNumber!))
+                .Distinct()
+                .ToList();
+            var cardsInfo = await _context.Cards
+                .Where(c => referencedCardNumbers.Contains(c.CardNumber))
+                .ToDictionaryAsync(c => c.CardNumber);
+
+            var deckCardsByDeck = allDeckCards
+                .GroupBy(dc => dc.DeckId)
+                .ToDictionary(g => g.Key, g => g.OrderBy(dc => dc.IsDigiEgg).ThenBy(dc => dc.CardNumber).ToList());
+
+            string? BuildCoverImageUrl(Deck d)
+            {
+                if (!string.IsNullOrWhiteSpace(d.CoverCardNumber))
+                {
+                    cardsInfo.TryGetValue(d.CoverCardNumber, out var coverCard);
+                    return Card.BuildImageUrl(d.CoverTcgplayerId ?? coverCard?.TcgplayerId);
+                }
+                if (deckCardsByDeck.TryGetValue(d.Id, out var cards) && cards.Count > 0)
+                {
+                    cardsInfo.TryGetValue(cards[0].CardNumber, out var firstCard);
+                    return Card.BuildImageUrl(cards[0].TcgplayerId ?? firstCard?.TcgplayerId);
+                }
+                return null;
+            }
+
             var result = decks.Select(d => new
             {
                 d.Id,
@@ -144,6 +188,7 @@ namespace RankingDigi.Controller
                 d.UpdatedAt,
                 CardCount = cardCounts.TryGetValue(d.Id, out var c) ? c : 0,
                 IsLocked = lockedIds.Contains(d.Id),
+                CoverImageUrl = BuildCoverImageUrl(d),
             });
 
             return Ok(result);
@@ -209,6 +254,8 @@ namespace RankingDigi.Controller
                 deck.Name,
                 deck.CreatedAt,
                 deck.UpdatedAt,
+                deck.CoverCardNumber,
+                deck.CoverTcgplayerId,
                 IsLocked = await IsDeckLockedAsync(id),
                 MainDeck = shaped.Where(c => !c.IsDigiEgg),
                 DigiEggDeck = shaped.Where(c => c.IsDigiEgg),
@@ -227,12 +274,15 @@ namespace RankingDigi.Controller
             if (errors.Count > 0)
                 return BadRequest(new { error = "Deck inválido.", errors });
 
+            var (coverCardNumber, coverTcgplayerId) = ResolveCover(dto);
             var deck = new Deck
             {
                 PlayerId = dto.PlayerId,
                 Name = dto.Name.Trim(),
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
+                CoverCardNumber = coverCardNumber,
+                CoverTcgplayerId = coverTcgplayerId,
             };
             _context.Decks.Add(deck);
             await _context.SaveChangesAsync();
@@ -270,8 +320,11 @@ namespace RankingDigi.Controller
             if (errors.Count > 0)
                 return BadRequest(new { error = "Deck inválido.", errors });
 
+            var (coverCardNumber, coverTcgplayerId) = ResolveCover(dto);
             deck.Name = dto.Name.Trim();
             deck.UpdatedAt = DateTime.UtcNow;
+            deck.CoverCardNumber = coverCardNumber;
+            deck.CoverTcgplayerId = coverTcgplayerId;
 
             var existingCards = await _context.DeckCards.Where(dc => dc.DeckId == id).ToListAsync();
             _context.DeckCards.RemoveRange(existingCards);

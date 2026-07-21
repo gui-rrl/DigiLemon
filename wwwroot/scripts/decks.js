@@ -17,6 +17,9 @@ let bannedPairs = [];
 let currentSearchResults = []; // cartas da busca atual, por índice (permite atualizar a arte escolhida sem re-buscar)
 let artsCache = new Map(); // cardNumber -> lista de variantes de arte (lazy, só busca quando o jogador clica)
 
+let deckCoverCardNumber = null; // carta escolhida como capa/papel de parede do deck na listagem
+let deckCoverTcgplayerId = null; // arte específica da carta de capa (null = arte padrão)
+
 function cardKey(cardNumber, isDigiEgg) {
     return `${cardNumber}|${isDigiEgg ? 1 : 0}`;
 }
@@ -103,9 +106,13 @@ async function loadDeckList() {
             return;
         }
 
-        grid.innerHTML = decks.map(d => `
-            <div class="col-md-6 col-lg-4">
-                <div class="deck-card-card">
+        grid.innerHTML = decks.map(d => {
+            const coverStyle = d.coverImageUrl
+                ? ` style="background-image: linear-gradient(180deg, rgba(11,16,32,0.1) 0%, rgba(11,16,32,0.55) 55%, rgba(11,16,32,0.92) 100%), url('${d.coverImageUrl.replace(/'/g, "%27")}');"`
+                : '';
+            return `
+            <div class="col-md-3 col-lg-3">
+                <div class="deck-card-card${d.coverImageUrl ? ' has-cover' : ''}"${coverStyle}>
                     <div class="d-flex justify-content-between align-items-start">
                         <div class="deck-card-name">${escapeHtml(d.name)}</div>
                         ${d.isLocked ? '<span class="status-pill done" title="Já usado em partida/torneio — não pode mais ser editado"><i class="bi bi-lock-fill"></i> Travado</span>' : ''}
@@ -118,7 +125,8 @@ async function loadDeckList() {
                         ${!d.isLocked ? `<button class="btn btn-sm btn-ghost" onclick="deleteDeck(${d.id}, '${escapeHtml(d.name)}')" title="Excluir"><i class="bi bi-trash3"></i></button>` : ''}
                     </div>
                 </div>
-            </div>`).join('');
+            </div>`;
+        }).join('');
     } catch (error) {
         grid.innerHTML = `<div class="col-12"><div class="empty-state"><div class="icon"><i class="bi bi-exclamation-octagon"></i></div><div class="title">Erro ao carregar decks</div><div>${escapeHtml(error.message)}</div></div></div>`;
     }
@@ -160,10 +168,13 @@ function openNewDeck() {
     isReadOnly = false;
     deckName = '';
     deckCards = new Map();
+    deckCoverCardNumber = null;
+    deckCoverTcgplayerId = null;
     document.getElementById('deckNameInput').value = '';
     document.getElementById('deckNameInput').disabled = false;
     document.getElementById('saveDeckBtn').style.display = '';
     document.getElementById('importListBtn').style.display = '';
+    document.getElementById('chooseCoverBtn').style.display = '';
     document.getElementById('deckErrors').style.display = 'none';
     setSearchPanelEnabled(true);
     renderDeckZones();
@@ -187,11 +198,14 @@ async function openEditDeck(deckId, locked) {
                 card: dc.card,
             });
         });
+        deckCoverCardNumber = data.coverCardNumber || null;
+        deckCoverTcgplayerId = data.coverTcgplayerId ?? null;
 
         document.getElementById('deckNameInput').value = data.name;
         document.getElementById('deckNameInput').disabled = isReadOnly;
         document.getElementById('saveDeckBtn').style.display = isReadOnly ? 'none' : '';
         document.getElementById('importListBtn').style.display = isReadOnly ? 'none' : '';
+        document.getElementById('chooseCoverBtn').style.display = isReadOnly ? 'none' : '';
         document.getElementById('deckErrors').style.display = 'none';
         setSearchPanelEnabled(!isReadOnly);
 
@@ -358,7 +372,13 @@ function changeQuantity(cardNumber, isDigiEgg, delta) {
     const entry = deckCards.get(key);
     if (!entry) return;
     entry.quantity += delta;
-    if (entry.quantity <= 0) deckCards.delete(key);
+    if (entry.quantity <= 0) {
+        deckCards.delete(key);
+        if (cardNumber === deckCoverCardNumber) {
+            deckCoverCardNumber = null;
+            deckCoverTcgplayerId = null;
+        }
+    }
     renderDeckZones();
 }
 
@@ -399,17 +419,67 @@ function renderDeckCardTiles(entry) {
     const card = entry.card || {};
     const maxAllowed = restrictionsMap.has(entry.cardNumber) ? restrictionsMap.get(entry.cardNumber) : 4;
     const overLimit = entry.quantity > maxAllowed;
+    const isCover = entry.cardNumber === deckCoverCardNumber;
     const title = overLimit
         ? `${card.name || entry.cardNumber} — ${entry.quantity}/${maxAllowed} (acima do limite)`
-        : `${card.name || entry.cardNumber}${!isReadOnly ? ' — clique esquerdo: +1 · clique direito: -1' : ''}`;
+        : `${card.name || entry.cardNumber}${isCover ? ' — capa do deck' : ''}${!isReadOnly ? ' — clique esquerdo: +1 · clique direito: -1' : ''}`;
     const tile = `
         <div class="card-row deck-grid-tile ${colorClasses(card)}${overLimit ? ' over-limit' : ''}${isReadOnly ? ' read-only' : ''}"
              ${!isReadOnly ? `onclick="changeQuantity('${entry.cardNumber}', ${entry.isDigiEgg}, 1)" oncontextmenu="event.preventDefault(); changeQuantity('${entry.cardNumber}', ${entry.isDigiEgg}, -1)"` : ''}
              title="${escapeHtml(title)}"
              ${card.imageUrlLarge ? `data-image-large="${escapeHtml(card.imageUrlLarge)}"` : ''}>
             ${cardThumbHtml(card)}
+            ${isCover ? '<i class="bi bi-star-fill cover-star"></i>' : ''}
         </div>`;
     return tile.repeat(entry.quantity);
+}
+
+/* ---------- Capa do deck ---------- */
+
+// Abre um seletor com as cartas (únicas) do deck atual — a escolhida vira o "papel de parede"
+// do deck na tela de listagem.
+async function chooseCoverCard() {
+    if (isReadOnly) return;
+
+    const uniqueByNumber = new Map();
+    [...deckCards.values()].forEach(e => {
+        if (e.card?.cardNumber && !uniqueByNumber.has(e.cardNumber)) uniqueByNumber.set(e.cardNumber, e);
+    });
+    if (!uniqueByNumber.size) {
+        notifyWarning('Adicione cartas ao deck antes de escolher a capa.');
+        return;
+    }
+
+    const optionsHtml = [...uniqueByNumber.values()].map(e => {
+        const card = e.card;
+        const selected = card.cardNumber === deckCoverCardNumber;
+        const img = card.imageUrl
+            ? `<img src="${escapeHtml(card.imageUrl)}" alt="">`
+            : `<div class="cover-pick-placeholder"><i class="bi bi-image"></i></div>`;
+        return `
+            <div class="cover-pick-option${selected ? ' selected' : ''}" data-card-number="${escapeHtml(card.cardNumber)}" data-tcgplayer-id="${card.tcgplayerId ?? ''}" title="${escapeHtml(card.name || card.cardNumber)}">
+                ${img}
+            </div>`;
+    }).join('');
+
+    await Swal.fire({
+        title: 'Escolher capa do deck',
+        html: `<div class="cover-pick-grid">${optionsHtml}</div>`,
+        showConfirmButton: false,
+        showCancelButton: true,
+        cancelButtonText: 'Fechar',
+        width: 560,
+        didOpen: (popup) => {
+            popup.querySelectorAll('.cover-pick-option').forEach(el => {
+                el.addEventListener('click', () => {
+                    deckCoverCardNumber = el.dataset.cardNumber;
+                    deckCoverTcgplayerId = el.dataset.tcgplayerId ? parseInt(el.dataset.tcgplayerId, 10) : null;
+                    renderDeckZones();
+                    Swal.close();
+                });
+            });
+        },
+    });
 }
 
 /* ---------- Preview ampliado ao passar o mouse ---------- */
@@ -527,6 +597,8 @@ async function importDeckList() {
     const notFound = [...qtyByNumber.keys()].filter(cn => !cardByNumber.has(cn));
 
     deckCards = new Map();
+    deckCoverCardNumber = null;
+    deckCoverTcgplayerId = null;
     qtyByNumber.forEach((quantity, cardNumber) => {
         const card = cardByNumber.get(cardNumber);
         if (!card) return;
@@ -602,7 +674,7 @@ async function saveDeck() {
         tcgplayerId: e.card?.tcgplayerId ?? null,
     }));
 
-    const payload = { playerId, name, cards };
+    const payload = { playerId, name, cards, coverCardNumber: deckCoverCardNumber, coverTcgplayerId: deckCoverTcgplayerId };
     const errorsBox = document.getElementById('deckErrors');
     errorsBox.style.display = 'none';
 
@@ -649,6 +721,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('newDeckBtn').addEventListener('click', openNewDeck);
     document.getElementById('cancelBuilderBtn').addEventListener('click', showListView);
     document.getElementById('saveDeckBtn').addEventListener('click', saveDeck);
+    document.getElementById('chooseCoverBtn').addEventListener('click', chooseCoverCard);
     document.getElementById('importListBtn').addEventListener('click', importDeckList);
     document.getElementById('exportListBtn').addEventListener('click', exportDeckList);
     document.getElementById('loadMoreBtn').addEventListener('click', () => { searchPage++; searchCards(false); });
