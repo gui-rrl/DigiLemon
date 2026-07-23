@@ -264,6 +264,79 @@ h1, h2, h3, h4, h5, h6 {
         }
 }
 
+/* ---------- Menu lateral de links (página inicial) ---------- */
+
+.side-nav {
+    position: fixed;
+    top: 76px;
+    left: 0;
+    bottom: 0;
+    width: 208px;
+    padding: 1.25rem 1rem;
+    overflow-y: auto;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    z-index: 1020;
+}
+
+.side-nav-title {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-3);
+    font-weight: 700;
+    margin-bottom: 0.75rem;
+    padding: 0 0.2rem;
+}
+
+.side-nav-link {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.55rem 0.7rem;
+    border-radius: 10px;
+    color: var(--text-2);
+    font-size: 0.85rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: background 0.15s ease, color 0.15s ease;
+    margin-bottom: 0.2rem;
+}
+
+    .side-nav-link:hover {
+        background: var(--surface-strong);
+        color: var(--text-1);
+    }
+
+    .side-nav-link > i:first-child {
+        font-size: 1rem;
+        width: 18px;
+        text-align: center;
+        flex-shrink: 0;
+    }
+
+    .side-nav-link .bi-box-arrow-up-right {
+        margin-left: auto;
+        font-size: 0.68rem;
+        opacity: 0.45;
+        flex-shrink: 0;
+    }
+
+body.has-side-nav main {
+    margin-left: 208px;
+}
+
+@media (max-width: 991.98px) {
+    /* mesma lógica da navbar: em telas menores o menu lateral sai do caminho pra não sobrepor o conteúdo */
+    .side-nav {
+        display: none;
+    }
+
+    body.has-side-nav main {
+        margin-left: 0;
+    }
+}
+
 /* ---------- Cards ---------- */
 
 .card-app {

@@ -239,7 +239,7 @@
     background-color: transparent;
     background-size: cover;
     background-position: center 22%;
-    min-height: 190px;
+    min-height: 270px;
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
@@ -255,6 +255,23 @@
         color: rgba(255, 255, 255, 0.85);
         text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
     }
+
+    /* Botão "Editar" some contra a arte de fundo — reforça contraste (blur + borda + sombra)
+       mantendo o fundo translúcido, sem virar um botão sólido/opaco. */
+    .deck-card-card.has-cover .btn-secondary {
+        background: rgba(11, 16, 32, 0.55);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+        border-color: rgba(255, 255, 255, 0.4);
+        color: #fff;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    }
+
+        .deck-card-card.has-cover .btn-secondary:hover {
+            background: rgba(11, 16, 32, 0.75);
+            border-color: rgba(255, 255, 255, 0.6);
+            color: #fff;
+        }
 
 /* Estrela indicando qual cópia no grid do deck é a carta de capa escolhida */
 .cover-star {
