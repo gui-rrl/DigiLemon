@@ -27,7 +27,7 @@ async function loadTournaments() {
         if (!tournaments.length) {
             tbody.innerHTML = `
                 <tr class="empty-row">
-                    <td colspan="7">
+                    <td colspan="8">
                         <div class="empty-state">
                             <div class="icon"><i class="bi bi-trophy"></i></div>
                             <div class="title">Nenhum torneio criado</div>
@@ -53,6 +53,10 @@ async function loadTournaments() {
                 <tr>
                     <td><span class="text-muted-2">#${t.id}</span></td>
                     <td><strong>${escapeHtml(t.name)}</strong></td>
+                    <td>${t.mode === 1
+                        ? '<span class="status-pill prep"><i class="bi bi-controller"></i> Online</span>'
+                        : '<span class="status-pill" style="background:rgba(109,111,255,0.15);color:var(--primary)"><i class="bi bi-people-fill"></i> Presencial</span>'
+                    }</td>
                     <td style="white-space:nowrap;">${t.format === 1
                         ? `<span class="status-pill prep" title="${t.swissRounds} rodadas Swiss · Top ${t.topCutSize}"><i class="bi bi-grid-3x3-gap-fill"></i> Swiss + Top Cut</span>`
                         : t.format === 2
@@ -79,7 +83,7 @@ async function loadTournaments() {
         }).join('');
     } catch (error) {
         console.error(error);
-        tbody.innerHTML = `<tr class="empty-row"><td colspan="7"><div class="empty-state"><div class="icon"><i class="bi bi-exclamation-octagon"></i></div><div class="title">Erro ao carregar torneios</div><div>${escapeHtml(error.message)}</div></div></td></tr>`;
+        tbody.innerHTML = `<tr class="empty-row"><td colspan="8"><div class="empty-state"><div class="icon"><i class="bi bi-exclamation-octagon"></i></div><div class="title">Erro ao carregar torneios</div><div>${escapeHtml(error.message)}</div></div></td></tr>`;
     }
 }
 

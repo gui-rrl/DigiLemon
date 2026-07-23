@@ -4,10 +4,13 @@ let allPlayersData = [];
 let sortConfig = { key: 'score', direction: 'desc' };
 let searchTerm = '';
 let viewMode = 'season'; // 'season' (Score, reseta a cada temporada) | 'career' (CareerScore, geral)
+let matchMode = '0'; // '0' = Presencial | '1' = Online (simulador DCGO) — dimensão independente do viewMode
 let currentSeason = null;
 
 function scoreOf(player) {
-    return viewMode === 'career' ? (player.careerScore || 0) : (player.score || 0);
+    const online = matchMode === '1';
+    if (viewMode === 'career') return (online ? player.careerScoreOnline : player.careerScore) || 0;
+    return (online ? player.scoreOnline : player.score) || 0;
 }
 
 async function loadRanking() {
@@ -119,6 +122,17 @@ function setupViewModeToggle() {
         btn.addEventListener('click', () => {
             viewMode = btn.dataset.mode;
             document.querySelectorAll('#viewModeGroup button').forEach(b => b.classList.toggle('active', b === btn));
+            updateStats(allPlayersData);
+            renderTable();
+        });
+    });
+}
+
+function setupMatchModeToggle() {
+    document.querySelectorAll('#matchModeGroup button').forEach(btn => {
+        btn.addEventListener('click', () => {
+            matchMode = btn.dataset.matchMode;
+            document.querySelectorAll('#matchModeGroup button').forEach(b => b.classList.toggle('active', b === btn));
             updateStats(allPlayersData);
             renderTable();
         });
@@ -335,6 +349,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('endSeasonBtn').addEventListener('click', endSeason);
     setupSort();
     setupViewModeToggle();
+    setupMatchModeToggle();
     window.deletePlayer = deletePlayer;
     window.editPlayer = editPlayer;
 });

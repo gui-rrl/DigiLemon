@@ -56,22 +56,22 @@ namespace RankingDigi.Controller
             if (match.WinnerId != 0 && match.WinnerId != player1.Id && match.WinnerId != player2.Id)
                 return BadRequest(new { error = "O vencedor precisa ser um dos jogadores da partida (ou 0 para empate)." });
 
+            bool isOnline = match.Mode == 1;
+
             if (match.WinnerId == 0)
             {
-                player1.Score += 1;
-                player1.CareerScore += 1;
-                player2.Score += 1;
-                player2.CareerScore += 1;
+                if (isOnline) { player1.ScoreOnline += 1; player1.CareerScoreOnline += 1; player2.ScoreOnline += 1; player2.CareerScoreOnline += 1; }
+                else { player1.Score += 1; player1.CareerScore += 1; player2.Score += 1; player2.CareerScore += 1; }
             }
             else if (match.WinnerId == player1.Id)
             {
-                player1.Score += 3;
-                player1.CareerScore += 3;
+                if (isOnline) { player1.ScoreOnline += 3; player1.CareerScoreOnline += 3; }
+                else { player1.Score += 3; player1.CareerScore += 3; }
             }
             else
             {
-                player2.Score += 3;
-                player2.CareerScore += 3;
+                if (isOnline) { player2.ScoreOnline += 3; player2.CareerScoreOnline += 3; }
+                else { player2.Score += 3; player2.CareerScore += 3; }
             }
 
             if (match.Date == default) match.Date = DateTime.UtcNow;
@@ -89,7 +89,8 @@ namespace RankingDigi.Controller
                 [FromQuery] DateTime startDate = default,
                 [FromQuery] DateTime endDate = default,
                 [FromQuery] string deck = "",
-                [FromQuery] int seasonId = 0)
+                [FromQuery] int seasonId = 0,
+                [FromQuery] int? mode = null)
         {
             // adapte a lógica para verificar se o parâmetro foi fornecido
             var query = _context.Matches.AsQueryable();
@@ -99,6 +100,9 @@ namespace RankingDigi.Controller
 
             if (seasonId != 0)
                 query = query.Where(m => m.SeasonId == seasonId);
+
+            if (mode.HasValue)
+                query = query.Where(m => m.Mode == mode.Value);
 
             if (startDate != default)
                 query = query.Where(m => m.Date >= startDate);
@@ -133,19 +137,20 @@ namespace RankingDigi.Controller
             var player1 = await _context.Players.FindAsync(match.Player1Id);
             var player2 = await _context.Players.FindAsync(match.Player2Id);
 
-            // Reverte os pontos que a partida havia concedido (temporada atual e geral)
+            // Reverte os pontos que a partida havia concedido (temporada atual e geral, na modalidade certa)
+            bool wasOnline = match.Mode == 1;
             if (match.WinnerId == 0)
             {
-                if (player1 != null) { player1.Score -= 1; player1.CareerScore -= 1; }
-                if (player2 != null) { player2.Score -= 1; player2.CareerScore -= 1; }
+                if (player1 != null) { if (wasOnline) { player1.ScoreOnline -= 1; player1.CareerScoreOnline -= 1; } else { player1.Score -= 1; player1.CareerScore -= 1; } }
+                if (player2 != null) { if (wasOnline) { player2.ScoreOnline -= 1; player2.CareerScoreOnline -= 1; } else { player2.Score -= 1; player2.CareerScore -= 1; } }
             }
             else if (match.WinnerId == match.Player1Id)
             {
-                if (player1 != null) { player1.Score -= 3; player1.CareerScore -= 3; }
+                if (player1 != null) { if (wasOnline) { player1.ScoreOnline -= 3; player1.CareerScoreOnline -= 3; } else { player1.Score -= 3; player1.CareerScore -= 3; } }
             }
             else if (match.WinnerId == match.Player2Id)
             {
-                if (player2 != null) { player2.Score -= 3; player2.CareerScore -= 3; }
+                if (player2 != null) { if (wasOnline) { player2.ScoreOnline -= 3; player2.CareerScoreOnline -= 3; } else { player2.Score -= 3; player2.CareerScore -= 3; } }
             }
 
             _context.Matches.Remove(match);

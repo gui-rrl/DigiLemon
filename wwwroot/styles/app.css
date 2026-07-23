@@ -1001,6 +1001,24 @@ a {
         color: var(--pill-amber-text);
     }
 
+.match-mode-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: 6px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    background: var(--surface-strong);
+    color: var(--text-3);
+    vertical-align: middle;
+}
+
+    .match-mode-tag.online {
+        background: rgba(0, 194, 255, 0.12);
+        color: var(--accent-2);
+    }
+
 .timeline-row {
     display: flex;
     align-items: center;

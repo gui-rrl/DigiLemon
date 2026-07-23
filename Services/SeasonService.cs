@@ -18,8 +18,10 @@ namespace RankingDigi.Services
                     SeasonId = season.Id,
                     PlayerId = player.Id,
                     FinalScore = player.Score,
+                    FinalScoreOnline = player.ScoreOnline,
                 });
                 player.Score = 0;
+                player.ScoreOnline = 0;
             }
 
             season.ClosedAt = DateTime.UtcNow;

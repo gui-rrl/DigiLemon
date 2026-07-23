@@ -8,6 +8,7 @@
         public int Status { get; set; }
         public string? InviteCode { get; set; }
         public int MaxPlayers { get; set; }
+        public int Mode { get; set; }
         public int Format { get; set; }
         public int SwissRounds { get; set; }
         public int TopCutSize { get; set; }

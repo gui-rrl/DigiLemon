@@ -7,5 +7,6 @@ namespace RankingDigi.Models
         public int SeasonId { get; set; }
         public int PlayerId { get; set; }
         public int FinalScore { get; set; }
+        public int FinalScoreOnline { get; set; }
     }
 }

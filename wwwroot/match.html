@@ -30,6 +30,13 @@
             <div class="card-header"><i class="bi bi-plus-circle"></i> Nova partida</div>
             <div class="card-body">
                 <div class="row g-3 align-items-end">
+                    <div class="col-md-12">
+                        <label for="matchMode" class="form-label">Modalidade</label>
+                        <select id="matchMode" class="form-select" style="max-width:220px;">
+                            <option value="0" selected>Presencial</option>
+                            <option value="1">Online (DCGO)</option>
+                        </select>
+                    </div>
                     <div class="col-md-6">
                         <label for="player1" class="form-label">Jogador 1</label>
                         <select id="player1" class="form-select">
@@ -100,6 +107,14 @@
                             <option value="">Todas</option>
                         </select>
                     </div>
+                    <div class="col-md-3">
+                        <label for="filterMode" class="form-label">Modalidade</label>
+                        <select id="filterMode" class="form-select">
+                            <option value="">Todas</option>
+                            <option value="0">Presencial</option>
+                            <option value="1">Online (DCGO)</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="d-flex gap-2 mt-3">
                     <button class="btn btn-primary" onclick="applyFilters()"><i class="bi bi-search"></i> Aplicar</button>
@@ -125,13 +140,14 @@
                                 <th>Jogador 2</th>
                                 <th>Deck J2</th>
                                 <th>Resultado</th>
+                                <th style="width: 130px;">Modalidade</th>
                                 <th style="width: 170px;">Data</th>
                                 <th id="actionsHeader" style="width: 80px; text-align: right; display: none;">Ações</th>
                             </tr>
                         </thead>
                         <tbody id="matchesTable">
                             <tr class="loading-row">
-                                <td colspan="6">
+                                <td colspan="7">
                                     <div class="spinner-border spinner-border-sm text-secondary" role="status"></div>
                                     <span class="ms-2">Carregando histórico…</span>
                                 </td>

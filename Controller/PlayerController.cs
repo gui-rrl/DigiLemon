@@ -208,6 +208,7 @@ namespace RankingDigi.Controller
                 {
                     m.Id,
                     m.Date,
+                    m.Mode,
                     OpponentId = m.Player1Id == id ? m.Player2Id : m.Player1Id,
                     MyDeck = m.Player1Id == id ? m.Deck1 : m.Deck2,
                     OpponentDeck = m.Player1Id == id ? m.Deck2 : m.Deck1,
@@ -224,6 +225,7 @@ namespace RankingDigi.Controller
             {
                 r.Id,
                 r.Date,
+                r.Mode,
                 r.OpponentId,
                 OpponentName = opponentNames.TryGetValue(r.OpponentId, out var n) ? n : "Desconhecido",
                 r.MyDeck,

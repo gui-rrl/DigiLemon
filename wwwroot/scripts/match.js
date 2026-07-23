@@ -1,6 +1,12 @@
 /* ========== Página de Partidas ========== */
 
-let currentFilters = { playerId: '', startDate: '', endDate: '', deck: '', seasonId: '' };
+let currentFilters = { playerId: '', startDate: '', endDate: '', deck: '', seasonId: '', mode: '' };
+
+function modeBadgeHtml(mode) {
+    return mode === 1
+        ? '<span class="status-pill prep"><i class="bi bi-controller"></i> Online</span>'
+        : '<span class="status-pill" style="background:rgba(109,111,255,0.15);color:var(--primary)"><i class="bi bi-people-fill"></i> Presencial</span>';
+}
 let playersMap = new Map();
 let lastLoadedMatches = [];
 
@@ -60,7 +66,7 @@ async function loadMatches() {
     const tbody = document.getElementById('matchesTable');
     const isAdmin = isAdminUser();
     document.getElementById('actionsHeader').style.display = isAdmin ? '' : 'none';
-    const colCount = isAdmin ? 7 : 6;
+    const colCount = isAdmin ? 8 : 7;
     try {
         const params = new URLSearchParams();
         if (currentFilters.playerId) params.append('playerId', currentFilters.playerId);
@@ -68,6 +74,7 @@ async function loadMatches() {
         if (currentFilters.endDate) params.append('endDate', currentFilters.endDate);
         if (currentFilters.deck) params.append('deck', currentFilters.deck);
         if (currentFilters.seasonId) params.append('seasonId', currentFilters.seasonId);
+        if (currentFilters.mode !== '') params.append('mode', currentFilters.mode);
 
         const url = `${API_BASE_URL}/matches${params.toString() ? '?' + params.toString() : ''}`;
         const response = await apiFetch(url);
@@ -120,6 +127,7 @@ async function loadMatches() {
                     </td>
                     <td>${match.deck2 ? `<span style="font-size:0.78rem; padding:0.25rem 0.55rem; background: rgba(var(--surface-rgb),0.06); border-radius:6px;"><i class="bi bi-layers"></i> ${escapeHtml(match.deck2)}</span>` : '<span class="text-muted-2">-</span>'}</td>
                     <td>${resultHtml}</td>
+                    <td>${modeBadgeHtml(match.mode)}</td>
                     <td><span class="text-muted-2" style="font-size:0.85rem;">${formatDateTime(match.date)}</span></td>
                     ${isAdmin ? `
                     <td style="text-align: right;">
@@ -249,6 +257,7 @@ async function registerMatch(winnerCode) {
         deck1Id: deck1Id ? parseInt(deck1Id) : null,
         deck2Id: deck2Id ? parseInt(deck2Id) : null,
         date: new Date().toISOString(),
+        mode: parseInt(document.getElementById('matchMode').value, 10),
     };
 
     try {
@@ -276,6 +285,7 @@ function applyFilters() {
     currentFilters.endDate = document.getElementById('filterEndDate').value;
     currentFilters.deck = document.getElementById('filterDeck').value.trim();
     currentFilters.seasonId = document.getElementById('filterSeason').value;
+    currentFilters.mode = document.getElementById('filterMode').value;
     loadMatches();
 }
 
@@ -285,7 +295,8 @@ function clearFilters() {
     document.getElementById('filterEndDate').value = '';
     document.getElementById('filterDeck').value = '';
     document.getElementById('filterSeason').value = '';
-    currentFilters = { playerId: '', startDate: '', endDate: '', deck: '', seasonId: '' };
+    document.getElementById('filterMode').value = '';
+    currentFilters = { playerId: '', startDate: '', endDate: '', deck: '', seasonId: '', mode: '' };
     loadMatches();
 }
 
@@ -302,6 +313,7 @@ function exportMatches() {
         else resultado = m.winnerId === m.player1Id ? p1Name : p2Name;
         return {
             Data: formatDateTime(m.date),
+            Modalidade: m.mode === 1 ? 'Online' : 'Presencial',
             Jogador1: p1Name,
             Deck1: m.deck1 || '',
             Jogador2: p2Name,

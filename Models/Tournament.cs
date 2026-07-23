@@ -9,6 +9,7 @@
         public int Status { get; set; } // 0: em preparação, 1: em andamento, 2: finalizado
         public string? InviteCode { get; set; }
         public int MaxPlayers { get; set; } = 0;
+        public int Mode { get; set; } = 0; // 0=Presencial, 1=Online (simulador DCGO)
 
         // Swiss
         public int Format { get; set; } = 0;          // 0=DoubleElim, 1=Swiss+TopCut, 2=SwissPure

@@ -311,11 +311,14 @@ function renderRecentMatches(matches) {
         const opponentLink = m.opponentId
             ? `<a href="/player.html?id=${m.opponentId}" style="color: var(--text-1); text-decoration: none;">${escapeHtml(m.opponentName)}</a>`
             : escapeHtml(m.opponentName);
+        const modeLabel = m.mode === 1
+            ? '<span class="match-mode-tag online" title="Partida online (DCGO)"><i class="bi bi-controller"></i> Online</span>'
+            : '<span class="match-mode-tag" title="Partida presencial"><i class="bi bi-people-fill"></i> Presencial</span>';
         return `
             <div class="timeline-row">
                 <span class="avatar" style="width:34px;height:34px;font-size:0.85rem;">${getInitials(m.opponentName)}</span>
                 <div class="opp-info">
-                    <div class="opp-name">vs ${opponentLink}</div>
+                    <div class="opp-name">vs ${opponentLink} ${modeLabel}</div>
                     <div class="opp-deck">${m.myDeck ? `<i class="bi bi-layers"></i> ${escapeHtml(m.myDeck)}` : ''} ${m.opponentDeck ? `· oponente: ${escapeHtml(m.opponentDeck)}` : ''}</div>
                 </div>
                 <div class="d-flex flex-column align-items-end gap-1">

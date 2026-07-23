@@ -256,11 +256,12 @@ document.getElementById('createTournamentForm').addEventListener('submit', async
 
     const format     = parseInt(document.getElementById('format').value, 10);
     const topCutSize = parseInt(document.getElementById('topCutSize').value, 10);
+    const mode       = parseInt(document.getElementById('tournamentMode').value, 10);
 
     try {
         const response = await apiFetch(`${API_BASE_URL}/tournament`, {
             method: 'POST',
-            body: JSON.stringify({ name, startDate, maxPlayers, players, format, topCutSize }),
+            body: JSON.stringify({ name, startDate, maxPlayers, players, format, topCutSize, mode }),
         });
         const result = await response.json();
         await Swal.fire({

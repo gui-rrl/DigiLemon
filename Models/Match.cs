@@ -12,5 +12,6 @@
         public int? Deck1Id { get; set; } // deck salvo do jogador 1 (opcional)
         public int? Deck2Id { get; set; } // deck salvo do jogador 2 (opcional)
         public int? SeasonId { get; set; } // temporada vigente no momento do registro (nula para partidas antigas)
+        public int Mode { get; set; } = 0; // 0=Presencial, 1=Online (simulador DCGO)
     }
 }
