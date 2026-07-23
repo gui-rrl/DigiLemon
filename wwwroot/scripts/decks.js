@@ -705,13 +705,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
 
+    const next = params.get('next');
+    const backHref = next ? decodeURIComponent(next) : `/player.html?id=${playerId}`;
+    if (next) {
+        document.getElementById('backLink').innerHTML = '<i class="bi bi-arrow-left"></i> Voltar';
+    }
+
     try {
         const response = await apiFetch(`${API_BASE_URL}/player/${playerId}`);
         const player = await response.json();
         document.getElementById('pageSubtitle').textContent = `Gerencie os decks de ${player.name}`;
-        document.getElementById('backLink').href = `/player.html?id=${playerId}`;
+        document.getElementById('backLink').href = backHref;
     } catch (_) {
-        document.getElementById('backLink').href = '/Index.html';
+        document.getElementById('backLink').href = next ? backHref : '/Index.html';
     }
 
     await Promise.all([loadRestrictions(), loadFilterOptions()]);

@@ -27,7 +27,7 @@ async function loadTournaments() {
         if (!tournaments.length) {
             tbody.innerHTML = `
                 <tr class="empty-row">
-                    <td colspan="8">
+                    <td colspan="9">
                         <div class="empty-state">
                             <div class="icon"><i class="bi bi-trophy"></i></div>
                             <div class="title">Nenhum torneio criado</div>
@@ -64,6 +64,7 @@ async function loadTournaments() {
                         : `<span class="status-pill" style="background:rgba(109,111,255,0.15);color:var(--primary)"><i class="bi bi-diagram-3"></i> Dupla Elim.</span>`
                     }</td>
                     <td>${formatDate(t.startDate)}</td>
+                    <td>${t.endDate ? formatDate(t.endDate) : '<span class="text-muted-2">—</span>'}</td>
                     <td><span class="status-pill ${info.cls}" style="white-space:nowrap;">${info.label}</span></td>
                     <td>${winner}</td>
                     <td style="text-align:right;">
@@ -83,7 +84,7 @@ async function loadTournaments() {
         }).join('');
     } catch (error) {
         console.error(error);
-        tbody.innerHTML = `<tr class="empty-row"><td colspan="8"><div class="empty-state"><div class="icon"><i class="bi bi-exclamation-octagon"></i></div><div class="title">Erro ao carregar torneios</div><div>${escapeHtml(error.message)}</div></div></td></tr>`;
+        tbody.innerHTML = `<tr class="empty-row"><td colspan="9"><div class="empty-state"><div class="icon"><i class="bi bi-exclamation-octagon"></i></div><div class="title">Erro ao carregar torneios</div><div>${escapeHtml(error.message)}</div></div></td></tr>`;
     }
 }
 

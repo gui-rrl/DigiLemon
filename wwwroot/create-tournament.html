@@ -33,13 +33,18 @@
                 <div class="card-header"><i class="bi bi-info-circle"></i> Informações gerais</div>
                 <div class="card-body">
                     <div class="row g-3">
-                        <div class="col-md-5">
+                        <div class="col-md-4">
                             <label for="name" class="form-label">Nome do torneio</label>
                             <input type="text" id="name" class="form-control" placeholder="Digite o nome do Torneio" required>
                         </div>
                         <div class="col-md-4">
                             <label for="startDate" class="form-label">Data de início</label>
                             <input type="date" id="startDate" class="form-control" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="endDate" class="form-label">Data de término</label>
+                            <input type="date" id="endDate" class="form-control" required>
+                            <small class="text-muted-2" style="font-size:0.78rem;">O torneio se encerra automaticamente à meia-noite do dia seguinte.</small>
                         </div>
                         <div class="col-md-3">
                             <label for="tournamentMode" class="form-label">Modalidade</label>

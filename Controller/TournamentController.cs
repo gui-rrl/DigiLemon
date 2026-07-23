@@ -5,6 +5,7 @@ using RankingDigi.Data;
 using RankingDigi.DTOs;
 using RankingDigi.Models;
 using RankingDigi.Services;
+using System.Security.Claims;
 
 [ApiController]
 [Route("api/[controller]")]
@@ -100,6 +101,7 @@ public class TournamentController : ControllerBase
             Id = t.Id,
             Name = t.Name,
             StartDate = t.StartDate,
+            EndDate = t.EndDate,
             Status = t.Status,
             InviteCode = t.InviteCode,
             MaxPlayers = t.MaxPlayers,
@@ -148,6 +150,11 @@ public class TournamentController : ControllerBase
         if (dto.Format == 0 && dto.MaxPlayers % 2 != 0)
             return BadRequest(new { error = "Para o formato Double Elimination, o número de vagas deve ser par." });
 
+        if (!dto.EndDate.HasValue)
+            return BadRequest(new { error = "Informe a data de término do torneio." });
+        if (dto.EndDate.Value.Date < dto.StartDate.Date)
+            return BadRequest(new { error = "A data de término não pode ser anterior à data de início." });
+
         var players = dto.Players ?? new List<PlayerDeckDto>();
 
         if (players.Count > dto.MaxPlayers)
@@ -192,6 +199,7 @@ public class TournamentController : ControllerBase
         {
             Name = dto.Name,
             StartDate = dto.StartDate,
+            EndDate = dto.EndDate.Value,
             Status = 0,
             MaxPlayers = dto.MaxPlayers,
             Mode = dto.Mode,
@@ -261,7 +269,7 @@ public class TournamentController : ControllerBase
         var participants = await _context.TournamentPlayers
             .Where(tp => tp.TournamentId == tournament.Id)
             .Include(tp => tp.Player)
-            .Select(tp => new { tp.PlayerId, PlayerName = tp.Player!.Name, tp.Deck })
+            .Select(tp => new { tp.PlayerId, PlayerName = tp.GuestName ?? tp.Player!.Name, tp.Deck })
             .ToListAsync();
 
         return Ok(new
@@ -277,13 +285,19 @@ public class TournamentController : ControllerBase
         });
     }
 
-    //POST: api/tournament/invite/{code}/join - rota pública
+    //POST: api/tournament/invite/{code}/join - exige login + jogador vinculado + deck próprio
     [HttpPost("invite/{code}/join")]
-    [AllowAnonymous]
+    [Authorize]
     public async Task<IActionResult> JoinByInvite(string code, [FromBody] JoinTournamentDto dto)
     {
-        if (dto == null || string.IsNullOrWhiteSpace(dto.Name) || string.IsNullOrWhiteSpace(dto.Deck))
-            return BadRequest(new { error = "Informe o nome e o deck para ingressar no torneio." });
+        if (dto == null || dto.DeckId <= 0)
+            return BadRequest(new { error = "Escolha um deck para ingressar no torneio." });
+
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var user   = await _context.AppUsers.Include(u => u.Player).FirstOrDefaultAsync(u => u.Id == userId);
+        if (user == null) return Unauthorized();
+        if (!user.PlayerId.HasValue || user.Player == null)
+            return BadRequest(new { error = "Sua conta ainda não tem um jogador vinculado." });
 
         var tournament = await _context.Tournaments.FirstOrDefaultAsync(t => t.InviteCode == code);
         if (tournament == null)
@@ -298,32 +312,30 @@ public class TournamentController : ControllerBase
                 return BadRequest(new { error = $"Este torneio já está cheio ({tournament.MaxPlayers} vagas preenchidas)." });
         }
 
-        var guestName = dto.Name.Trim();
-        var deck      = dto.Deck.Trim();
+        var deck = await _context.Decks.FindAsync(dto.DeckId);
+        if (deck == null || deck.PlayerId != user.PlayerId.Value)
+            return BadRequest(new { error = "Deck não encontrado ou não pertence a você." });
 
-        // Convidados via link NÃO são registrados na tabela Players.
-        // Verifica duplicata pelo nome dentro do torneio.
+        var playerId = user.PlayerId.Value;
         bool alreadyIn = await _context.TournamentPlayers
-            .AnyAsync(tp => tp.TournamentId == tournament.Id &&
-                            (tp.GuestName != null && tp.GuestName.ToLower() == guestName.ToLower() ||
-                             tp.Player    != null && tp.Player.Name.ToLower() == guestName.ToLower()));
+            .AnyAsync(tp => tp.TournamentId == tournament.Id && tp.PlayerId == playerId);
         if (alreadyIn)
-            return Conflict(new { error = $"\"{guestName}\" já está inscrito neste torneio." });
+            return Conflict(new { error = $"\"{user.Player.Name}\" já está inscrito neste torneio." });
 
         _context.TournamentPlayers.Add(new TournamentPlayer
         {
             TournamentId = tournament.Id,
-            PlayerId     = null,        // guest: sem vínculo com Player
-            GuestName    = guestName,
-            Deck         = deck,
+            PlayerId     = playerId,
+            Deck         = deck.Name,
+            DeckId       = deck.Id,
         });
         await _context.SaveChangesAsync();
 
         return Ok(new
         {
             tournamentName = tournament.Name,
-            playerName     = guestName,
-            message        = $"Você foi inscrito como \"{guestName}\" com o deck \"{deck}\".",
+            playerName     = user.Player.Name,
+            message        = $"Você foi inscrito como \"{user.Player.Name}\" com o deck \"{deck.Name}\".",
         });
     }
 
@@ -379,6 +391,7 @@ public class TournamentController : ControllerBase
             Id = tournament.Id,
             Name = tournament.Name,
             StartDate = tournament.StartDate,
+            EndDate = tournament.EndDate,
             Status = tournament.Status,
             InviteCode = tournament.InviteCode,
             MaxPlayers = tournament.MaxPlayers,

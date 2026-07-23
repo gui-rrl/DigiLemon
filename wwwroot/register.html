@@ -176,7 +176,8 @@
                     allowOutsideClick: false,
                 });
 
-                window.location.href = '/login.html';
+                const next = new URLSearchParams(window.location.search).get('next');
+                window.location.href = next ? `/login.html?next=${encodeURIComponent(next)}` : '/login.html';
             } catch (err) {
                 Swal.fire({ icon: 'error', title: 'Erro', text: err.message, confirmButtonText: 'Tentar novamente' });
                 btn.disabled = false;

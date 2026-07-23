@@ -17,6 +17,13 @@ function authClear() {
     localStorage.removeItem(AUTH_USER_KEY);
 }
 
+/** Mescla novos campos no usuário salvo (ex.: playerId após vincular um jogador), sem exigir novo login */
+function authUpdateUser(partial) {
+    const merged = { ...(authUser() || {}), ...partial };
+    localStorage.setItem(AUTH_USER_KEY, JSON.stringify(merged));
+    return merged;
+}
+
 /** Retorna o token JWT armazenado ou null */
 function authToken() {
     return localStorage.getItem(AUTH_KEY);

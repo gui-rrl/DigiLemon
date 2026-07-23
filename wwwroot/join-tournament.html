@@ -126,25 +126,50 @@
                 <div class="card-app">
                     <div class="card-header"><i class="bi bi-pencil-square"></i> Fazer inscrição</div>
                     <div class="card-body">
-                        <form id="joinForm">
-                            <div class="mb-3">
-                                <label class="form-label" for="joinName">Seu nome</label>
-                                <input type="text" id="joinName" class="form-control" placeholder="Digite seu nome" required>
-                                <small class="text-muted-2" style="font-size:0.78rem;">Se você já existe no sistema com esse nome, sua inscrição será associada à sua conta.</small>
+
+                        <!-- Etapa: precisa logar ou criar conta -->
+                        <div id="stepNeedLogin" style="display:none;">
+                            <p class="text-muted-2">Para se inscrever, faça login ou crie sua conta.</p>
+                            <div class="d-flex gap-2">
+                                <a href="#" id="loginLink" class="btn btn-primary flex-grow-1"><i class="bi bi-box-arrow-in-right"></i> Entrar</a>
+                                <a href="#" id="registerLink" class="btn btn-secondary flex-grow-1"><i class="bi bi-person-plus-fill"></i> Criar conta</a>
                             </div>
-                            <div class="mb-3">
-                                <label class="form-label" for="joinDeck">Deck que vai usar</label>
-                                <input type="text" id="joinDeck" class="form-control" placeholder="Ex.: Aggro Burn" required>
-                            </div>
-                            <button type="submit" class="btn btn-primary w-100">
-                                <i class="bi bi-check-circle"></i> Confirmar inscrição
-                            </button>
-                        </form>
-                        <div class="text-center mt-3">
-                            <small class="text-muted-2">
-                                <i class="bi bi-shield-lock"></i> Em breve com login. Por enquanto, basta digitar seu nome.
-                            </small>
                         </div>
+
+                        <!-- Etapa: conta sem jogador vinculado ainda -->
+                        <div id="stepNeedPlayer" style="display:none;">
+                            <p class="text-muted-2">Quase lá! Como você quer aparecer no ranking?</p>
+                            <form id="linkPlayerForm">
+                                <div class="mb-3">
+                                    <label class="form-label" for="linkPlayerName">Nome do jogador</label>
+                                    <input type="text" id="linkPlayerName" class="form-control" placeholder="Seu nome no ranking" required>
+                                </div>
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="bi bi-person-check"></i> Continuar
+                                </button>
+                            </form>
+                        </div>
+
+                        <!-- Etapa: sem nenhum deck salvo ainda -->
+                        <div id="stepNeedDeck" style="display:none;">
+                            <p class="text-muted-2">Você ainda não tem nenhum deck salvo. Crie um deck para poder se inscrever.</p>
+                            <a href="#" id="createDeckLink" class="btn btn-primary w-100"><i class="bi bi-layers-fill"></i> Criar meu primeiro deck</a>
+                        </div>
+
+                        <!-- Etapa: escolher deck salvo e confirmar -->
+                        <div id="stepPickDeck" style="display:none;">
+                            <p class="mb-3">Inscrevendo como <strong id="pickDeckPlayerName"></strong></p>
+                            <form id="joinForm">
+                                <div class="mb-3">
+                                    <label class="form-label" for="joinDeckSelect">Deck que vai usar</label>
+                                    <select id="joinDeckSelect" class="form-select" required></select>
+                                </div>
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="bi bi-check-circle"></i> Confirmar inscrição
+                                </button>
+                            </form>
+                        </div>
+
                     </div>
                 </div>
             </div>
@@ -175,6 +200,8 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="/scripts/auth.js"></script>
+    <script src="/scripts/common.js"></script>
     <script src="/scripts/join-tournament.js"></script>
     <script src="/scripts/theme.js"></script>
 </body>

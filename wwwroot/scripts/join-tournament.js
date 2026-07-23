@@ -1,9 +1,11 @@
-/* ========== Página pública de convite (sem API key) ========== */
-
-const API_BASE_URL = '/api';
+/* ========== Página pública de convite (login + deck próprio obrigatórios) ========== */
 
 const params = new URLSearchParams(window.location.search);
 const code = params.get('code');
+const currentUrl = window.location.pathname + window.location.search;
+
+let myPlayerId = null;
+let myPlayerName = null;
 
 function show(id) {
     ['loadingBlock', 'errorBlock', 'inviteBlock', 'closedBlock', 'successBlock'].forEach(b => {
@@ -11,16 +13,10 @@ function show(id) {
     });
 }
 
-function escapeHtml(value) {
-    if (value === null || value === undefined) return '';
-    return String(value)
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
-}
-
-function formatDate(value) {
-    if (!value) return '-';
-    try { return new Date(value).toLocaleDateString('pt-BR'); } catch (_) { return value; }
+function setJoinStep(step) {
+    ['stepNeedLogin', 'stepNeedPlayer', 'stepNeedDeck', 'stepPickDeck'].forEach(b => {
+        document.getElementById(b).style.display = b === step ? '' : 'none';
+    });
 }
 
 async function loadInvite() {
@@ -30,17 +26,7 @@ async function loadInvite() {
         return;
     }
     try {
-        const res = await fetch(`${API_BASE_URL}/tournament/invite/${encodeURIComponent(code)}`);
-        if (!res.ok) {
-            let msg = 'Convite inválido ou expirado.';
-            try {
-                const data = await res.json();
-                msg = data.error || msg;
-            } catch (_) { /* noop */ }
-            document.getElementById('errorText').textContent = msg;
-            show('errorBlock');
-            return;
-        }
+        const res = await apiFetch(`${API_BASE_URL}/tournament/invite/${encodeURIComponent(code)}`);
         const data = await res.json();
         document.getElementById('tournamentName').textContent = data.name;
         document.getElementById('tournamentDate').textContent = formatDate(data.startDate);
@@ -63,18 +49,86 @@ async function loadInvite() {
             return;
         }
         show('inviteBlock');
+        await renderJoinStep();
     } catch (error) {
-        document.getElementById('errorText').textContent = 'Não foi possível conectar ao servidor.';
+        document.getElementById('errorText').textContent = error.message || 'Não foi possível conectar ao servidor.';
         show('errorBlock');
     }
 }
 
+async function renderJoinStep() {
+    document.getElementById('loginLink').href = `/login.html?next=${encodeURIComponent(currentUrl)}`;
+    document.getElementById('registerLink').href = `/register.html?next=${encodeURIComponent(currentUrl)}`;
+
+    if (!authIsLoggedIn()) {
+        setJoinStep('stepNeedLogin');
+        return;
+    }
+
+    let me;
+    try {
+        const res = await apiFetch(`${API_BASE_URL}/auth/me`);
+        me = await res.json();
+    } catch (_) {
+        return; // apiFetch já redireciona para o login em caso de sessão expirada
+    }
+    authUpdateUser({ playerId: me.playerId, playerName: me.playerName });
+
+    if (!me.playerId) {
+        setJoinStep('stepNeedPlayer');
+        return;
+    }
+
+    myPlayerId = me.playerId;
+    myPlayerName = me.playerName;
+
+    const decksRes = await apiFetch(`${API_BASE_URL}/deck?playerId=${myPlayerId}`);
+    const decks = await decksRes.json();
+
+    if (!decks.length) {
+        document.getElementById('createDeckLink').href =
+            `/decks.html?playerId=${myPlayerId}&next=${encodeURIComponent(currentUrl)}`;
+        setJoinStep('stepNeedDeck');
+        return;
+    }
+
+    document.getElementById('pickDeckPlayerName').textContent = myPlayerName;
+    document.getElementById('joinDeckSelect').innerHTML = decks
+        .map(d => `<option value="${d.id}">${escapeHtml(d.name)} (${d.cardCount} cartas)</option>`)
+        .join('');
+    setJoinStep('stepPickDeck');
+}
+
+document.getElementById('linkPlayerForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const playerName = document.getElementById('linkPlayerName').value.trim();
+    if (!playerName) {
+        Swal.fire({ icon: 'warning', title: 'Atenção', text: 'Informe o nome do jogador.' });
+        return;
+    }
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    try {
+        const res = await apiFetch(`${API_BASE_URL}/auth/link-player`, {
+            method: 'POST',
+            body: JSON.stringify({ playerName }),
+        });
+        const data = await res.json();
+        authUpdateUser({ playerId: data.playerId, playerName: data.playerName });
+        notifySuccess('Perfil de jogador criado!');
+        await renderJoinStep();
+    } catch (error) {
+        Swal.fire({ icon: 'error', title: 'Erro', text: error.message });
+    } finally {
+        submitBtn.disabled = false;
+    }
+});
+
 document.getElementById('joinForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const name = document.getElementById('joinName').value.trim();
-    const deck = document.getElementById('joinDeck').value.trim();
-    if (!name || !deck) {
-        Swal.fire({ icon: 'warning', title: 'Atenção', text: 'Preencha seu nome e o deck.' });
+    const deckId = parseInt(document.getElementById('joinDeckSelect').value, 10);
+    if (!deckId) {
+        Swal.fire({ icon: 'warning', title: 'Atenção', text: 'Escolha um deck.' });
         return;
     }
     const submitBtn = e.target.querySelector('button[type="submit"]');
@@ -82,19 +136,10 @@ document.getElementById('joinForm').addEventListener('submit', async (e) => {
     submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Enviando…';
 
     try {
-        const res = await fetch(`${API_BASE_URL}/tournament/invite/${encodeURIComponent(code)}/join`, {
+        const res = await apiFetch(`${API_BASE_URL}/tournament/invite/${encodeURIComponent(code)}/join`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, deck }),
+            body: JSON.stringify({ deckId }),
         });
-        if (!res.ok) {
-            let msg = 'Não foi possível confirmar a inscrição.';
-            try {
-                const data = await res.json();
-                msg = data.error || msg;
-            } catch (_) { /* noop */ }
-            throw new Error(msg);
-        }
         const data = await res.json();
         document.getElementById('successText').textContent = data.message;
         show('successBlock');

@@ -79,6 +79,31 @@ namespace RankingDigi.Controller
             });
         }
 
+        // POST api/auth/link-player  — cria um Player e vincula à conta logada (quando ainda não tem um)
+        [HttpPost("link-player")]
+        [Authorize]
+        public async Task<IActionResult> LinkPlayer([FromBody] LinkPlayerDto dto)
+        {
+            if (string.IsNullOrWhiteSpace(dto.PlayerName))
+                return BadRequest(new { error = "Informe o nome do jogador." });
+
+            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var user   = await _context.AppUsers.FindAsync(userId);
+            if (user == null) return NotFound();
+
+            if (user.PlayerId.HasValue)
+                return BadRequest(new { error = "Esta conta já possui um jogador vinculado." });
+
+            var player = new Player { Name = dto.PlayerName.Trim(), Score = 0 };
+            _context.Players.Add(player);
+            await _context.SaveChangesAsync();
+
+            user.PlayerId = player.Id;
+            await _context.SaveChangesAsync();
+
+            return Ok(new { playerId = player.Id, playerName = player.Name });
+        }
+
         // POST api/auth/users  — cria novo usuário (apenas Admin)
         [HttpPost("users")]
         [Authorize(Roles = "Admin")]
@@ -357,6 +382,11 @@ namespace RankingDigi.Controller
 
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
+    }
+
+    public class LinkPlayerDto
+    {
+        public string PlayerName { get; set; } = string.Empty;
     }
 
     public class CreateUserDto

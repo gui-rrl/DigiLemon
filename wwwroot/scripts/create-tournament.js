@@ -208,6 +208,7 @@ document.getElementById('createTournamentForm').addEventListener('submit', async
     e.preventDefault();
     const name = document.getElementById('name').value.trim();
     const startDate = document.getElementById('startDate').value;
+    const endDate = document.getElementById('endDate').value;
     const maxPlayers = getMaxPlayers();
 
     if (!name) {
@@ -218,9 +219,17 @@ document.getElementById('createTournamentForm').addEventListener('submit', async
         notifyWarning('Informe a data de início.');
         return;
     }
+    if (!endDate) {
+        notifyWarning('Informe a data de término.');
+        return;
+    }
     const today = new Date(); today.setHours(0, 0, 0, 0);
     if (new Date(startDate + 'T00:00:00') < today) {
         notifyWarning('Não é permitido criar torneios com data no passado.');
+        return;
+    }
+    if (new Date(endDate + 'T00:00:00') < new Date(startDate + 'T00:00:00')) {
+        notifyWarning('A data de término não pode ser anterior à data de início.');
         return;
     }
 
@@ -261,7 +270,7 @@ document.getElementById('createTournamentForm').addEventListener('submit', async
     try {
         const response = await apiFetch(`${API_BASE_URL}/tournament`, {
             method: 'POST',
-            body: JSON.stringify({ name, startDate, maxPlayers, players, format, topCutSize, mode }),
+            body: JSON.stringify({ name, startDate, endDate, maxPlayers, players, format, topCutSize, mode }),
         });
         const result = await response.json();
         await Swal.fire({
@@ -281,9 +290,18 @@ document.getElementById('createTournamentForm').addEventListener('submit', async
 
 // Bloqueia seleção de datas passadas no date picker
 const startDateInput = document.getElementById('startDate');
+const endDateInput = document.getElementById('endDate');
 if (startDateInput) {
     const todayStr = new Date().toISOString().slice(0, 10);
     startDateInput.min = todayStr;
+    startDateInput.addEventListener('change', () => {
+        if (endDateInput) {
+            endDateInput.min = startDateInput.value;
+            if (endDateInput.value && endDateInput.value < startDateInput.value) {
+                endDateInput.value = startDateInput.value;
+            }
+        }
+    });
 }
 
 loadPlayers();
