@@ -49,9 +49,9 @@ namespace RankingDigi.Services
 
         public async Task GenerateAsync(int tournamentId, List<int> playerIds)
         {
-            // ── Limpar chaveamento anterior ───────────────────────────────────────
+            // ── Limpar chaveamento anterior (preserva o histórico Swiss, MatchType 3) ──
             var old = await _context.TournamentMatches
-                .Where(m => m.TournamentId == tournamentId)
+                .Where(m => m.TournamentId == tournamentId && m.MatchType != 3)
                 .ToListAsync();
             _context.TournamentMatches.RemoveRange(old);
             await _context.SaveChangesAsync();

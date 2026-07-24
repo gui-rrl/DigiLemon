@@ -396,6 +396,12 @@ async function init() {
         document.getElementById('tournamentTitle').innerText = tournament.name;
         document.title = `${tournament.name} — Bracket`;
 
+        const recapLink = document.getElementById('backToRecapLink');
+        if (recapLink && tournament.status === 2) {
+            recapLink.href = `/tournament-recap.html?id=${id}`;
+            recapLink.style.display = '';
+        }
+
         const { upper, lower, finals } = groupMatchesByTypeAndRound(allMatchesCache);
         renderBracketSection('upperBracketRoot', upper);
         renderBracketSection('lowerBracketRoot', lower);

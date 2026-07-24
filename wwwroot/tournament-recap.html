@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+<script>(function(){var t=localStorage.getItem("rankingdigi-theme")||(matchMedia("(prefers-color-scheme: light)").matches?"light":"dark");document.documentElement.setAttribute("data-theme",t);})();</script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resumo do Torneio — RankingDigi</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/styles/app.css">
+    <style>
+        .recap-hero {
+            background: linear-gradient(135deg, rgba(109,111,255,0.18), rgba(22,224,189,0.10));
+            border: 1px solid rgba(109,111,255,0.35);
+            border-radius: var(--radius-lg);
+            padding: 1.6rem 1.8rem;
+            margin-bottom: 1.5rem;
+        }
+        .recap-hero .tour-name {
+            font-family: 'Sora', sans-serif;
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: var(--text-1);
+            margin: 0;
+        }
+        .recap-hero .tour-meta { color: var(--text-2); font-size: 0.9rem; margin-top: 0.4rem; }
+
+        .stat-tile {
+            background: var(--bg-1);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1rem 1.2rem;
+            text-align: center;
+        }
+        .stat-tile .stat-value { font-family: 'Sora', sans-serif; font-size: 1.8rem; font-weight: 800; color: var(--primary); line-height: 1.1; }
+        .stat-tile .stat-label { color: var(--text-3); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 0.3rem; }
+
+        .podium-container {
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            gap: 1.2rem;
+            padding: 1.5rem 0 0;
+            flex-wrap: wrap;
+        }
+        .podium-place { display: flex; flex-direction: column; align-items: center; width: 170px; }
+        .podium-avatar, .podium-avatar-fallback {
+            width: 64px; height: 64px; border-radius: 50%; object-fit: cover;
+            border: 3px solid var(--bg-1); box-shadow: var(--shadow-glow); margin-bottom: 0.6rem;
+        }
+        .podium-avatar-fallback {
+            display: flex; align-items: center; justify-content: center;
+            background: var(--gradient-primary); color: #fff; font-weight: 700; font-size: 1.2rem;
+        }
+        .podium-name { font-weight: 700; color: var(--text-1); text-align: center; line-height: 1.2; }
+        .podium-deck { font-size: 0.78rem; text-align: center; margin-top: 0.15rem; min-height: 1.1em; }
+        .podium-block {
+            width: 100%; margin-top: 0.8rem; border-radius: var(--radius) var(--radius) 0 0;
+            display: flex; align-items: flex-start; justify-content: center; padding-top: 0.5rem;
+            font-family: 'Sora', sans-serif; font-size: 1.8rem; font-weight: 800; color: rgba(0,0,0,0.55);
+        }
+        .place-1 .podium-block { height: 130px; background: linear-gradient(180deg, #ffe08a, #e8a613); }
+        .place-2 .podium-block { height: 95px;  background: linear-gradient(180deg, #e3e8ef, #a7b0bd); }
+        .place-3 .podium-block { height: 70px;  background: linear-gradient(180deg, #eab08a, #b5703c); }
+        .podium-bonus { margin-top: 0.4rem; font-size: 0.82rem; font-weight: 700; color: var(--success); }
+
+        .participant-row {
+            display: flex; align-items: center; gap: 0.8rem;
+            padding: 0.6rem 0.2rem; border-bottom: 1px solid var(--border);
+        }
+        .participant-row:last-child { border-bottom: none; }
+        .participant-cover {
+            width: 42px; height: 42px; border-radius: 8px; object-fit: cover; flex-shrink: 0;
+            background: var(--bg-2); border: 1px solid var(--border);
+        }
+        .participant-avatar {
+            width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0;
+        }
+
+        .top-card-tile { text-align: center; }
+        .top-card-tile img { width: 100%; border-radius: 8px; aspect-ratio: 5/7; object-fit: cover; background: var(--bg-2); }
+        .top-card-tile .tc-rate { font-size: 0.78rem; color: var(--text-3); margin-top: 0.3rem; }
+    </style>
+</head>
+<body data-page="tournaments">
+    <main class="container-xxl py-4">
+        <header class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+            <div>
+                <h1 class="page-title">
+                    <span class="icon-badge"><i class="bi bi-stars"></i></span>
+                    Resumo do Torneio
+                </h1>
+                <p class="page-subtitle mt-2">Pódio, decks e curiosidades de um torneio finalizado.</p>
+            </div>
+            <div class="d-flex gap-2 flex-wrap">
+                <a href="#" id="backToBracketLink" class="btn btn-info" style="display:none;">
+                    <i class="bi bi-diagram-3"></i> Ver chaveamento e histórico
+                </a>
+                <a href="/tournaments.html" class="btn btn-secondary">
+                    <i class="bi bi-arrow-left"></i> Voltar aos torneios
+                </a>
+            </div>
+        </header>
+
+        <div id="loadingBlock" class="card-app">
+            <div class="card-body text-center py-5">
+                <div class="spinner-border text-secondary" role="status"></div>
+                <p class="mt-3 text-muted-2">Carregando resumo…</p>
+            </div>
+        </div>
+
+        <div id="errorBlock" class="card-app" style="display:none;">
+            <div class="card-body text-center py-5">
+                <i class="bi bi-exclamation-octagon" style="font-size: 2.5rem; color: var(--danger);"></i>
+                <h2 style="font-size:1.3rem; margin-top: 1rem;">Não foi possível carregar</h2>
+                <p class="text-muted-2" id="errorText"></p>
+            </div>
+        </div>
+
+        <div id="recapContent" style="display:none;">
+            <div class="recap-hero">
+                <h2 class="tour-name" id="recapTourName"></h2>
+                <div class="tour-meta" id="recapTourMeta"></div>
+            </div>
+
+            <div class="row g-3 mb-4" id="statsRow"></div>
+
+            <section class="card-app mb-4">
+                <div class="card-header"><i class="bi bi-trophy-fill"></i> Pódio</div>
+                <div class="card-body">
+                    <div class="podium-container" id="podiumContainer"></div>
+                </div>
+            </section>
+
+            <section class="card-app mb-4" id="standingsSection" style="display:none;">
+                <div class="card-header"><i class="bi bi-list-ol"></i> Classificação final</div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table-app">
+                            <thead>
+                                <tr>
+                                    <th style="width:60px;">#</th>
+                                    <th>Jogador</th>
+                                    <th style="text-align:center;">Pts</th>
+                                    <th style="text-align:center;">V-D-E</th>
+                                    <th style="text-align:right;">OMW%</th>
+                                </tr>
+                            </thead>
+                            <tbody id="standingsTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <div class="row g-3 mb-4">
+                <div class="col-lg-7">
+                    <section class="card-app h-100">
+                        <div class="card-header"><i class="bi bi-people-fill"></i> Participantes e decks</div>
+                        <div class="card-body" id="participantsList"></div>
+                    </section>
+                </div>
+                <div class="col-lg-5">
+                    <section class="card-app h-100">
+                        <div class="card-header"><i class="bi bi-pie-chart-fill"></i> Decks do torneio</div>
+                        <div class="card-body">
+                            <div style="position:relative; height:260px;">
+                                <canvas id="chartDecks"></canvas>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </div>
+
+            <section class="card-app mb-4" id="topCardsSection" style="display:none;">
+                <div class="card-header"><i class="bi bi-star-fill"></i> Cartas mais jogadas no torneio</div>
+                <div class="card-body">
+                    <div class="row g-3" id="topCardsGrid"></div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/scripts/auth.js"></script>
+    <script src="/scripts/common.js"></script>
+    <script src="/scripts/theme.js"></script>
+    <script src="/scripts/tournament-recap.js"></script>
+</body>
+</html>

@@ -147,5 +147,12 @@ app.UseCors("AllowAll");
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.MapGet("/api/_debug/db", (RankingContext ctx) => Results.Ok(new
+{
+    Server = ctx.Database.GetDbConnection().DataSource,
+    Database = ctx.Database.GetDbConnection().Database,
+    Environment = app.Environment.EnvironmentName,
+}));
+
 app.MapControllers();
 app.Run();

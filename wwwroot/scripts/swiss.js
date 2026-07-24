@@ -36,6 +36,12 @@ async function loadAll() {
         renderTopCut(statusCache);
         updateAdminButtons(statusCache);
 
+        const recapLink = document.getElementById('backToRecapLink');
+        if (recapLink && statusCache.status === 2) {
+            recapLink.href = `/tournament-recap.html?id=${tournamentId}`;
+            recapLink.style.display = '';
+        }
+
     } catch (err) {
         console.error(err);
         notifyError('Erro ao carregar torneio: ' + err.message);
@@ -140,7 +146,9 @@ function renderMatchRow(m, round) {
     const p2Name = m.isBye ? '<em class="text-muted-2">BYE</em>' : playerName(m.player2Id);
 
     let p1Class = '', p2Class = '';
-    if (m.isPlayed && m.winnerId) {
+    if (m.isPlayed && !m.isBye && m.winnerId == null) {
+        p1Class = p2Class = 'draw';
+    } else if (m.isPlayed && m.winnerId) {
         p1Class = m.winnerId === m.player1Id ? 'winner' : 'loser';
         p2Class = m.winnerId === m.player2Id ? 'winner' : (m.player2Id ? 'loser' : '');
     }
@@ -232,14 +240,18 @@ function openResultModal(matchId, p1Id, p2Id) {
         const deck = p ? (p.deck || 'Sem deck') : 'Sem deck';
         sel.innerHTML += `<option value="${tpId}">${escapeHtml(name)} (${escapeHtml(deck)})</option>`;
     });
+    if (p1Id && p2Id) {
+        sel.innerHTML += '<option value="0">Empate</option>';
+    }
     new bootstrap.Modal(document.getElementById('resultModal')).show();
 }
 
 document.getElementById('saveResultBtn').addEventListener('click', async () => {
     const winnerId = document.getElementById('winnerSelect').value;
-    if (!winnerId) { notifyWarning('Selecione o vencedor antes de salvar.'); return; }
+    if (winnerId === '') { notifyWarning('Selecione o vencedor (ou empate) antes de salvar.'); return; }
 
-    const loserId = currentP1Id && currentP2Id
+    const isDraw = parseInt(winnerId) === 0;
+    const loserId = !isDraw && currentP1Id && currentP2Id
         ? (parseInt(winnerId) === currentP1Id ? currentP2Id : currentP1Id)
         : null;
 

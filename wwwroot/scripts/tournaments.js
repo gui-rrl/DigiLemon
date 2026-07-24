@@ -77,7 +77,9 @@ async function loadTournaments() {
                                     : `<a href="/tournament-double-bracket.html?id=${t.id}" class="btn btn-sm btn-info" title="Visualizar bracket"><i class="bi bi-diagram-3"></i> Bracket</a>`)
                                 : ''
                             }
+                            ${t.status === 2 ? `<a href="/tournament-recap.html?id=${t.id}" class="btn btn-sm btn-primary" title="Ver resumo do torneio"><i class="bi bi-stars"></i> Resumo</a>` : ''}
                             ${isAdmin ? `<button class="btn btn-sm btn-danger" onclick="deleteTournament(${t.id}, '${escapeHtml(t.name)}')" title="Excluir"><i class="bi bi-trash3"></i></button>` : ''}
+                            ${!isAdmin && t.myParticipationId && t.status === 0 ? `<button class="btn btn-sm btn-danger" onclick="cancelMyParticipation(${t.id}, ${t.myParticipationId}, '${escapeHtml(t.name)}')" title="Cancelar minha inscrição"><i class="bi bi-person-dash"></i> Cancelar inscrição</button>` : ''}
                         </div>
                     </td>
                 </tr>`;
@@ -85,6 +87,25 @@ async function loadTournaments() {
     } catch (error) {
         console.error(error);
         tbody.innerHTML = `<tr class="empty-row"><td colspan="9"><div class="empty-state"><div class="icon"><i class="bi bi-exclamation-octagon"></i></div><div class="title">Erro ao carregar torneios</div><div>${escapeHtml(error.message)}</div></div></td></tr>`;
+    }
+}
+
+async function cancelMyParticipation(tournamentId, participationId, name) {
+    const result = await confirmAction({
+        title: 'Cancelar inscrição?',
+        text: `Você será removido de "${name}". Você pode se inscrever novamente enquanto o torneio estiver em preparação.`,
+        confirmText: 'Sim, cancelar inscrição',
+        cancelText: 'Voltar',
+        icon: 'warning',
+    });
+    if (!result.isConfirmed) return;
+
+    try {
+        await apiFetch(`${API_BASE_URL}/tournament/${tournamentId}/participants/${participationId}`, { method: 'DELETE' });
+        notifySuccess('Inscrição cancelada.');
+        loadTournaments();
+    } catch (error) {
+        notifyError(`Erro ao cancelar inscrição: ${error.message}`);
     }
 }
 
@@ -113,4 +134,5 @@ document.addEventListener('DOMContentLoaded', () => {
     loadTournaments();
     window.deleteTournament = deleteTournament;
     window.copyInvite = copyInvite;
+    window.cancelMyParticipation = cancelMyParticipation;
 });

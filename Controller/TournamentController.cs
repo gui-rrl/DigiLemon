@@ -28,6 +28,13 @@ public class TournamentController : ControllerBase
    [AllowAnonymous]
     public async Task<ActionResult<IEnumerable<TournamentDto>>> GetTournaments()
     {
+        int? myPlayerId = null;
+        if (User.Identity?.IsAuthenticated == true)
+        {
+            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            myPlayerId = (await _context.AppUsers.FindAsync(userId))?.PlayerId;
+        }
+
         var tournaments = await _context.Tournaments
             .Include(t => t.Brackets)
                 .ThenInclude(b => b.Matches)
@@ -112,6 +119,9 @@ public class TournamentController : ControllerBase
             CurrentSwissRound = t.CurrentSwissRound,
             WinnerName = winnerName,
             WinnerAvatarUrl = winnerAvatarUrl,
+            MyParticipationId = myPlayerId.HasValue
+                ? t.TournamentPlayers?.FirstOrDefault(tp => tp.PlayerId == myPlayerId.Value)?.Id
+                : null,
             Brackets = t.Brackets?.Select(b => new BracketDto
             {
                 Id = b.Id,
@@ -339,9 +349,10 @@ public class TournamentController : ControllerBase
         });
     }
 
-    //DELETE: api/tournament/{id}/participants/{tpId} - remove participante por TournamentPlayer.Id
+    //DELETE: api/tournament/{id}/participants/{tpId} - Admin remove qualquer participante;
+    //jogador (não-admin) só pode remover a própria inscrição.
     [HttpDelete("{id}/participants/{tpId}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize]
     public async Task<IActionResult> RemoveParticipant(int id, int tpId)
     {
         var tournament = await _context.Tournaments.FindAsync(id);
@@ -352,6 +363,14 @@ public class TournamentController : ControllerBase
         var participation = await _context.TournamentPlayers
             .FirstOrDefaultAsync(tp => tp.TournamentId == id && tp.Id == tpId);
         if (participation == null) return NotFound(new { error = "Participante não encontrado." });
+
+        if (!User.IsInRole("Admin"))
+        {
+            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var user = await _context.AppUsers.FindAsync(userId);
+            if (user?.PlayerId == null || participation.PlayerId != user.PlayerId)
+                return Forbid();
+        }
 
         _context.TournamentPlayers.Remove(participation);
         await _context.SaveChangesAsync();
@@ -650,6 +669,203 @@ public class TournamentController : ControllerBase
                 m.NextMatchId, m.NextMatchPosition,
                 m.LoserGoesToMatchId, m.Date,
             }).ToList(),
+        });
+    }
+
+    //GET: api/tournament/{id}/recap - resumo pós-torneio (pódio, decks, curiosidades). Só após finalizado.
+    [HttpGet("{id}/recap")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetRecap(int id)
+    {
+        var tournament = await _context.Tournaments.FindAsync(id);
+        if (tournament == null) return NotFound(new { error = "Torneio não encontrado." });
+        if (tournament.Status != 2)
+            return BadRequest(new { error = "O resumo só fica disponível depois que o torneio é finalizado." });
+
+        var tps = await _context.TournamentPlayers
+            .Where(tp => tp.TournamentId == id)
+            .Include(tp => tp.Player)
+            .ToListAsync();
+        var tpById = tps.ToDictionary(tp => tp.Id);
+
+        // ── Pódio ────────────────────────────────────────────────────────────
+        int? championTpId = null, runnerUpTpId = null, thirdTpId = null;
+        List<SwissStandingEntry>? fullStandings = null;
+        bool isFullyRanked = tournament.Format == 2;
+
+        if (isFullyRanked)
+        {
+            fullStandings = await _swissService.GetStandingsAsync(id);
+            if (fullStandings.Count > 0) championTpId = fullStandings[0].TpId;
+            if (fullStandings.Count > 1) runnerUpTpId  = fullStandings[1].TpId;
+            if (fullStandings.Count > 2) thirdTpId     = fullStandings[2].TpId;
+        }
+        else
+        {
+            (championTpId, runnerUpTpId, thirdTpId) = await TournamentScoringService.GetBracketPlacementsAsync(_context, id);
+        }
+
+        var bonusByPosition = new[] { 10, 7, 4 };
+        object? PodiumEntry(int position, int? tpId)
+        {
+            if (!tpId.HasValue || !tpById.TryGetValue(tpId.Value, out var tp)) return null;
+            return new
+            {
+                Position = position,
+                PlayerId = tp.PlayerId,
+                PlayerName = tp.DisplayName,
+                AvatarUrl = tp.Player?.AvatarUrl,
+                Deck = tp.Deck,
+                Bonus = bonusByPosition[position - 1],
+            };
+        }
+        var podium = new[] { PodiumEntry(1, championTpId), PodiumEntry(2, runnerUpTpId), PodiumEntry(3, thirdTpId) }
+            .Where(p => p != null).ToList();
+
+        // ── Decks: capa de cada participante (mesma lógica do DeckController) ──
+        var deckIds = tps.Where(tp => tp.DeckId.HasValue).Select(tp => tp.DeckId!.Value).Distinct().ToList();
+        var decksById = await _context.Decks.Where(d => deckIds.Contains(d.Id)).ToDictionaryAsync(d => d.Id);
+        var deckCards = await _context.DeckCards.Where(dc => deckIds.Contains(dc.DeckId)).ToListAsync();
+        var deckCardsByDeck = deckCards.GroupBy(dc => dc.DeckId)
+            .ToDictionary(g => g.Key, g => g.OrderBy(dc => dc.IsDigiEgg).ThenBy(dc => dc.CardNumber).ToList());
+
+        var cardNumbers = deckCards.Select(dc => dc.CardNumber)
+            .Concat(decksById.Values.Where(d => d.CoverCardNumber != null).Select(d => d.CoverCardNumber!))
+            .Distinct().ToList();
+        var cardsInfo = await _context.Cards
+            .Where(c => cardNumbers.Contains(c.CardNumber))
+            .ToDictionaryAsync(c => c.CardNumber);
+
+        string? BuildDeckCoverUrl(int? deckId)
+        {
+            if (!deckId.HasValue || !decksById.TryGetValue(deckId.Value, out var deck)) return null;
+            if (!string.IsNullOrWhiteSpace(deck.CoverCardNumber))
+            {
+                cardsInfo.TryGetValue(deck.CoverCardNumber, out var coverCard);
+                return Card.BuildImageUrl(deck.CoverTcgplayerId ?? coverCard?.TcgplayerId);
+            }
+            if (deckCardsByDeck.TryGetValue(deck.Id, out var cards) && cards.Count > 0)
+            {
+                cardsInfo.TryGetValue(cards[0].CardNumber, out var firstCard);
+                return Card.BuildImageUrl(cards[0].TcgplayerId ?? firstCard?.TcgplayerId);
+            }
+            return null;
+        }
+
+        var participants = tps
+            .OrderByDescending(tp => tp.Id == championTpId)
+            .ThenByDescending(tp => tp.Id == runnerUpTpId)
+            .ThenByDescending(tp => tp.Id == thirdTpId)
+            .ThenBy(tp => tp.DisplayName)
+            .Select(tp => new
+            {
+                tp.Id,
+                PlayerId = tp.PlayerId,
+                PlayerName = tp.DisplayName,
+                AvatarUrl = tp.Player?.AvatarUrl,
+                Deck = tp.Deck,
+                DeckCoverImageUrl = BuildDeckCoverUrl(tp.DeckId),
+            }).ToList();
+
+        // ── Gráfico de pizza: frequência por nome de deck ───────────────────
+        var deckNameBreakdown = tps
+            .Where(tp => !string.IsNullOrWhiteSpace(tp.Deck))
+            .GroupBy(tp => tp.Deck!.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(g => new { Deck = g.Key, Count = g.Count() })
+            .OrderByDescending(g => g.Count)
+            .ToList();
+
+        // ── Cartas mais jogadas: só as que aparecem em mais de 1 deck (overlap real).
+        // Se nenhuma carta se repete entre decks, mostra 1 carta de destaque (capa) de cada deck. ──
+        var sharedCardCounts = deckCards
+            .GroupBy(dc => dc.CardNumber)
+            .Select(g => new { CardNumber = g.Key, DeckCount = g.Select(x => x.DeckId).Distinct().Count() })
+            .Where(g => g.DeckCount > 1)
+            .OrderByDescending(g => g.DeckCount)
+            .Take(10)
+            .ToList();
+
+        string topCardsMode;
+        List<object> topCards;
+
+        if (sharedCardCounts.Count > 0)
+        {
+            topCardsMode = "shared";
+            topCards = sharedCardCounts.Select(g =>
+            {
+                cardsInfo.TryGetValue(g.CardNumber, out var card);
+                return (object)new
+                {
+                    g.CardNumber,
+                    Name = card?.Name,
+                    ImageUrl = Card.BuildImageUrl(card?.TcgplayerId),
+                    g.DeckCount,
+                    PlayerName = (string?)null,
+                };
+            }).ToList();
+        }
+        else
+        {
+            topCardsMode = "onePerDeck";
+            topCards = tps
+                .Where(tp => tp.DeckId.HasValue)
+                .Select(tp =>
+                {
+                    var deckId = tp.DeckId!.Value;
+                    string? cardNumber = decksById.TryGetValue(deckId, out var deck) && !string.IsNullOrWhiteSpace(deck.CoverCardNumber)
+                        ? deck.CoverCardNumber
+                        : (deckCardsByDeck.TryGetValue(deckId, out var cards) && cards.Count > 0 ? cards[0].CardNumber : null);
+                    return new { tp, CardNumber = cardNumber };
+                })
+                .Where(x => x.CardNumber != null)
+                .Select(x =>
+                {
+                    cardsInfo.TryGetValue(x.CardNumber!, out var card);
+                    return (object)new
+                    {
+                        CardNumber = x.CardNumber!,
+                        Name = card?.Name,
+                        ImageUrl = Card.BuildImageUrl(card?.TcgplayerId),
+                        DeckCount = (int?)null,
+                        PlayerName = (string?)x.tp.DisplayName,
+                    };
+                }).ToList();
+        }
+
+        // ── Estatísticas gerais ──────────────────────────────────────────────
+        var matches = await _context.TournamentMatches.Where(m => m.TournamentId == id).ToListAsync();
+        var realMatches = matches.Where(m => m.IsPlayed && !m.IsBye).ToList();
+        var totalDraws = realMatches.Count(m => !m.WinnerId.HasValue);
+        var lastMatchDate = matches.Where(m => m.Date.HasValue).Select(m => m.Date!.Value).OrderByDescending(d => d).FirstOrDefault();
+
+        return Ok(new
+        {
+            Tournament = new
+            {
+                tournament.Id,
+                tournament.Name,
+                tournament.Format,
+                tournament.Mode,
+                tournament.StartDate,
+                tournament.EndDate,
+                FinishedAt = lastMatchDate == default ? (DateTime?)null : lastMatchDate,
+                tournament.SwissRounds,
+                tournament.TopCutSize,
+            },
+            Podium = podium,
+            IsFullyRanked = isFullyRanked,
+            Standings = isFullyRanked ? fullStandings : null,
+            Participants = participants,
+            DeckNameBreakdown = deckNameBreakdown,
+            TopCards = topCards,
+            TopCardsMode = topCardsMode,
+            Stats = new
+            {
+                TotalParticipants = tps.Count,
+                TotalMatches = realMatches.Count,
+                TotalDraws = totalDraws,
+                TotalRounds = tournament.Format != 0 ? tournament.SwissRounds : (int?)null,
+            },
         });
     }
 }

@@ -107,6 +107,10 @@ namespace RankingDigi.Services
 
             tournament.Status  = 2;
             tournament.EndDate = DateTime.UtcNow;
+
+            var standings = await GetStandingsRawAsync(tournamentId);
+            await TournamentScoringService.AwardSwissStandingsPlacementBonusAsync(_context, tournament, standings);
+
             await _context.SaveChangesAsync();
         }
 

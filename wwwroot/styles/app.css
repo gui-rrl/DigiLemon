@@ -1256,6 +1256,7 @@ a {
 
     .swiss-match .player-slot.winner { color: var(--success); font-weight: 600; }
     .swiss-match .player-slot.loser  { color: var(--text-3); }
+    .swiss-match .player-slot.draw   { color: var(--warning); font-weight: 600; }
 
     .swiss-match .vs-badge {
         font-size: 0.78rem;
