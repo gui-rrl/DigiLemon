@@ -99,6 +99,33 @@
         </div>
     </div>
 
+    <!-- Modal vincular jogador -->
+    <div class="modal fade" id="modalLinkPlayer" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-person-vcard-fill me-2"></i> Vincular jogador</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted-2 mb-3">Conta: <strong id="linkPlayerUsername"></strong></p>
+                    <div class="mb-1">
+                        <label class="form-label">Jogador</label>
+                        <select id="linkPlayerSelect" class="form-select">
+                            <option value="">Selecione um jogador</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="btnSaveLinkPlayer">
+                        <i class="bi bi-check2-circle"></i> Vincular
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal trocar senha -->
     <div class="modal fade" id="modalChangePassword" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">

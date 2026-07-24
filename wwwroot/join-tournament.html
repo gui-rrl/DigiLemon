@@ -127,6 +127,12 @@
                     <div class="card-header"><i class="bi bi-pencil-square"></i> Fazer inscrição</div>
                     <div class="card-body">
 
+                        <!-- Aviso: conta atualmente logada (evita vincular jogador na conta errada) -->
+                        <div id="loggedInAsBlock" style="display:none;" class="alert alert-secondary d-flex justify-content-between align-items-center py-2 px-3 mb-3">
+                            <span>Conectado como <strong id="loggedInAsName"></strong></span>
+                            <a href="#" id="switchAccountLink" style="font-size:0.85rem;">Não é você? Sair</a>
+                        </div>
+
                         <!-- Etapa: precisa logar ou criar conta -->
                         <div id="stepNeedLogin" style="display:none;">
                             <p class="text-muted-2">Para se inscrever, faça login ou crie sua conta.</p>

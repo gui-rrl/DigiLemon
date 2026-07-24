@@ -156,6 +156,37 @@ namespace RankingDigi.Controller
             return NoContent();
         }
 
+        // PUT api/auth/users/{id}/link-player  — vincula (ou troca) o jogador de uma conta (apenas Admin)
+        [HttpPut("users/{id}/link-player")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> LinkPlayerToUser(int id, [FromBody] AdminLinkPlayerDto dto)
+        {
+            var user = await _context.AppUsers.FindAsync(id);
+            if (user == null) return NotFound();
+
+            var player = await _context.Players.FindAsync(dto.PlayerId);
+            if (player == null) return NotFound(new { error = "Jogador não encontrado." });
+
+            user.PlayerId = player.Id;
+            await _context.SaveChangesAsync();
+
+            return Ok(new { user.Id, user.Username, PlayerId = player.Id, PlayerName = player.Name });
+        }
+
+        // DELETE api/auth/users/{id}/link-player  — remove o vínculo de jogador de uma conta (apenas Admin)
+        [HttpDelete("users/{id}/link-player")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> UnlinkPlayerFromUser(int id)
+        {
+            var user = await _context.AppUsers.FindAsync(id);
+            if (user == null) return NotFound();
+
+            user.PlayerId = null;
+            await _context.SaveChangesAsync();
+
+            return Ok(new { user.Id, user.Username, PlayerId = (int?)null });
+        }
+
         // PUT api/auth/users/{id}/password  — troca senha (Admin ou o próprio usuário)
         [HttpPut("users/{id}/password")]
         [Authorize]
@@ -387,6 +418,11 @@ namespace RankingDigi.Controller
     public class LinkPlayerDto
     {
         public string PlayerName { get; set; } = string.Empty;
+    }
+
+    public class AdminLinkPlayerDto
+    {
+        public int PlayerId { get; set; }
     }
 
     public class CreateUserDto

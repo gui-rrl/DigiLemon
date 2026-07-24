@@ -52,7 +52,7 @@ async function loadTournaments() {
             return `
                 <tr>
                     <td><span class="text-muted-2">#${t.id}</span></td>
-                    <td><strong>${escapeHtml(t.name)}</strong></td>
+                    <td style="white-space:nowrap;"><strong>${escapeHtml(t.name)}</strong></td>
                     <td>${t.mode === 1
                         ? '<span class="status-pill prep"><i class="bi bi-controller"></i> Online</span>'
                         : '<span class="status-pill" style="background:rgba(109,111,255,0.15);color:var(--primary)"><i class="bi bi-people-fill"></i> Presencial</span>'
@@ -67,8 +67,8 @@ async function loadTournaments() {
                     <td>${t.endDate ? formatDate(t.endDate) : '<span class="text-muted-2">—</span>'}</td>
                     <td><span class="status-pill ${info.cls}" style="white-space:nowrap;">${info.label}</span></td>
                     <td>${winner}</td>
-                    <td style="text-align:right;">
-                        <div class="d-inline-flex gap-2 flex-wrap justify-content-end">
+                    <td style="text-align:right; white-space:nowrap;">
+                        <div class="d-inline-flex gap-2 justify-content-end" style="flex-wrap:nowrap;">
                             ${canInvite ? `<button class="btn btn-sm btn-ghost" onclick="copyInvite('${escapeHtml(t.inviteCode)}')" title="Copiar link de convite"><i class="bi bi-link-45deg"></i> Convite</button>` : ''}
                             ${isAdmin && t.status === 0 ? `<a href="/tournament-setup.html?id=${t.id}" class="btn btn-sm btn-secondary" title="Configurar"><i class="bi bi-gear"></i> Configurar</a>` : ''}
                             ${t.status >= 1

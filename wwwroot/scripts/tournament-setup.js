@@ -72,7 +72,10 @@ async function loadParticipants() {
                 ${participants.map(p => `
                     <div class="col-md-6 col-lg-4">
                         <div class="card-stat hover-lift" style="border-radius: 14px; position: relative;">
-                            <span class="avatar">${getInitials(p.playerName)}</span>
+                            ${p.avatarUrl
+                                ? `<img src="${escapeHtml(p.avatarUrl)}" class="avatar avatar-img" alt="${escapeHtml(p.playerName)}">`
+                                : `<span class="avatar">${getInitials(p.playerName)}</span>`
+                            }
                             <div style="min-width:0; flex:1;">
                                 <div style="font-weight:600;" class="text-truncate">
                                     ${p.isGuest || !p.playerId
@@ -81,8 +84,13 @@ async function loadParticipants() {
                                         : `<a href="/player.html?id=${p.playerId}" style="color: var(--text-1); text-decoration: none;">${escapeHtml(p.playerName)}</a>`
                                     }
                                 </div>
-                                <div class="text-muted-2 text-truncate" style="font-size:0.82rem;">
-                                    <i class="bi bi-layers"></i> ${escapeHtml(p.deck)}
+                                <div class="text-muted-2" style="font-size:0.82rem; display:flex; align-items:center; gap:0.35rem;">
+                                    <button type="button" class="btn btn-ghost btn-sm btn-toggle-deck" data-deck-id="deck-${p.id}" title="Mostrar deck" style="padding:0.05rem 0.4rem; font-size:0.72rem; line-height:1.4;">
+                                        <i class="bi bi-eye"></i> Deck
+                                    </button>
+                                    <span class="text-truncate" id="deck-${p.id}" style="display:none;">
+                                        <i class="bi bi-layers"></i> ${escapeHtml(p.deck)}
+                                    </span>
                                 </div>
                             </div>
                             <button class="btn btn-ghost btn-sm" data-remove-id="${p.id}" data-remove-name="${escapeHtml(p.playerName)}" title="Remover participante" style="position:absolute; top:0.4rem; right:0.4rem;">
@@ -103,6 +111,18 @@ async function loadParticipants() {
                 parseInt(btn.dataset.removeId),
                 btn.dataset.removeName,
             ));
+        });
+
+        container.querySelectorAll('.btn-toggle-deck').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const deckSpan = document.getElementById(btn.dataset.deckId);
+                const showing = deckSpan.style.display !== 'none';
+                deckSpan.style.display = showing ? 'none' : '';
+                btn.innerHTML = showing
+                    ? '<i class="bi bi-eye"></i> Deck'
+                    : '<i class="bi bi-eye-slash"></i> Deck';
+                btn.title = showing ? 'Mostrar deck' : 'Ocultar deck';
+            });
         });
     } catch (error) {
         notifyError('Erro ao carregar participantes: ' + error.message);

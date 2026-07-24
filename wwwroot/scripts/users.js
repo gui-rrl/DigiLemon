@@ -1,6 +1,8 @@
 /* ========== Usuários ========== */
 
 let changePasswordUserId = null;
+let linkPlayerUserId = null;
+let allPlayers = [];
 
 async function loadUsers() {
     try {
@@ -25,6 +27,13 @@ async function loadUsers() {
                 <td>${u.playerName ? escapeHtml(u.playerName) : '<span class="text-muted-2">—</span>'}</td>
                 <td style="text-align:right;">
                     <div class="d-inline-flex gap-2">
+                        <button class="btn btn-sm btn-secondary btn-link-player" data-id="${u.id}" data-username="${escapeHtml(u.username)}" data-player-id="${u.playerId ?? ''}" title="Vincular/trocar jogador">
+                            <i class="bi bi-person-vcard"></i>
+                        </button>
+                        ${u.playerId ? `
+                        <button class="btn btn-sm btn-secondary btn-unlink-player" data-id="${u.id}" data-username="${escapeHtml(u.username)}" title="Remover vínculo com jogador">
+                            <i class="bi bi-person-dash"></i>
+                        </button>` : ''}
                         <button class="btn btn-sm btn-secondary btn-change-pw" data-id="${u.id}" data-username="${escapeHtml(u.username)}" title="Trocar senha">
                             <i class="bi bi-key"></i> Senha
                         </button>
@@ -41,6 +50,12 @@ async function loadUsers() {
         tbody.querySelectorAll('.btn-delete').forEach(btn => {
             btn.addEventListener('click', () => deleteUser(parseInt(btn.dataset.id), btn.dataset.username));
         });
+        tbody.querySelectorAll('.btn-link-player').forEach(btn => {
+            btn.addEventListener('click', () => openLinkPlayer(parseInt(btn.dataset.id), btn.dataset.username, btn.dataset.playerId ? parseInt(btn.dataset.playerId) : null));
+        });
+        tbody.querySelectorAll('.btn-unlink-player').forEach(btn => {
+            btn.addEventListener('click', () => unlinkPlayer(parseInt(btn.dataset.id), btn.dataset.username));
+        });
 
     } catch (err) {
         notifyError('Erro ao carregar usuários: ' + err.message);
@@ -50,6 +65,7 @@ async function loadUsers() {
 async function loadPlayers() {
     try {
         const players = await apiFetch(`${API_BASE_URL}/player`).then(r => r.json());
+        allPlayers = players;
         const sel = document.getElementById('newPlayerId');
         players.forEach(p => {
             const opt = document.createElement('option');
@@ -112,6 +128,54 @@ document.getElementById('btnSavePassword').addEventListener('click', async () =>
         notifyError('Erro ao alterar senha: ' + err.message);
     }
 });
+
+// ── Vincular / desvincular jogador ───────────────────────────────────────────
+
+function openLinkPlayer(id, username, currentPlayerId) {
+    linkPlayerUserId = id;
+    document.getElementById('linkPlayerUsername').textContent = username;
+
+    const sel = document.getElementById('linkPlayerSelect');
+    sel.innerHTML = '<option value="">Selecione um jogador</option>' +
+        allPlayers.map(p => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
+    sel.value = currentPlayerId ?? '';
+
+    new bootstrap.Modal(document.getElementById('modalLinkPlayer')).show();
+}
+
+document.getElementById('btnSaveLinkPlayer').addEventListener('click', async () => {
+    const playerId = document.getElementById('linkPlayerSelect').value;
+    if (!playerId) { notifyWarning('Selecione um jogador.'); return; }
+
+    try {
+        await apiFetch(`${API_BASE_URL}/auth/users/${linkPlayerUserId}/link-player`, {
+            method: 'PUT',
+            body: JSON.stringify({ playerId: parseInt(playerId) }),
+        });
+        bootstrap.Modal.getInstance(document.getElementById('modalLinkPlayer')).hide();
+        notifySuccess('Jogador vinculado com sucesso!');
+        loadUsers();
+    } catch (err) {
+        notifyError('Erro ao vincular jogador: ' + err.message);
+    }
+});
+
+async function unlinkPlayer(id, username) {
+    const confirm = await confirmAction({
+        title: 'Remover vínculo?',
+        text: `A conta "${username}" deixará de estar vinculada ao jogador.`,
+        confirmText: 'Remover', cancelText: 'Cancelar', icon: 'warning',
+    });
+    if (!confirm.isConfirmed) return;
+
+    try {
+        await apiFetch(`${API_BASE_URL}/auth/users/${id}/link-player`, { method: 'DELETE' });
+        notifySuccess('Vínculo removido.');
+        loadUsers();
+    } catch (err) {
+        notifyError('Erro ao remover vínculo: ' + err.message);
+    }
+}
 
 // ── Deletar usuário ───────────────────────────────────────────────────────────
 

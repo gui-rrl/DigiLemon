@@ -61,6 +61,7 @@ async function renderJoinStep() {
     document.getElementById('registerLink').href = `/register.html?next=${encodeURIComponent(currentUrl)}`;
 
     if (!authIsLoggedIn()) {
+        document.getElementById('loggedInAsBlock').style.display = 'none';
         setJoinStep('stepNeedLogin');
         return;
     }
@@ -73,6 +74,9 @@ async function renderJoinStep() {
         return; // apiFetch já redireciona para o login em caso de sessão expirada
     }
     authUpdateUser({ playerId: me.playerId, playerName: me.playerName });
+
+    document.getElementById('loggedInAsName').textContent = me.username;
+    document.getElementById('loggedInAsBlock').style.display = '';
 
     if (!me.playerId) {
         setJoinStep('stepNeedPlayer');
@@ -98,6 +102,12 @@ async function renderJoinStep() {
         .join('');
     setJoinStep('stepPickDeck');
 }
+
+document.getElementById('switchAccountLink').addEventListener('click', (e) => {
+    e.preventDefault();
+    authClear();
+    window.location.href = `/login.html?next=${encodeURIComponent(currentUrl)}`;
+});
 
 document.getElementById('linkPlayerForm').addEventListener('submit', async (e) => {
     e.preventDefault();

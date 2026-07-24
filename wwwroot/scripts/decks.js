@@ -20,6 +20,9 @@ let artsCache = new Map(); // cardNumber -> lista de variantes de arte (lazy, s�
 let deckCoverCardNumber = null; // carta escolhida como capa/papel de parede do deck na listagem
 let deckCoverTcgplayerId = null; // arte específica da carta de capa (null = arte padrão)
 
+let profileBackHtml = '<i class="bi bi-arrow-left"></i> Voltar ao perfil';
+let profileBackHref = '';
+
 function cardKey(cardNumber, isDigiEgg) {
     return `${cardNumber}|${isDigiEgg ? 1 : 0}`;
 }
@@ -155,12 +158,20 @@ async function deleteDeck(id, name) {
 function showListView() {
     document.getElementById('deckListView').style.display = '';
     document.getElementById('deckBuilderView').style.display = 'none';
+    const backLink = document.getElementById('backLink');
+    backLink.innerHTML = profileBackHtml;
+    backLink.href = profileBackHref;
+    backLink.onclick = null;
     loadDeckList();
 }
 
 function showBuilderView() {
     document.getElementById('deckListView').style.display = 'none';
     document.getElementById('deckBuilderView').style.display = '';
+    const backLink = document.getElementById('backLink');
+    backLink.innerHTML = '<i class="bi bi-arrow-left"></i> Voltar aos decks';
+    backLink.href = '#';
+    backLink.onclick = (e) => { e.preventDefault(); showListView(); };
 }
 
 function openNewDeck() {
@@ -707,18 +718,20 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const next = params.get('next');
     const backHref = next ? decodeURIComponent(next) : `/player.html?id=${playerId}`;
-    if (next) {
-        document.getElementById('backLink').innerHTML = '<i class="bi bi-arrow-left"></i> Voltar';
-    }
+    profileBackHtml = next
+        ? '<i class="bi bi-arrow-left"></i> Voltar'
+        : '<i class="bi bi-arrow-left"></i> Voltar ao perfil';
 
     try {
         const response = await apiFetch(`${API_BASE_URL}/player/${playerId}`);
         const player = await response.json();
         document.getElementById('pageSubtitle').textContent = `Gerencie os decks de ${player.name}`;
-        document.getElementById('backLink').href = backHref;
+        profileBackHref = backHref;
     } catch (_) {
-        document.getElementById('backLink').href = next ? backHref : '/Index.html';
+        profileBackHref = next ? backHref : '/Index.html';
     }
+    document.getElementById('backLink').innerHTML = profileBackHtml;
+    document.getElementById('backLink').href = profileBackHref;
 
     await Promise.all([loadRestrictions(), loadFilterOptions()]);
     loadDeckList();

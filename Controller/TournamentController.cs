@@ -447,6 +447,7 @@ public class TournamentController : ControllerBase
             tp.PlayerId,
             PlayerName = tp.GuestName ?? tp.Player?.Name ?? "Desconhecido",
             IsGuest    = tp.PlayerId == null,
+            AvatarUrl  = tp.Player?.AvatarUrl,
             tp.Deck,
         });
 
