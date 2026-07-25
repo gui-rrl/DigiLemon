@@ -266,6 +266,10 @@ ServiceFabricBackup/
 *.ldf
 *.ndf
 
+# Database sync artifacts (export/import entre local e Azure)
+*.bacpac
+*.dacpac
+
 # Business Intelligence projects
 *.rdl.data
 *.bim.layout
