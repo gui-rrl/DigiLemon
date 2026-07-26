@@ -109,6 +109,7 @@ public class TournamentController : ControllerBase
             Name = t.Name,
             StartDate = t.StartDate,
             EndDate = t.EndDate,
+            RegistrationDeadline = t.RegistrationDeadline,
             Status = t.Status,
             InviteCode = t.InviteCode,
             MaxPlayers = t.MaxPlayers,
@@ -147,6 +148,12 @@ public class TournamentController : ControllerBase
         return Ok(dtos);
     }
 
+    // As inscrições ficam abertas durante todo o dia do prazo e fecham à meia-noite seguinte
+    // (mesma convenção da EndDate). Usa hora local porque a data vem do date picker do navegador,
+    // que é local — assim "meia-noite" é a meia-noite que o organizador vê.
+    private static bool IsRegistrationExpired(Tournament t) =>
+        t.RegistrationDeadline.HasValue && DateTime.Now >= t.RegistrationDeadline.Value.Date.AddDays(1);
+
     //POST: api/tournament
     [HttpPost]
     [Authorize(Roles = "Admin")]
@@ -164,6 +171,9 @@ public class TournamentController : ControllerBase
             return BadRequest(new { error = "Informe a data de término do torneio." });
         if (dto.EndDate.Value.Date < dto.StartDate.Date)
             return BadRequest(new { error = "A data de término não pode ser anterior à data de início." });
+
+        if (dto.RegistrationDeadline.HasValue && dto.RegistrationDeadline.Value.Date > dto.EndDate.Value.Date)
+            return BadRequest(new { error = "O prazo de inscrição não pode ser depois da data de término do torneio." });
 
         var players = dto.Players ?? new List<PlayerDeckDto>();
 
@@ -210,6 +220,7 @@ public class TournamentController : ControllerBase
             Name = dto.Name,
             StartDate = dto.StartDate,
             EndDate = dto.EndDate.Value,
+            RegistrationDeadline = dto.RegistrationDeadline,
             Status = 0,
             MaxPlayers = dto.MaxPlayers,
             Mode = dto.Mode,
@@ -282,16 +293,26 @@ public class TournamentController : ControllerBase
             .Select(tp => new { tp.PlayerId, PlayerName = tp.GuestName ?? tp.Player!.Name, tp.Deck })
             .ToListAsync();
 
+        // Motivo do fechamento na ordem em que importa pra quem abre o convite:
+        // torneio já iniciado > prazo de inscrição vencido > vagas esgotadas.
+        string? closedReason =
+            tournament.Status != 0                                                        ? "started"
+            : IsRegistrationExpired(tournament)                                           ? "deadline"
+            : tournament.MaxPlayers > 0 && participants.Count >= tournament.MaxPlayers    ? "full"
+            : null;
+
         return Ok(new
         {
             tournament.Id,
             tournament.Name,
             tournament.StartDate,
+            tournament.RegistrationDeadline,
             tournament.Status,
             tournament.InviteCode,
             tournament.MaxPlayers,
             Participants = participants,
-            IsOpenForJoin = tournament.Status == 0 && (tournament.MaxPlayers == 0 || participants.Count < tournament.MaxPlayers),
+            IsOpenForJoin = closedReason == null,
+            ClosedReason = closedReason,
         });
     }
 
@@ -314,6 +335,8 @@ public class TournamentController : ControllerBase
             return NotFound(new { error = "Torneio não encontrado." });
         if (tournament.Status != 0)
             return BadRequest(new { error = "Este torneio já foi iniciado. Novos jogadores não podem mais ingressar." });
+        if (IsRegistrationExpired(tournament))
+            return BadRequest(new { error = $"As inscrições encerraram em {tournament.RegistrationDeadline!.Value:dd/MM/yyyy}." });
 
         if (tournament.MaxPlayers > 0)
         {
@@ -347,6 +370,64 @@ public class TournamentController : ControllerBase
             playerName     = user.Player.Name,
             message        = $"Você foi inscrito como \"{user.Player.Name}\" com o deck \"{deck.Name}\".",
         });
+    }
+
+    //POST: api/tournament/{id}/participants - Admin inscreve um jogador manualmente.
+    //Ao contrário do link de convite, não exige que o jogador tenha conta nem deck salvo, e
+    //ignora de propósito o prazo de inscrição: é a via do organizador para casos fora do fluxo
+    //normal (inscrição presencial, jogador sem conta no sistema, atraso combinado).
+    [HttpPost("{id}/participants")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> AddParticipant(int id, [FromBody] PlayerDeckDto dto)
+    {
+        if (dto == null || dto.PlayerId <= 0)
+            return BadRequest(new { error = "Selecione um jogador." });
+
+        var tournament = await _context.Tournaments.FindAsync(id);
+        if (tournament == null) return NotFound(new { error = "Torneio não encontrado." });
+        if (tournament.Status != 0)
+            return BadRequest(new { error = "Não é possível inscrever participantes após o torneio ser iniciado." });
+
+        var player = await _context.Players.FindAsync(dto.PlayerId);
+        if (player == null) return NotFound(new { error = "Jogador não encontrado." });
+
+        bool alreadyIn = await _context.TournamentPlayers
+            .AnyAsync(tp => tp.TournamentId == id && tp.PlayerId == dto.PlayerId);
+        if (alreadyIn)
+            return Conflict(new { error = $"\"{player.Name}\" já está inscrito neste torneio." });
+
+        if (tournament.MaxPlayers > 0)
+        {
+            var currentCount = await _context.TournamentPlayers.CountAsync(tp => tp.TournamentId == id);
+            if (currentCount >= tournament.MaxPlayers)
+                return BadRequest(new { error = $"Este torneio já está cheio ({tournament.MaxPlayers} vagas preenchidas)." });
+        }
+
+        // Se o admin escolheu um deck salvo, o nome vem do próprio deck; senão vale o texto digitado.
+        var deckName = dto.Deck?.Trim();
+        int? deckId = null;
+        if (dto.DeckId.HasValue)
+        {
+            var savedDeck = await _context.Decks.FindAsync(dto.DeckId.Value);
+            if (savedDeck == null || savedDeck.PlayerId != dto.PlayerId)
+                return BadRequest(new { error = "O deck escolhido não pertence a esse jogador." });
+            deckName = savedDeck.Name;
+            deckId   = savedDeck.Id;
+        }
+        if (string.IsNullOrWhiteSpace(deckName))
+            return BadRequest(new { error = "Informe o deck do jogador." });
+
+        var participation = new TournamentPlayer
+        {
+            TournamentId = id,
+            PlayerId     = dto.PlayerId,
+            Deck         = deckName,
+            DeckId       = deckId,
+        };
+        _context.TournamentPlayers.Add(participation);
+        await _context.SaveChangesAsync();
+
+        return Ok(new { participation.Id, PlayerId = dto.PlayerId, PlayerName = player.Name, Deck = deckName, DeckId = deckId });
     }
 
     //DELETE: api/tournament/{id}/participants/{tpId} - Admin remove qualquer participante;
@@ -411,6 +492,7 @@ public class TournamentController : ControllerBase
             Name = tournament.Name,
             StartDate = tournament.StartDate,
             EndDate = tournament.EndDate,
+            RegistrationDeadline = tournament.RegistrationDeadline,
             Status = tournament.Status,
             InviteCode = tournament.InviteCode,
             MaxPlayers = tournament.MaxPlayers,
@@ -672,6 +754,41 @@ public class TournamentController : ControllerBase
         });
     }
 
+    //GET: api/tournament/{id}/participants/{tpId}/deck - decklist de um participante, para a
+    //tela de visualização aberta pelo resumo. Público, mas SÓ depois do torneio finalizado:
+    //enquanto ele corre, o deck segue privado (o DeckController só libera pro dono ou admin),
+    //para ninguém espiar a lista do adversário no meio da competição.
+    [HttpGet("{id}/participants/{tpId}/deck")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetParticipantDeck(int id, int tpId)
+    {
+        var tournament = await _context.Tournaments.FindAsync(id);
+        if (tournament == null) return NotFound(new { error = "Torneio não encontrado." });
+        if (tournament.Status != 2)
+            return BadRequest(new { error = "As listas de deck ficam visíveis só depois que o torneio é finalizado." });
+
+        var tp = await _context.TournamentPlayers
+            .Include(x => x.Player)
+            .FirstOrDefaultAsync(x => x.Id == tpId && x.TournamentId == id);
+        if (tp == null) return NotFound(new { error = "Participante não encontrado neste torneio." });
+        if (!tp.DeckId.HasValue)
+            return NotFound(new { error = "Este participante não registrou a lista do deck." });
+
+        var cards = await DeckViewBuilder.BuildDeckCardsAsync(_context, tp.DeckId.Value);
+
+        return Ok(new
+        {
+            TournamentId   = id,
+            TournamentName = tournament.Name,
+            ParticipantId  = tp.Id,
+            PlayerName     = tp.DisplayName,
+            AvatarUrl      = tp.Player?.AvatarUrl,
+            DeckName       = tp.Deck,
+            MainDeck       = cards.Where(c => !c.IsDigiEgg),
+            DigiEggDeck    = cards.Where(c => c.IsDigiEgg),
+        });
+    }
+
     //GET: api/tournament/{id}/recap - resumo pós-torneio (pódio, decks, curiosidades). Só após finalizado.
     [HttpGet("{id}/recap")]
     [AllowAnonymous]
@@ -712,11 +829,13 @@ public class TournamentController : ControllerBase
             return new
             {
                 Position = position,
+                ParticipantId = tp.Id,   // usado pelo link da decklist embaixo do pódio
                 PlayerId = tp.PlayerId,
                 PlayerName = tp.DisplayName,
                 AvatarUrl = tp.Player?.AvatarUrl,
                 Deck = tp.Deck,
                 Bonus = bonusByPosition[position - 1],
+                HasDeckList = tp.DeckId.HasValue,
             };
         }
         var podium = new[] { PodiumEntry(1, championTpId), PodiumEntry(2, runnerUpTpId), PodiumEntry(3, thirdTpId) }
@@ -765,6 +884,8 @@ public class TournamentController : ControllerBase
                 AvatarUrl = tp.Player?.AvatarUrl,
                 Deck = tp.Deck,
                 DeckCoverImageUrl = BuildDeckCoverUrl(tp.DeckId),
+                // Só quem registrou um deck salvo tem lista pra abrir na tela de visualização
+                HasDeckList = tp.DeckId.HasValue,
             }).ToList();
 
         // ── Gráfico de pizza: frequência por nome de deck ───────────────────

@@ -32,6 +32,11 @@ async function loadInvite() {
         document.getElementById('tournamentDate').textContent = formatDate(data.startDate);
         document.getElementById('participantsCount').textContent = data.participants.length;
 
+        if (data.registrationDeadline) {
+            document.getElementById('tournamentDeadline').textContent = formatDate(data.registrationDeadline);
+            document.getElementById('deadlineWrap').style.display = '';
+        }
+
         const thumb = document.getElementById('participantsThumb');
         if (data.participants.length) {
             thumb.innerHTML = data.participants
@@ -45,6 +50,13 @@ async function loadInvite() {
         }
 
         if (!data.isOpenForJoin) {
+            const messages = {
+                started:  'Este torneio já foi iniciado e não está mais aceitando novos participantes.',
+                deadline: `O prazo de inscrição terminou em ${data.registrationDeadline ? formatDate(data.registrationDeadline) : '—'}.`,
+                full:     'Todas as vagas deste torneio já foram preenchidas.',
+            };
+            document.getElementById('closedText').textContent =
+                messages[data.closedReason] || messages.started;
             show('closedBlock');
             return;
         }

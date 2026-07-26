@@ -209,6 +209,7 @@ document.getElementById('createTournamentForm').addEventListener('submit', async
     const name = document.getElementById('name').value.trim();
     const startDate = document.getElementById('startDate').value;
     const endDate = document.getElementById('endDate').value;
+    const registrationDeadline = document.getElementById('registrationDeadline').value;
     const maxPlayers = getMaxPlayers();
 
     if (!name) {
@@ -231,6 +232,16 @@ document.getElementById('createTournamentForm').addEventListener('submit', async
     if (new Date(endDate + 'T00:00:00') < new Date(startDate + 'T00:00:00')) {
         notifyWarning('A data de término não pode ser anterior à data de início.');
         return;
+    }
+    if (registrationDeadline) {
+        if (new Date(registrationDeadline + 'T00:00:00') < today) {
+            notifyWarning('O fim das inscrições não pode ser uma data no passado.');
+            return;
+        }
+        if (new Date(registrationDeadline + 'T00:00:00') > new Date(endDate + 'T00:00:00')) {
+            notifyWarning('O fim das inscrições não pode ser depois da data de término do torneio.');
+            return;
+        }
     }
 
     const rows = document.querySelectorAll('.player-row');
@@ -270,7 +281,7 @@ document.getElementById('createTournamentForm').addEventListener('submit', async
     try {
         const response = await apiFetch(`${API_BASE_URL}/tournament`, {
             method: 'POST',
-            body: JSON.stringify({ name, startDate, endDate, maxPlayers, players, format, topCutSize, mode }),
+            body: JSON.stringify({ name, startDate, endDate, registrationDeadline: registrationDeadline || null, maxPlayers, players, format, topCutSize, mode }),
         });
         const result = await response.json();
         await Swal.fire({
@@ -291,15 +302,29 @@ document.getElementById('createTournamentForm').addEventListener('submit', async
 // Bloqueia seleção de datas passadas no date picker
 const startDateInput = document.getElementById('startDate');
 const endDateInput = document.getElementById('endDate');
+const deadlineInput = document.getElementById('registrationDeadline');
 if (startDateInput) {
-    const todayStr = new Date().toISOString().slice(0, 10);
+    // Data local (não UTC): depois das 21h no Brasil o toISOString() já aponta pro dia seguinte
+    // e bloquearia escolher o dia de hoje no date picker.
+    const now = new Date();
+    const todayStr = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
     startDateInput.min = todayStr;
+    if (deadlineInput) deadlineInput.min = todayStr;
     startDateInput.addEventListener('change', () => {
         if (endDateInput) {
             endDateInput.min = startDateInput.value;
             if (endDateInput.value && endDateInput.value < startDateInput.value) {
                 endDateInput.value = startDateInput.value;
             }
+        }
+    });
+}
+// O prazo de inscrição nunca pode passar do término do torneio
+if (endDateInput && deadlineInput) {
+    endDateInput.addEventListener('change', () => {
+        deadlineInput.max = endDateInput.value;
+        if (deadlineInput.value && endDateInput.value && deadlineInput.value > endDateInput.value) {
+            deadlineInput.value = endDateInput.value;
         }
     });
 }

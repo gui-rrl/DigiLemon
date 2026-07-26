@@ -493,47 +493,8 @@ async function chooseCoverCard() {
     });
 }
 
-/* ---------- Preview ampliado ao passar o mouse ---------- */
-
-let hoverPreviewEl = null;
-
-function initCardHoverPreview() {
-    hoverPreviewEl = document.createElement('div');
-    hoverPreviewEl.className = 'card-hover-preview';
-    hoverPreviewEl.innerHTML = '<img alt="">';
-    document.body.appendChild(hoverPreviewEl);
-
-    document.addEventListener('mouseover', (e) => {
-        const row = e.target.closest('.card-row');
-        const imageUrl = row?.dataset.imageLarge;
-        if (!imageUrl) return;
-        hoverPreviewEl.querySelector('img').src = imageUrl;
-        hoverPreviewEl.style.display = 'block';
-        positionCardHoverPreview(e.clientX, e.clientY);
-    });
-
-    document.addEventListener('mousemove', (e) => {
-        if (hoverPreviewEl.style.display === 'block') positionCardHoverPreview(e.clientX, e.clientY);
-    });
-
-    document.addEventListener('mouseout', (e) => {
-        const row = e.target.closest('.card-row');
-        if (!row || row.contains(e.relatedTarget)) return;
-        hoverPreviewEl.style.display = 'none';
-    });
-}
-
-function positionCardHoverPreview(x, y) {
-    const margin = 16;
-    const width = 300;
-    const height = 420; // aprox. proporção 5:7 das cartas do Digimon Card Game
-    let left = x + margin;
-    let top = y - height / 2;
-    if (left + width > window.innerWidth) left = x - margin - width;
-    top = Math.max(margin, Math.min(top, window.innerHeight - height - margin));
-    hoverPreviewEl.style.left = `${left}px`;
-    hoverPreviewEl.style.top = `${top}px`;
-}
+/* O preview ampliado ao passar o mouse agora vive em common.js, compartilhado com a
+   tela de visualização de decks do torneio (deck-view). Aqui só chamamos initCardHoverPreview(). */
 
 /* ---------- Importar lista pronta ---------- */
 
@@ -735,7 +696,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     await Promise.all([loadRestrictions(), loadFilterOptions()]);
     loadDeckList();
-    initCardHoverPreview();
+    // Vem do common.js. Se o navegador ainda estiver com uma versão antiga dele em cache, a
+    // função não existe — o zoom fica indisponível, mas isso NÃO pode derrubar o resto da
+    // inicialização (os listeners de salvar/cancelar/nova capa são registrados logo abaixo).
+    if (typeof initCardHoverPreview === 'function') initCardHoverPreview();
 
     document.getElementById('newDeckBtn').addEventListener('click', openNewDeck);
     document.getElementById('cancelBuilderBtn').addEventListener('click', showListView);

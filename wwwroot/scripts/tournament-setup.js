@@ -3,6 +3,8 @@
 const urlParams = new URLSearchParams(window.location.search);
 const tournamentId = urlParams.get('id');
 let currentTournament = null;
+let allPlayers = [];            // todos os jogadores cadastrados (para o select de inscrição manual)
+let registeredPlayerIds = [];   // já inscritos neste torneio — ficam desabilitados no select
 
 function isPowerOfTwo(n) {
     return n >= 1 && (n & (n - 1)) === 0;
@@ -54,6 +56,10 @@ async function loadParticipants() {
         const participants = await partsResponse.json();
         const container = document.getElementById('participantsList');
         const pill = document.getElementById('participantsCountPill');
+
+        // Mantém o select de inscrição manual em sincronia com quem já está inscrito
+        registeredPlayerIds = participants.map(p => p.playerId).filter(Boolean);
+        refreshAddPlayerSelect();
 
         if (!participants.length) {
             container.innerHTML = `
@@ -146,6 +152,92 @@ async function removeParticipant(playerId, playerName) {
         notifyError('Erro ao remover: ' + error.message);
     }
 }
+
+/* ---------- Inscrição manual pelo admin ---------- */
+
+async function loadAllPlayers() {
+    try {
+        const response = await apiFetch(`${API_BASE_URL}/player`);
+        allPlayers = await response.json();
+        refreshAddPlayerSelect();
+    } catch (error) {
+        notifyError('Não foi possível carregar a lista de jogadores: ' + error.message);
+    }
+}
+
+function refreshAddPlayerSelect() {
+    const select = document.getElementById('addPlayerSelect');
+    if (!select) return;
+    const current = select.value;
+    select.innerHTML = '<option value="">Selecione o jogador</option>' +
+        allPlayers.map(p => {
+            const already = registeredPlayerIds.includes(p.id);
+            return `<option value="${p.id}"${already ? ' disabled' : ''}>${escapeHtml(p.name)}${already ? ' (já inscrito)' : ''}</option>`;
+        }).join('');
+    // Se o jogador selecionado acabou de ser inscrito, limpa a seleção
+    select.value = registeredPlayerIds.includes(parseInt(current, 10)) ? '' : current;
+}
+
+async function loadSavedDecksForAdd() {
+    const playerId    = document.getElementById('addPlayerSelect').value;
+    const savedSelect = document.getElementById('addDeckSavedSelect');
+    const input       = document.getElementById('addDeckInput');
+    savedSelect.innerHTML = '<option value="">Digitar manualmente…</option>';
+    input.value = '';
+    input.disabled = false;
+    if (!playerId) return;
+    try {
+        const decks = await apiFetch(`${API_BASE_URL}/deck?playerId=${playerId}`).then(r => r.json());
+        decks.forEach(d => {
+            savedSelect.innerHTML += `<option value="${d.id}" data-name="${escapeHtml(d.name)}">${escapeHtml(d.name)} (${d.cardCount} cartas)</option>`;
+        });
+    } catch (_) { /* jogador sem decks salvos: segue no modo manual */ }
+}
+
+async function addParticipant() {
+    const playerId = document.getElementById('addPlayerSelect').value;
+    const deckId   = document.getElementById('addDeckSavedSelect').value;
+    const deck     = document.getElementById('addDeckInput').value.trim();
+
+    if (!playerId) { notifyWarning('Selecione o jogador que será inscrito.'); return; }
+    if (!deckId && !deck) { notifyWarning('Escolha um deck salvo ou digite o nome do deck.'); return; }
+
+    const btn = document.getElementById('addParticipantBtn');
+    btn.disabled = true;
+    try {
+        await apiFetch(`${API_BASE_URL}/tournament/${tournamentId}/participants`, {
+            method: 'POST',
+            body: JSON.stringify({
+                playerId: parseInt(playerId, 10),
+                deck: deck || null,
+                deckId: deckId ? parseInt(deckId, 10) : null,
+            }),
+        });
+        const playerName = allPlayers.find(p => String(p.id) === playerId)?.name || 'Jogador';
+        notifySuccess(`${playerName} inscrito(a) no torneio!`);
+        document.getElementById('addPlayerSelect').value = '';
+        await loadSavedDecksForAdd();
+        await loadParticipants();
+    } catch (error) {
+        notifyError('Erro ao inscrever participante: ' + error.message);
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+document.getElementById('addPlayerSelect').addEventListener('change', loadSavedDecksForAdd);
+document.getElementById('addDeckSavedSelect').addEventListener('change', () => {
+    const savedSelect = document.getElementById('addDeckSavedSelect');
+    const input = document.getElementById('addDeckInput');
+    if (savedSelect.value) {
+        input.value = savedSelect.options[savedSelect.selectedIndex].dataset.name;
+        input.disabled = true;
+    } else {
+        input.value = '';
+        input.disabled = false;
+    }
+});
+document.getElementById('addParticipantBtn').addEventListener('click', addParticipant);
 
 async function copyInviteLink() {
     const url = document.getElementById('inviteUrlInput').value;
@@ -255,4 +347,5 @@ document.getElementById('generateBracketBtn').addEventListener('click', async ()
     }
 });
 
+loadAllPlayers();
 loadTournamentInfo();

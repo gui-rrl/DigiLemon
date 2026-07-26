@@ -241,3 +241,49 @@ document.addEventListener('DOMContentLoaded', () => {
     const active = document.body.dataset.page;
     if (active) renderNavbar(active);
 });
+
+/* ========== Preview ampliado ao passar o mouse sobre uma carta ==========
+   Usado pelo construtor de deck e pela visualização de decks de torneio, para o zoom
+   se comportar igual nas duas telas. Funciona em qualquer elemento .card-row que tenha
+   data-image-large. Requer a classe .card-hover-preview (styles/deckbuilder.css). */
+
+let hoverPreviewEl = null;
+
+function initCardHoverPreview() {
+    if (hoverPreviewEl) return; // já inicializado
+    hoverPreviewEl = document.createElement('div');
+    hoverPreviewEl.className = 'card-hover-preview';
+    hoverPreviewEl.innerHTML = '<img alt="">';
+    document.body.appendChild(hoverPreviewEl);
+
+    document.addEventListener('mouseover', (e) => {
+        const row = e.target.closest('.card-row');
+        const imageUrl = row?.dataset.imageLarge;
+        if (!imageUrl) return;
+        hoverPreviewEl.querySelector('img').src = imageUrl;
+        hoverPreviewEl.style.display = 'block';
+        positionCardHoverPreview(e.clientX, e.clientY);
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (hoverPreviewEl.style.display === 'block') positionCardHoverPreview(e.clientX, e.clientY);
+    });
+
+    document.addEventListener('mouseout', (e) => {
+        const row = e.target.closest('.card-row');
+        if (!row || row.contains(e.relatedTarget)) return;
+        hoverPreviewEl.style.display = 'none';
+    });
+}
+
+function positionCardHoverPreview(x, y) {
+    const margin = 16;
+    const width = 300;
+    const height = 420; // aprox. proporção 5:7 das cartas do Digimon Card Game
+    let left = x + margin;
+    let top = y - height / 2;
+    if (left + width > window.innerWidth) left = x - margin - width;
+    top = Math.max(margin, Math.min(top, window.innerHeight - height - margin));
+    hoverPreviewEl.style.left = `${left}px`;
+    hoverPreviewEl.style.top = `${top}px`;
+}

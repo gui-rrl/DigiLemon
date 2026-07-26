@@ -50,6 +50,35 @@
 
         <section class="card-app mb-4">
             <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <span><i class="bi bi-person-plus-fill"></i> Inscrever participante</span>
+                <span class="text-muted-2" style="font-size:0.85rem;">Para quem não vai usar o link de convite</span>
+            </div>
+            <div class="card-body">
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-5">
+                        <label class="form-label" for="addPlayerSelect">Jogador</label>
+                        <select id="addPlayerSelect" class="form-select">
+                            <option value="">Selecione o jogador</option>
+                        </select>
+                    </div>
+                    <div class="col-md-5">
+                        <label class="form-label" for="addDeckSavedSelect">Deck</label>
+                        <select id="addDeckSavedSelect" class="form-select mb-2">
+                            <option value="">Digitar manualmente…</option>
+                        </select>
+                        <input type="text" id="addDeckInput" class="form-control" placeholder="Nome do deck">
+                    </div>
+                    <div class="col-md-2 d-grid">
+                        <button class="btn btn-primary" id="addParticipantBtn">
+                            <i class="bi bi-plus-circle"></i> Inscrever
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="card-app mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <span><i class="bi bi-people-fill"></i> Participantes inscritos</span>
                 <div class="d-flex align-items-center gap-2">
                     <span class="status-pill prep" id="participantsCountPill">0 jogadores</span>

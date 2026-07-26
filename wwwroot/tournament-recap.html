@@ -67,6 +67,9 @@
         .place-2 .podium-block { height: 95px;  background: linear-gradient(180deg, #e3e8ef, #a7b0bd); }
         .place-3 .podium-block { height: 70px;  background: linear-gradient(180deg, #eab08a, #b5703c); }
         .podium-bonus { margin-top: 0.4rem; font-size: 0.82rem; font-weight: 700; color: var(--success); }
+        /* Link da decklist na base de cada lugar do pódio (as colunas alinham por baixo,
+           então os três ficam na mesma linha, abaixo dos blocos). */
+        .podium-decklist { margin-top: 0.45rem; }
 
         .participant-row {
             display: flex; align-items: center; gap: 0.8rem;
@@ -159,7 +162,7 @@
             <div class="row g-3 mb-4">
                 <div class="col-lg-7">
                     <section class="card-app h-100">
-                        <div class="card-header"><i class="bi bi-people-fill"></i> Participantes e decks</div>
+                        <div class="card-header"><i class="bi bi-people-fill"></i> Demais participantes e decks</div>
                         <div class="card-body" id="participantsList"></div>
                     </section>
                 </div>

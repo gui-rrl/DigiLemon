@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RankingDigi.Data;
 using RankingDigi.Models;
+using RankingDigi.Services;
 using System.Security.Claims;
 
 namespace RankingDigi.Controller
@@ -201,51 +202,7 @@ namespace RankingDigi.Controller
             if (deck == null) return NotFound();
             if (!await CanManageDeckForPlayerAsync(deck.PlayerId)) return Forbid();
 
-            var deckCards = await _context.DeckCards.Where(dc => dc.DeckId == id).ToListAsync();
-            var cardNumbers = deckCards.Select(dc => dc.CardNumber).ToList();
-            var cardsInfo = await _context.Cards
-                .Where(c => cardNumbers.Contains(c.CardNumber))
-                .ToDictionaryAsync(c => c.CardNumber);
-
-            var shaped = deckCards.Select(dc =>
-            {
-                cardsInfo.TryGetValue(dc.CardNumber, out var card);
-                // Se o jogador escolheu uma arte específica ao adicionar, a imagem reflete essa
-                // escolha em vez da arte padrão da carta — o resto dos dados (regras) não muda.
-                var effectiveTcgplayerId = dc.TcgplayerId ?? card?.TcgplayerId;
-                return new
-                {
-                    dc.CardNumber,
-                    dc.Quantity,
-                    dc.IsDigiEgg,
-                    dc.TcgplayerId,
-                    Card = card == null ? null : new
-                    {
-                        card.Id,
-                        card.CardNumber,
-                        card.Name,
-                        card.Type,
-                        card.Level,
-                        card.PlayCost,
-                        card.EvolutionCost,
-                        card.EvolutionColor,
-                        card.EvolutionLevel,
-                        card.Color,
-                        card.Color2,
-                        card.DigiType,
-                        card.Dp,
-                        card.Attribute,
-                        card.Rarity,
-                        card.Stage,
-                        card.MainEffect,
-                        card.SourceEffect,
-                        card.SetName,
-                        TcgplayerId = effectiveTcgplayerId,
-                        ImageUrl = Card.BuildImageUrl(effectiveTcgplayerId),
-                        ImageUrlLarge = Card.BuildImageUrlLarge(effectiveTcgplayerId),
-                    },
-                };
-            });
+            var shaped = await DeckViewBuilder.BuildDeckCardsAsync(_context, id);
 
             return Ok(new
             {

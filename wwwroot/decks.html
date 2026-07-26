@@ -130,8 +130,10 @@
 
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="/scripts/auth.js"></script>
-    <script src="/scripts/common.js"></script>
+    <!-- ?v= força o navegador a baixar a versão nova em vez de usar cache: o decks.js passou a
+         depender do initCardHoverPreview() que agora mora no common.js. -->
+    <script src="/scripts/common.js?v=2"></script>
     <script src="/scripts/theme.js"></script>
-    <script src="/scripts/decks.js"></script>
+    <script src="/scripts/decks.js?v=2"></script>
 </body>
 </html>

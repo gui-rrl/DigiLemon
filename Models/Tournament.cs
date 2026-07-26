@@ -6,6 +6,13 @@
         public string ?Name { get; set; }
         public DateTime StartDate { get; set; }
         public DateTime? EndDate { get; set; }
+
+        /// <summary>
+        /// Último dia em que o link de convite aceita novas inscrições (inclusive).
+        /// Fecha à meia-noite do dia seguinte, mesma convenção da EndDate. null = sem prazo.
+        /// </summary>
+        public DateTime? RegistrationDeadline { get; set; }
+
         public int Status { get; set; } // 0: em preparação, 1: em andamento, 2: finalizado
         public string? InviteCode { get; set; }
         public int MaxPlayers { get; set; } = 0;
