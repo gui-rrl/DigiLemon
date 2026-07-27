@@ -237,9 +237,30 @@ function renderNavbar(activeName) {
     updateThemeToggleIcon(document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark');
 }
 
+/* ---------- Rodapé (aviso legal — site de fãs) ---------- */
+
+function renderFooter() {
+    if (document.querySelector('.app-footer')) return; // evita duplicar
+    const html = `
+    <footer class="app-footer">
+      <div class="app-footer-inner">
+        Este é um site de fãs, sem fins lucrativos, criado exclusivamente para registrar
+        partidas, torneios e rankings entre jogadores locais.
+        <strong>RankingDigi não é afiliado, endossado ou patrocinado pela Bandai Namco
+        ou pela Toei Animation.</strong>
+        &ldquo;Digimon&rdquo;, seus personagens, artes, cartas e logotipos são marcas
+        registradas e &copy; de seus respectivos detentores
+        (Bandai Namco Entertainment&nbsp;/&nbsp;Toei Animation).
+        As imagens de cartas são exibidas apenas para fins de identificação.
+      </div>
+    </footer>`;
+    document.body.insertAdjacentHTML('beforeend', html);
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     const active = document.body.dataset.page;
     if (active) renderNavbar(active);
+    renderFooter();
 });
 
 /* ========== Preview ampliado ao passar o mouse sobre uma carta ==========

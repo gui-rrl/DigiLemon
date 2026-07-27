@@ -68,7 +68,7 @@ async function loadTournaments() {
                     <td><span class="status-pill ${info.cls}" style="white-space:nowrap;">${info.label}</span></td>
                     <td>${winner}</td>
                     <td style="text-align:right; white-space:nowrap;">
-                        <div class="d-inline-flex gap-2 justify-content-end" style="flex-wrap:nowrap;">
+                        <div class="d-inline-flex gap-1 justify-content-end" style="flex-wrap:nowrap;">
                             ${canInvite ? `<button class="btn btn-sm btn-ghost" onclick="copyInvite('${escapeHtml(t.inviteCode)}')" title="Copiar link de convite"><i class="bi bi-link-45deg"></i> Convite</button>` : ''}
                             ${isAdmin && t.status === 0 ? `<a href="/tournament-setup.html?id=${t.id}" class="btn btn-sm btn-secondary" title="Configurar"><i class="bi bi-gear"></i> Configurar</a>` : ''}
                             ${t.status >= 1
