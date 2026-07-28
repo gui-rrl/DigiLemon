@@ -71,7 +71,9 @@ function renderStandings(standings, topCutSize) {
             </td>
             <td style="font-weight:700;color:var(--accent);text-align:center;">${s.points}</td>
             <td style="text-align:center;color:var(--text-2);">${s.wins}-${s.losses}</td>
-            <td style="text-align:right;color:var(--text-3);font-size:0.78rem;">${s.omw}%</td>
+            <td style="text-align:right;color:var(--text-3);font-size:0.78rem;" title="OMW% = aproveitamento dos adversários · GW% = seu aproveitamento em games">
+                ${s.omw}% <span style="opacity:0.6;">/ ${s.gw ?? 0}%</span>
+            </td>
         </tr>`;
     }).join('');
 
@@ -91,7 +93,7 @@ function renderStandings(standings, topCutSize) {
                     <th>Jogador</th>
                     <th style="text-align:center;" title="Pontos">Pts</th>
                     <th style="text-align:center;" title="Vitórias-Derrotas">V-D</th>
-                    <th style="text-align:right;" title="Opponent Match Win %">OMW%</th>
+                    <th style="text-align:right;" title="OMW% = aproveitamento dos adversários (força da tabela) · GW% = seu aproveitamento em games na melhor de 3">OMW% / GW%</th>
                 </tr>
             </thead>
             <tbody>${rows}</tbody>
@@ -114,15 +116,22 @@ function renderRounds(matchesByRound) {
         return;
     }
 
+    // No todos contra todos não existem rodadas: é um bloco único com todas as partidas.
+    const isRoundRobin = statusCache?.format === 3;
+
     const rounds = Object.keys(matchesByRound).map(Number).sort((a, b) => b - a); // mais recente primeiro
     container.innerHTML = rounds.map(round => {
         const matches = matchesByRound[round];
         const allDone = matches.every(m => m.isPlayed);
+        const jogadas = matches.filter(m => m.isPlayed).length;
         const matchRows = matches.map(m => renderMatchRow(m, round)).join('');
+        const titulo = isRoundRobin
+            ? `<i class="bi bi-arrow-repeat me-2"></i>Todos contra todos <span class="text-muted-2" style="font-weight:400;">(${jogadas}/${matches.length} partidas)</span>`
+            : `<i class="bi bi-collection me-2"></i>Rodada ${round}`;
         return `
             <div class="swiss-round-card">
                 <div class="round-header">
-                    <span><i class="bi bi-collection me-2"></i>Rodada ${round}</span>
+                    <span>${titulo}</span>
                     ${allDone
                         ? '<span class="status-pill live" style="font-size:0.75rem;"><i class="bi bi-check2-all"></i> Concluída</span>'
                         : '<span class="status-pill prep" style="font-size:0.75rem;"><i class="bi bi-hourglass-split"></i> Em andamento</span>'}
@@ -170,10 +179,19 @@ function renderMatchRow(m, round) {
         btnResult = '<span class="status-pill prep" style="font-size:0.75rem;"><i class="bi bi-hourglass-split"></i> Em andamento</span>';
     }
 
+    // Partida encerrada mostra o placar em games no lugar do "VS". Partidas antigas, registradas
+    // antes de existir placar, continuam com "VS" — melhor que inventar um 2x0 que ninguém digitou.
+    const temPlacar = m.isPlayed && !m.isBye
+        && m.player1GameWins !== null && m.player1GameWins !== undefined
+        && m.player2GameWins !== null && m.player2GameWins !== undefined;
+    const centro = temPlacar
+        ? `<span class="vs-badge score" title="Placar em games (melhor de 3)">${m.player1GameWins} x ${m.player2GameWins}</span>`
+        : '<span class="vs-badge">VS</span>';
+
     return `
         <div class="swiss-match">
             <div class="player-slot ${p1Class}">${p1Name}</div>
-            <span class="vs-badge">VS</span>
+            ${centro}
             <div class="player-slot ${p2Class}">${p2Name}</div>
             <div class="ms-auto">${btnResult}</div>
         </div>`;
@@ -197,32 +215,76 @@ function renderTopCut(status) {
 // ── Botões admin ──────────────────────────────────────────────────────────────
 
 function updateAdminButtons(status) {
-    const btnAdvance = document.getElementById('btnAdvance');
-    const btnTopCut  = document.getElementById('btnTopCut');
-    const btnFinish  = document.getElementById('btnFinish');
+    const btnAdvance  = document.getElementById('btnAdvance');
+    const btnTopCut   = document.getElementById('btnTopCut');
+    const btnFinish   = document.getElementById('btnFinish');
+    const btnEndEarly = document.getElementById('btnEndEarly');
 
     // Só admin vê botões de ação
     const user = typeof authUser === 'function' ? authUser() : null;
     if (!user || user.role !== 'Admin') {
-        btnAdvance.style.display = 'none';
-        btnTopCut.style.display  = 'none';
-        btnFinish.style.display  = 'none';
+        btnAdvance.style.display  = 'none';
+        btnTopCut.style.display   = 'none';
+        btnFinish.style.display   = 'none';
+        btnEndEarly.style.display = 'none';
         return;
     }
 
-    const isPure     = status.format === 2;
-    const canAdvance = status.currentRoundDone && !status.allSwissDone && !status.topCutGenerated;
+    const isPure       = status.format === 2;
+    const isRoundRobin = status.format === 3;
+    // Todos contra todos não tem rodada para avançar; o Top Cut libera quando todas as
+    // partidas estiverem registradas (allSwissDone já exige isso, pois é uma rodada só).
+    const canAdvance = !isRoundRobin && status.currentRoundDone && !status.allSwissDone && !status.topCutGenerated;
     const canTopCut  = !isPure && status.allSwissDone && !status.topCutGenerated;
     const canFinish  = isPure && status.allSwissDone && status.status !== 2;
 
-    btnAdvance.style.display = canAdvance ? '' : 'none';
-    btnTopCut.style.display  = canTopCut  ? '' : 'none';
-    btnFinish.style.display  = canFinish  ? '' : 'none';
+    // Encerramento antecipado: só faz sentido enquanto a fase de pontos está rolando,
+    // em formatos que têm Top Cut, e antes de o corte já ter sido feito.
+    const canEndEarly = !isPure && !status.allSwissDone && !status.topCutGenerated
+        && status.status !== 2 && temPartidaJogada(status);
+
+    btnAdvance.style.display  = canAdvance  ? '' : 'none';
+    btnTopCut.style.display   = canTopCut   ? '' : 'none';
+    btnFinish.style.display   = canFinish   ? '' : 'none';
+    btnEndEarly.style.display = canEndEarly ? '' : 'none';
 
     if (canAdvance) {
         btnAdvance.innerHTML = `<i class="bi bi-arrow-right-circle"></i> Avançar para Rodada ${status.currentSwissRound + 1}`;
     }
 }
+
+// Conta partidas da fase de pontos por situação (usado pelo encerramento antecipado)
+function contarPartidas(status) {
+    const todas = Object.values(status.swissMatchesByRound || {}).flat();
+    return { total: todas.length, jogadas: todas.filter(m => m.isPlayed).length };
+}
+
+function temPartidaJogada(status) {
+    return contarPartidas(status).jogadas > 0;
+}
+
+document.getElementById('btnEndEarly').addEventListener('click', async () => {
+    const { total, jogadas } = contarPartidas(statusCache || {});
+    const pendentes = total - jogadas;
+
+    const confirmacao = await confirmAction({
+        title: 'Encerrar a fase de pontos agora?',
+        text: pendentes > 0
+            ? `O Top ${statusCache.topCutSize} será definido pela classificação atual e ${pendentes} partida(s) ainda não jogada(s) serão descartadas. Não dá para voltar atrás.`
+            : `O Top ${statusCache.topCutSize} será definido pela classificação atual. Não dá para voltar atrás.`,
+        confirmText: 'Encerrar e cortar', cancelText: 'Cancelar', icon: 'warning',
+    });
+    if (!confirmacao.isConfirmed) return;
+
+    try {
+        const resp = await apiFetch(`${API_BASE_URL}/tournament/${tournamentId}/swiss/generate-topcut?force=true`, { method: 'POST' });
+        const json = await resp.json();
+        await Swal.fire({ icon: 'success', title: 'Fase encerrada!', text: json.message, timer: 1800, showConfirmButton: false });
+        loadAll();
+    } catch (err) {
+        notifyError('Não foi possível encerrar a fase: ' + err.message);
+    }
+});
 
 // ── Modal resultado ───────────────────────────────────────────────────────────
 
@@ -243,8 +305,22 @@ function openResultModal(matchId, p1Id, p2Id) {
     if (p1Id && p2Id) {
         sel.innerHTML += '<option value="0">Empate</option>';
     }
+    sel.value = '';
+    updateScoreOptions();
     new bootstrap.Modal(document.getElementById('resultModal')).show();
 }
+
+// No empate o placar da melhor de 3 é sempre 1x1, então o seletor vira informativo.
+function updateScoreOptions() {
+    const isDraw = document.getElementById('winnerSelect').value === '0';
+    const score = document.getElementById('scoreSelect');
+    score.innerHTML = isDraw
+        ? '<option value="1-1">1 x 1</option>'
+        : '<option value="2-0">2 x 0</option><option value="2-1">2 x 1</option>';
+    score.disabled = isDraw;
+}
+
+document.getElementById('winnerSelect').addEventListener('change', updateScoreOptions);
 
 document.getElementById('saveResultBtn').addEventListener('click', async () => {
     const winnerId = document.getElementById('winnerSelect').value;
@@ -255,10 +331,12 @@ document.getElementById('saveResultBtn').addEventListener('click', async () => {
         ? (parseInt(winnerId) === currentP1Id ? currentP2Id : currentP1Id)
         : null;
 
+    const [winnerGames, loserGames] = document.getElementById('scoreSelect').value.split('-').map(Number);
+
     try {
         await apiFetch(`${API_BASE_URL}/tournamentmatch/${currentMatchId}/result`, {
             method: 'POST',
-            body: JSON.stringify({ winnerId: parseInt(winnerId), loserId }),
+            body: JSON.stringify({ winnerId: parseInt(winnerId), loserId, winnerGames, loserGames }),
         });
         bootstrap.Modal.getInstance(document.getElementById('resultModal')).hide();
         notifySuccess('Resultado registrado!');

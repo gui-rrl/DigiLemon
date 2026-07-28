@@ -8,13 +8,14 @@ function selectFormat(fmt) {
     document.getElementById('fmtDoubleElim').classList.toggle('selected', fmt === 0);
     document.getElementById('fmtSwiss').classList.toggle('selected', fmt === 1);
     document.getElementById('fmtSwissPure').classList.toggle('selected', fmt === 2);
+    document.getElementById('fmtRoundRobin').classList.toggle('selected', fmt === 3);
 
     const swissOpts = document.getElementById('swissOptions');
     swissOpts.classList.toggle('d-none', fmt === 0);
 
-    // Top Cut só faz sentido no formato 1
+    // Top Cut existe no Swiss+TopCut (1) e no todos contra todos (3)
     const topCutRow = document.getElementById('topCutSizeRow');
-    if (topCutRow) topCutRow.classList.toggle('d-none', fmt !== 1);
+    if (topCutRow) topCutRow.classList.toggle('d-none', fmt !== 1 && fmt !== 3);
 
     if (fmt >= 1) updateSwissRoundsInfo();
 
@@ -27,7 +28,11 @@ function updateSwissRoundsInfo() {
     const rounds = n <= 2 ? 1 : n <= 4 ? 2 : n <= 8 ? 3 : n <= 16 ? 4 : n <= 32 ? 5 : 6;
     const fmt = parseInt(document.getElementById('format').value, 10);
     const info = document.getElementById('swissRoundsInfo');
-    if (fmt === 2) {
+    if (fmt === 3) {
+        // Todos contra todos: cada um joga N-1 partidas; o total é N×(N-1)/2
+        const topCut = document.getElementById('topCutSize').value;
+        info.textContent = `Com ${n} jogadores: ${n * (n - 1) / 2} partidas no total (${n - 1} por jogador), sem rodadas e sem bye → Top ${topCut} (double elimination).`;
+    } else if (fmt === 2) {
         info.textContent = `Com ${n} jogadores: ${rounds} rodadas Swiss. Classificação final por pontos, Top 4 destacado.`;
     } else {
         const topCut = document.getElementById('topCutSize').value;
@@ -57,6 +62,7 @@ function updateMaxPlayersOptions(fmt) {
 document.getElementById('fmtDoubleElim').addEventListener('click', () => selectFormat(0));
 document.getElementById('fmtSwiss').addEventListener('click', () => selectFormat(1));
 document.getElementById('fmtSwissPure').addEventListener('click', () => selectFormat(2));
+document.getElementById('fmtRoundRobin').addEventListener('click', () => selectFormat(3));
 document.getElementById('topCutSize').addEventListener('change', updateSwissRoundsInfo);
 
 // Inicializar seleção padrão
@@ -138,10 +144,9 @@ function addPlayerRow() {
             </div>
             <div class="col-md-5">
                 <label class="form-label">Deck</label>
-                <select class="form-select deck-saved-select mb-2">
-                    <option value="">Digitar manualmente…</option>
+                <select class="form-select deck-saved-select" required>
+                    <option value="">Selecione o jogador primeiro</option>
                 </select>
-                <input type="text" class="form-control deck-input" placeholder="Nome do Deck" required>
             </div>
             <div class="col-md-1 d-grid">
                 <button type="button" class="btn btn-danger remove-row" title="Remover">
@@ -155,18 +160,6 @@ function addPlayerRow() {
         refreshAllSelects();
         loadSavedDecksForRow(row);
     });
-    row.querySelector('.deck-saved-select').addEventListener('change', () => {
-        const savedSelect = row.querySelector('.deck-saved-select');
-        const input = row.querySelector('.deck-input');
-        const selectedOption = savedSelect.options[savedSelect.selectedIndex];
-        if (savedSelect.value) {
-            input.value = selectedOption.dataset.name;
-            input.disabled = true;
-        } else {
-            input.value = '';
-            input.disabled = false;
-        }
-    });
     row.querySelector('.remove-row').addEventListener('click', () => {
         row.remove();
         refreshAllSelects();
@@ -174,20 +167,26 @@ function addPlayerRow() {
     updatePlayerCount();
 }
 
+// Só decks já montados no sistema: não existe mais digitar o nome do deck à mão.
 async function loadSavedDecksForRow(row) {
     const playerId = row.querySelector('.player-select').value;
     const savedSelect = row.querySelector('.deck-saved-select');
-    const input = row.querySelector('.deck-input');
-    savedSelect.innerHTML = '<option value="">Digitar manualmente…</option>';
-    input.disabled = false;
+    savedSelect.innerHTML = '<option value="">Selecione o jogador primeiro</option>';
     if (!playerId) return;
+
+    savedSelect.innerHTML = '<option value="">Carregando decks…</option>';
     try {
-        const response = await apiFetch(`${API_BASE_URL}/deck?playerId=${playerId}`);
-        const decks = await response.json();
-        decks.forEach(d => {
-            savedSelect.innerHTML += `<option value="${d.id}" data-name="${escapeHtml(d.name)}">${escapeHtml(d.name)} (${d.cardCount} cartas)</option>`;
-        });
-    } catch (_) { /* ignora silenciosamente */ }
+        const decks = await apiFetch(`${API_BASE_URL}/deck?playerId=${playerId}`).then(r => r.json());
+        if (!decks.length) {
+            // Deixa explícito por que o select ficou vazio, em vez de parecer defeito
+            savedSelect.innerHTML = '<option value="">Este jogador não tem deck salvo</option>';
+            return;
+        }
+        savedSelect.innerHTML = '<option value="">Selecione o deck</option>' +
+            decks.map(d => `<option value="${d.id}" data-name="${escapeHtml(d.name)}">${escapeHtml(d.name)} (${d.cardCount} cartas)</option>`).join('');
+    } catch (_) {
+        savedSelect.innerHTML = '<option value="">Não foi possível carregar os decks</option>';
+    }
 }
 
 document.getElementById('addPlayerBtn').addEventListener('click', addPlayerRow);
@@ -251,10 +250,12 @@ document.getElementById('createTournamentForm').addEventListener('submit', async
 
     for (const row of rows) {
         const playerId = row.querySelector('.player-select').value;
-        const deck = row.querySelector('.deck-input').value.trim();
-        const deckIdValue = row.querySelector('.deck-saved-select').value;
-        if (!playerId && !deck) continue;
-        if (!playerId || !deck) { hasIncomplete = true; continue; }
+        const deckSelect = row.querySelector('.deck-saved-select');
+        const deckIdValue = deckSelect.value;
+        // O nome do deck vem do próprio deck escolhido — não há mais digitação manual
+        const deck = deckIdValue ? (deckSelect.options[deckSelect.selectedIndex].dataset.name || '') : '';
+        if (!playerId && !deckIdValue) continue;
+        if (!playerId || !deckIdValue) { hasIncomplete = true; continue; }
         if (seenIds.has(playerId)) {
             const dupName = allPlayers.find(p => String(p.id) === playerId)?.name || 'Jogador';
             notifyError(`${dupName} foi selecionado mais de uma vez. Cada jogador pode participar apenas uma vez por torneio.`, 'Jogador duplicado');
@@ -265,7 +266,7 @@ document.getElementById('createTournamentForm').addEventListener('submit', async
     }
 
     if (hasIncomplete) {
-        notifyWarning('Preencha jogador e deck em todas as linhas (ou remova as linhas vazias).');
+        notifyWarning('Selecione o jogador e um deck salvo em todas as linhas (ou remova as linhas vazias).');
         return;
     }
 

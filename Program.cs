@@ -139,7 +139,23 @@ app.UseHttpsRedirection();
 
 // Arquivos estáticos (HTML/JS/CSS)
 app.UseDefaultFiles();
-app.UseStaticFiles();
+// Deploy aqui é "reiniciar o app", então o navegador não pode servir HTML/JS/CSS antigos do
+// cache: já aconteceu de uma tela continuar com a versão anterior depois de uma atualização.
+// "no-cache" não desliga o cache — obriga a revalidar com o servidor, que responde 304 quando
+// o arquivo não mudou. Imagens/avatares seguem com o cache padrão.
+app.UseStaticFiles(new StaticFileOptions
+{
+    OnPrepareResponse = ctx =>
+    {
+        var nome = ctx.File.Name;
+        if (nome.EndsWith(".html", StringComparison.OrdinalIgnoreCase) ||
+            nome.EndsWith(".js",   StringComparison.OrdinalIgnoreCase) ||
+            nome.EndsWith(".css",  StringComparison.OrdinalIgnoreCase))
+        {
+            ctx.Context.Response.Headers.CacheControl = "no-cache, must-revalidate";
+        }
+    }
+});
 
 app.UseRouting();
 app.UseCors("AllowAll");

@@ -7,7 +7,7 @@ const tournamentId = params.get('id');
 // o link é omitido pra não aparecer duas vezes.
 let podiumTpIds = [];
 
-const FORMAT_LABELS = { 0: 'Dupla Eliminação', 1: 'Swiss + Top Cut', 2: 'Swiss Pontos Corridos' };
+const FORMAT_LABELS = { 0: 'Dupla Eliminação', 1: 'Swiss + Top Cut', 2: 'Swiss Pontos Corridos', 3: 'Todos contra todos + Top Cut' };
 
 function show(id) {
     ['loadingBlock', 'errorBlock', 'recapContent'].forEach(b => {

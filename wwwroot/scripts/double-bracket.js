@@ -367,10 +367,12 @@ document.getElementById('saveResultBtn').addEventListener('click', async () => {
         ? (winnerId == currentPlayer1Id ? currentPlayer2Id : currentPlayer1Id)
         : null;
 
+    const [winnerGames, loserGames] = document.getElementById('scoreSelect').value.split('-').map(Number);
+
     try {
         await apiFetch(`${API_BASE_URL}/tournamentmatch/${currentModalMatchId}/result`, {
             method: 'POST',
-            body: JSON.stringify({ winnerId: parseInt(winnerId), loserId }),
+            body: JSON.stringify({ winnerId: parseInt(winnerId), loserId, winnerGames, loserGames }),
         });
         notifySuccess('Resultado registrado!');
         bootstrap.Modal.getInstance(document.getElementById('resultModal')).hide();

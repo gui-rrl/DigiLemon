@@ -178,29 +178,37 @@ function refreshAddPlayerSelect() {
     select.value = registeredPlayerIds.includes(parseInt(current, 10)) ? '' : current;
 }
 
+// Só decks já montados no sistema: não existe mais digitar o nome do deck à mão.
 async function loadSavedDecksForAdd() {
     const playerId    = document.getElementById('addPlayerSelect').value;
     const savedSelect = document.getElementById('addDeckSavedSelect');
-    const input       = document.getElementById('addDeckInput');
-    savedSelect.innerHTML = '<option value="">Digitar manualmente…</option>';
-    input.value = '';
-    input.disabled = false;
+    savedSelect.innerHTML = '<option value="">Selecione o jogador primeiro</option>';
     if (!playerId) return;
+
+    savedSelect.innerHTML = '<option value="">Carregando decks…</option>';
     try {
         const decks = await apiFetch(`${API_BASE_URL}/deck?playerId=${playerId}`).then(r => r.json());
-        decks.forEach(d => {
-            savedSelect.innerHTML += `<option value="${d.id}" data-name="${escapeHtml(d.name)}">${escapeHtml(d.name)} (${d.cardCount} cartas)</option>`;
-        });
-    } catch (_) { /* jogador sem decks salvos: segue no modo manual */ }
+        if (!decks.length) {
+            // Deixa explícito por que o select ficou vazio, em vez de parecer defeito
+            savedSelect.innerHTML = '<option value="">Este jogador não tem deck salvo</option>';
+            return;
+        }
+        savedSelect.innerHTML = '<option value="">Selecione o deck</option>' +
+            decks.map(d => `<option value="${d.id}" data-name="${escapeHtml(d.name)}">${escapeHtml(d.name)} (${d.cardCount} cartas)</option>`).join('');
+    } catch (_) {
+        savedSelect.innerHTML = '<option value="">Não foi possível carregar os decks</option>';
+    }
 }
 
 async function addParticipant() {
-    const playerId = document.getElementById('addPlayerSelect').value;
-    const deckId   = document.getElementById('addDeckSavedSelect').value;
-    const deck     = document.getElementById('addDeckInput').value.trim();
+    const playerId   = document.getElementById('addPlayerSelect').value;
+    const deckSelect = document.getElementById('addDeckSavedSelect');
+    const deckId     = deckSelect.value;
+    // O nome do deck vem do próprio deck escolhido — não há mais digitação manual
+    const deck = deckId ? (deckSelect.options[deckSelect.selectedIndex].dataset.name || '') : '';
 
     if (!playerId) { notifyWarning('Selecione o jogador que será inscrito.'); return; }
-    if (!deckId && !deck) { notifyWarning('Escolha um deck salvo ou digite o nome do deck.'); return; }
+    if (!deckId) { notifyWarning('Selecione um deck salvo do jogador. Se ele não tem deck, precisa montar um antes.'); return; }
 
     const btn = document.getElementById('addParticipantBtn');
     btn.disabled = true;
@@ -226,17 +234,6 @@ async function addParticipant() {
 }
 
 document.getElementById('addPlayerSelect').addEventListener('change', loadSavedDecksForAdd);
-document.getElementById('addDeckSavedSelect').addEventListener('change', () => {
-    const savedSelect = document.getElementById('addDeckSavedSelect');
-    const input = document.getElementById('addDeckInput');
-    if (savedSelect.value) {
-        input.value = savedSelect.options[savedSelect.selectedIndex].dataset.name;
-        input.disabled = true;
-    } else {
-        input.value = '';
-        input.disabled = false;
-    }
-});
 document.getElementById('addParticipantBtn').addEventListener('click', addParticipant);
 
 async function copyInviteLink() {
@@ -327,11 +324,14 @@ document.getElementById('generateBracketBtn').addEventListener('click', async ()
             // ── Swiss (com ou sem Top Cut) ─────────────────────────────────
             const rounds = currentTournament.swissRounds;
             const isPure = currentTournament.format === 2;
-            const detailText = isPure
+            const isRoundRobin = currentTournament.format === 3;
+            const detailText = isRoundRobin
+                ? `${count} jogadores · ${count * (count - 1) / 2} partidas (${count - 1} por jogador), sem rodadas e sem bye · Top ${currentTournament.topCutSize} (double elimination).`
+                : isPure
                 ? `${count} jogadores · ${rounds} rodadas Swiss · Classificação por pontos corridos.`
                 : `${count} jogadores · ${rounds} rodadas Swiss · Top ${currentTournament.topCutSize} (double elimination).`;
             const confirm = await confirmAction({
-                title: 'Iniciar Swiss?',
+                title: isRoundRobin ? 'Iniciar todos contra todos?' : 'Iniciar Swiss?',
                 text: `${detailText} Após iniciar, novos jogadores não poderão ingressar.`,
                 confirmText: 'Iniciar agora', cancelText: 'Cancelar', icon: 'question',
             });
@@ -339,7 +339,7 @@ document.getElementById('generateBracketBtn').addEventListener('click', async ()
 
             const resp = await apiFetch(`${API_BASE_URL}/tournament/${tournamentId}/swiss/start`, { method: 'POST' });
             const json = await resp.json();
-            await Swal.fire({ icon: 'success', title: 'Swiss iniciado!', text: json.message, timer: 1600, showConfirmButton: false });
+            await Swal.fire({ icon: 'success', title: isRoundRobin ? 'Torneio iniciado!' : 'Swiss iniciado!', text: json.message, timer: 1600, showConfirmButton: false });
             window.location.href = `/tournament-swiss.html?id=${tournamentId}`;
         }
     } catch (error) {

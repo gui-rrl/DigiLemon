@@ -39,6 +39,18 @@ namespace RankingDigi.Services
             if (tps.Count < 2)
                 throw new InvalidOperationException("Mínimo de 2 participantes para iniciar.");
 
+            // Todos contra todos (formato 3): todas as partidas saem de uma vez, numa "rodada"
+            // única. Sem rodadas para avançar e sem bye — cada um joga contra todos os outros.
+            if (tournament.Format == 3)
+            {
+                tournament.SwissRounds = 1;
+                tournament.Status = 1;
+                tournament.CurrentSwissRound = 1;
+                await _context.SaveChangesAsync();
+                await GenerateAllPairingsAsync(tournamentId, tps.Select(tp => tp.Id).ToList());
+                return;
+            }
+
             // Garante que rounds foi calculado
             if (tournament.SwissRounds == 0)
                 tournament.SwissRounds = CalculateRounds(tps.Count);
@@ -50,11 +62,38 @@ namespace RankingDigi.Services
             await GenerateRoundAsync(tournamentId, 1, tps.Select(tp => tp.Id).ToList());
         }
 
+        /// <summary>
+        /// Gera de uma vez as N×(N-1)/2 partidas do todos contra todos. Não há bye: com número
+        /// ímpar de jogadores ninguém "folga", já que as partidas não estão presas a rodadas —
+        /// cada um joga as suas na ordem que der.
+        /// </summary>
+        private async Task GenerateAllPairingsAsync(int tournamentId, List<int> tpIds)
+        {
+            var matches = new List<TournamentMatch>();
+            for (int i = 0; i < tpIds.Count; i++)
+                for (int j = i + 1; j < tpIds.Count; j++)
+                    matches.Add(new TournamentMatch
+                    {
+                        TournamentId = tournamentId,
+                        MatchType    = 3,
+                        Round        = 1,
+                        Player1Id    = tpIds[i],
+                        Player2Id    = tpIds[j],
+                        IsPlayed     = false,
+                    });
+
+            _context.TournamentMatches.AddRange(matches);
+            await _context.SaveChangesAsync();
+        }
+
         // ── Avançar para a próxima rodada ────────────────────────────────────
         public async Task AdvanceRoundAsync(int tournamentId)
         {
             var tournament = await _context.Tournaments.FindAsync(tournamentId)
                 ?? throw new InvalidOperationException("Torneio não encontrado.");
+
+            if (tournament.Format == 3)
+                throw new InvalidOperationException("Torneio de todos contra todos não tem rodadas para avançar: registre todas as partidas e gere o Top Cut.");
 
             int currentRound = tournament.CurrentSwissRound;
             if (currentRound == 0)
@@ -115,20 +154,42 @@ namespace RankingDigi.Services
         }
 
         // ── Gerar Top Cut (double elimination com os top N) ──────────────────
-        public async Task GenerateTopCutAsync(int tournamentId)
+        /// <param name="force">
+        /// Encerramento antecipado pelo admin: fecha a fase de pontos onde estiver e corta o Top
+        /// Cut pela classificação atual. As partidas ainda não jogadas são descartadas — elas não
+        /// vão acontecer, e mantê-las deixaria a tela pedindo resultado de jogo que não existe mais.
+        /// </param>
+        public async Task GenerateTopCutAsync(int tournamentId, bool force = false)
         {
             var tournament = await _context.Tournaments.FindAsync(tournamentId)
                 ?? throw new InvalidOperationException("Torneio não encontrado.");
 
-            if (tournament.CurrentSwissRound < tournament.SwissRounds)
-                throw new InvalidOperationException("O Swiss ainda não terminou.");
+            if (force)
+            {
+                var pendentes = await _context.TournamentMatches
+                    .Where(m => m.TournamentId == tournamentId && m.MatchType == 3 && !m.IsPlayed)
+                    .ToListAsync();
 
-            var lastRoundMatches = await _context.TournamentMatches
-                .Where(m => m.TournamentId == tournamentId && m.MatchType == 3 && m.Round == tournament.SwissRounds)
-                .ToListAsync();
+                if (!await _context.TournamentMatches.AnyAsync(m =>
+                        m.TournamentId == tournamentId && m.MatchType == 3 && m.IsPlayed))
+                    throw new InvalidOperationException("Registre ao menos uma partida antes de encerrar a fase de pontos.");
 
-            if (lastRoundMatches.Any(m => !m.IsPlayed))
-                throw new InvalidOperationException("Finalize todas as partidas da última rodada antes de gerar o Top Cut.");
+                _context.TournamentMatches.RemoveRange(pendentes);
+                tournament.CurrentSwissRound = tournament.SwissRounds; // fase marcada como concluída
+                await _context.SaveChangesAsync();
+            }
+            else
+            {
+                if (tournament.CurrentSwissRound < tournament.SwissRounds)
+                    throw new InvalidOperationException("O Swiss ainda não terminou.");
+
+                var lastRoundMatches = await _context.TournamentMatches
+                    .Where(m => m.TournamentId == tournamentId && m.MatchType == 3 && m.Round == tournament.SwissRounds)
+                    .ToListAsync();
+
+                if (lastRoundMatches.Any(m => !m.IsPlayed))
+                    throw new InvalidOperationException("Finalize todas as partidas da última rodada antes de gerar o Top Cut.");
+            }
 
             int topN = tournament.TopCutSize;
             var standings = await GetStandingsRawAsync(tournamentId);
@@ -166,12 +227,18 @@ namespace RankingDigi.Services
                                   Math.Max(m.Player1Id!.Value, m.Player2Id!.Value)))
             );
 
-            // Ordena por pontos DESC, vitórias DESC, aleatório como desempate
-            var rng = new Random();
+            // Pareia seguindo a mesma ordem da classificação (pontos → OMW% → GW% → OGW% →
+            // critério final determinístico). Antes o desempate era aleatório, o que fazia a
+            // ordem mudar a cada geração e deixava os desempates sem efeito no chaveamento.
+            var playedHistory = history.Where(m => m.IsPlayed).ToList();
+            var (_, gwByTp, omwByTp, ogwByTp) = CalculateTiebreakers(tps, playedHistory);
+
             var sorted = tps
                 .OrderByDescending(tp => tp.SwissPoints)
-                .ThenByDescending(tp => tp.SwissWins)
-                .ThenBy(_ => rng.Next())
+                .ThenByDescending(tp => omwByTp[tp.Id])
+                .ThenByDescending(tp => gwByTp[tp.Id])
+                .ThenByDescending(tp => ogwByTp[tp.Id])
+                .ThenBy(tp => tp.Id)
                 .ToList();
 
             var paired  = new HashSet<int>();
@@ -256,34 +323,18 @@ namespace RankingDigi.Services
                 .Include(tp => tp.Player)
                 .ToListAsync();
 
-            // Opponent Win Percentage (OMW%) como tiebreaker
             var history = await _context.TournamentMatches
                 .Where(m => m.TournamentId == tournamentId && m.MatchType == 3 && m.IsPlayed)
                 .ToListAsync();
 
-            var winRateByTp = tps.ToDictionary(
-                tp => tp.Id,
-                tp => tp.SwissWins + tp.SwissLosses + tp.SwissDraws == 0
-                    ? 0.0
-                    : (double)tp.SwissWins / (tp.SwissWins + tp.SwissLosses + tp.SwissDraws)
-            );
-
-            var omwByTp = tps.ToDictionary(tp => tp.Id, tp =>
-            {
-                var opponents = history
-                    .Where(m => (m.Player1Id == tp.Id && m.Player2Id.HasValue) ||
-                                (m.Player2Id == tp.Id && m.Player1Id.HasValue))
-                    .Select(m => m.Player1Id == tp.Id ? m.Player2Id!.Value : m.Player1Id!.Value)
-                    .Distinct()
-                    .ToList();
-                if (!opponents.Any()) return 0.0;
-                return opponents.Average(o => winRateByTp.TryGetValue(o, out var r) ? r : 0.0);
-            });
+            var (mwByTp, gwByTp, omwByTp, ogwByTp) = CalculateTiebreakers(tps, history);
 
             return tps
                 .OrderByDescending(tp => tp.SwissPoints)
                 .ThenByDescending(tp => omwByTp[tp.Id])
-                .ThenByDescending(tp => tp.SwissWins)
+                .ThenByDescending(tp => gwByTp[tp.Id])
+                .ThenByDescending(tp => ogwByTp[tp.Id])
+                .ThenBy(tp => tp.Id)   // critério final determinístico: mesma ordem em toda consulta
                 .Select((tp, idx) => new SwissStandingEntry
                 {
                     Position   = idx + 1,
@@ -296,8 +347,89 @@ namespace RankingDigi.Services
                     Losses     = tp.SwissLosses,
                     Draws      = tp.SwissDraws,
                     Omw        = Math.Round(omwByTp[tp.Id] * 100, 1),
+                    Gw         = Math.Round(gwByTp[tp.Id] * 100, 1),
+                    Ogw        = Math.Round(ogwByTp[tp.Id] * 100, 1),
                 })
                 .ToList();
+        }
+
+        /// <summary>Piso oficial de 33% aplicado ao aproveitamento de cada adversário.</summary>
+        private const double MinimumRate = 1.0 / 3.0;
+
+        /// <summary>
+        /// Desempates no padrão oficial do Digimon/Magic:
+        /// MW% (aproveitamento de partidas), GW% (aproveitamento de games, melhor de 3),
+        /// OMW% e OGW% (médias dos adversários, cada um com piso de 33%).
+        /// Byes contam como vitória 2x0 para quem recebeu, mas são ignorados nas médias dos
+        /// adversários — ninguém "herda" o aproveitamento de um bye.
+        /// </summary>
+        private static (Dictionary<int, double> Mw, Dictionary<int, double> Gw,
+                        Dictionary<int, double> Omw, Dictionary<int, double> Ogw)
+            CalculateTiebreakers(List<TournamentPlayer> tps, List<TournamentMatch> history)
+        {
+            // MW% = pontos / (3 × partidas jogadas)
+            var mwByTp = tps.ToDictionary(tp => tp.Id, tp =>
+            {
+                int played = tp.SwissWins + tp.SwissLosses + tp.SwissDraws;
+                return played == 0 ? 0.0 : (double)tp.SwissPoints / (3.0 * played);
+            });
+
+            // GW% = games ganhos / games jogados. Partidas sem placar registrado (anteriores ao
+            // melhor de 3) e byes entram pela convenção: vitória 2x0, derrota 0x2, empate 1x1.
+            var gamesWon = tps.ToDictionary(tp => tp.Id, _ => 0);
+            var gamesTotal = tps.ToDictionary(tp => tp.Id, _ => 0);
+
+            foreach (var m in history)
+            {
+                void Add(int tpId, int won, int lost)
+                {
+                    if (!gamesWon.ContainsKey(tpId)) return;
+                    gamesWon[tpId] += won;
+                    gamesTotal[tpId] += won + lost;
+                }
+
+                if (m.IsBye)
+                {
+                    if (m.Player1Id.HasValue) Add(m.Player1Id.Value, 2, 0);
+                    continue;
+                }
+                if (!m.Player1Id.HasValue || !m.Player2Id.HasValue) continue;
+
+                int p1, p2;
+                if (m.Player1GameWins.HasValue && m.Player2GameWins.HasValue)
+                {
+                    p1 = m.Player1GameWins.Value;
+                    p2 = m.Player2GameWins.Value;
+                }
+                else if (m.WinnerId == null) { p1 = 1; p2 = 1; }                  // empate sem placar
+                else if (m.WinnerId == m.Player1Id) { p1 = 2; p2 = 0; }
+                else { p1 = 0; p2 = 2; }
+
+                Add(m.Player1Id.Value, p1, p2);
+                Add(m.Player2Id.Value, p2, p1);
+            }
+
+            var gwByTp = tps.ToDictionary(tp => tp.Id, tp =>
+                gamesTotal[tp.Id] == 0 ? 0.0 : (double)gamesWon[tp.Id] / gamesTotal[tp.Id]);
+
+            // Adversários enfrentados de verdade (bye não tem adversário)
+            var opponentsByTp = tps.ToDictionary(tp => tp.Id, tp => history
+                .Where(m => !m.IsBye &&
+                            ((m.Player1Id == tp.Id && m.Player2Id.HasValue) ||
+                             (m.Player2Id == tp.Id && m.Player1Id.HasValue)))
+                .Select(m => m.Player1Id == tp.Id ? m.Player2Id!.Value : m.Player1Id!.Value)
+                .Distinct()
+                .ToList());
+
+            double AverageOfOpponents(List<int> opponents, Dictionary<int, double> rates) =>
+                opponents.Count == 0
+                    ? 0.0
+                    : opponents.Average(o => Math.Max(MinimumRate, rates.TryGetValue(o, out var r) ? r : 0.0));
+
+            var omwByTp = tps.ToDictionary(tp => tp.Id, tp => AverageOfOpponents(opponentsByTp[tp.Id], mwByTp));
+            var ogwByTp = tps.ToDictionary(tp => tp.Id, tp => AverageOfOpponents(opponentsByTp[tp.Id], gwByTp));
+
+            return (mwByTp, gwByTp, omwByTp, ogwByTp);
         }
     }
 
@@ -312,6 +444,8 @@ namespace RankingDigi.Services
         public int Wins        { get; set; }
         public int Losses      { get; set; }
         public int Draws       { get; set; }
-        public double Omw      { get; set; }
+        public double Omw      { get; set; }   // aproveitamento médio dos adversários (partidas)
+        public double Gw       { get; set; }   // aproveitamento próprio em games (melhor de 3)
+        public double Ogw      { get; set; }   // aproveitamento médio dos adversários em games
     }
 }

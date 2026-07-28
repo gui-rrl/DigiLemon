@@ -162,6 +162,8 @@ public class TournamentController : ControllerBase
         if (dto == null || string.IsNullOrWhiteSpace(dto.Name))
             return BadRequest(new { error = "Informe o nome do torneio." });
 
+        if (dto.Format is < 0 or > 3)
+            return BadRequest(new { error = "Formato de torneio inválido." });
         if (dto.MaxPlayers < 2)
             return BadRequest(new { error = "O número máximo de jogadores deve ser maior ou igual a 2." });
         if (dto.Format == 0 && dto.MaxPlayers % 2 != 0)
@@ -212,8 +214,11 @@ public class TournamentController : ControllerBase
                 return BadRequest(new { error = $"Jogador(es) não encontrado(s): {string.Join(", ", missingIds)}." });
         }
 
-        int swissRounds = dto.Format >= 1 ? SwissService.CalculateRounds(dto.MaxPlayers) : 0;
-        int topCutSize  = dto.Format == 1 ? (dto.TopCutSize is 4 or 8 ? dto.TopCutSize : 8) : 0;
+        // Todos contra todos (3): uma "rodada" única com todas as partidas, então SwissRounds = 1.
+        int swissRounds = dto.Format == 3 ? 1
+                        : dto.Format >= 1 ? SwissService.CalculateRounds(dto.MaxPlayers)
+                        : 0;
+        int topCutSize  = dto.Format is 1 or 3 ? (dto.TopCutSize is 4 or 8 ? dto.TopCutSize : 4) : 0;
 
         var tournament = new Tournament
         {
@@ -571,11 +576,23 @@ public class TournamentController : ControllerBase
         // Remove primeiro os TournamentPlayers (participantes)
         _context.TournamentPlayers.RemoveRange(tournament.TournamentPlayers);
 
-        // Em seguida, os Matches de cada Bracket
-        foreach (var bracket in tournament.Brackets)
+        // Todas as partidas do torneio, buscadas pelo TournamentId. Antes só apagava as ligadas
+        // a um Bracket — como Swiss, todos contra todos e top cut gravam a partida direto no
+        // torneio (sem Bracket), elas ficavam órfãs no banco depois da exclusão.
+        var matches = await _context.TournamentMatches
+            .Where(m => m.TournamentId == id)
+            .ToListAsync();
+
+        // Zera as referências entre partidas antes de excluir, senão o chaveamento
+        // (NextMatchId / LoserGoesToMatchId) barra a exclusão por chave estrangeira.
+        foreach (var m in matches)
         {
-            _context.TournamentMatches.RemoveRange(bracket.Matches);
+            m.NextMatchId = null;
+            m.LoserGoesToMatchId = null;
         }
+        await _context.SaveChangesAsync();
+
+        _context.TournamentMatches.RemoveRange(matches);
         // Remove os Brackets
         //_context.Brackets.RemoveRange(tournament.Brackets);
         // Finalmente, remove o Torneio
@@ -680,12 +697,19 @@ public class TournamentController : ControllerBase
 
     [HttpPost("{id}/swiss/generate-topcut")]
     [Authorize(Roles = "Admin")]
-    public async Task<IActionResult> SwissGenerateTopCut(int id)
+    // force=true encerra a fase de pontos antecipadamente, cortando o Top Cut pela
+    // classificação atual e descartando as partidas que ainda não foram jogadas.
+    public async Task<IActionResult> SwissGenerateTopCut(int id, [FromQuery] bool force = false)
     {
         try
         {
-            await _swissService.GenerateTopCutAsync(id);
-            return Ok(new { message = "Top Cut gerado com sucesso." });
+            await _swissService.GenerateTopCutAsync(id, force);
+            return Ok(new
+            {
+                message = force
+                    ? "Fase de pontos encerrada e Top Cut gerado pela classificação atual."
+                    : "Top Cut gerado com sucesso."
+            });
         }
         catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
     }
@@ -742,6 +766,7 @@ public class TournamentController : ControllerBase
                 {
                     m.Id, m.Player1Id, m.Player2Id, m.WinnerId,
                     m.IsPlayed, m.IsBye, m.Date,
+                    m.Player1GameWins, m.Player2GameWins,
                 }).ToList()),
             TopCutMatches = topCutMatches.Select(m => new
             {
@@ -750,6 +775,7 @@ public class TournamentController : ControllerBase
                 m.IsPlayed, m.IsBye,
                 m.NextMatchId, m.NextMatchPosition,
                 m.LoserGoesToMatchId, m.Date,
+                m.Player1GameWins, m.Player2GameWins,
             }).ToList(),
         });
     }

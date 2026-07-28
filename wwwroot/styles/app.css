@@ -1318,7 +1318,15 @@ a {
         border-radius: 4px;
         text-align: center;
         justify-self: center;
+        white-space: nowrap;
     }
+
+        /* Placar em games da melhor de 3, no lugar do "VS" quando a partida já terminou */
+        .swiss-match .vs-badge.score {
+            color: var(--text-1);
+            background: rgba(109, 111, 255, 0.18);
+            border: 1px solid rgba(109, 111, 255, 0.35);
+        }
 
 /* ---------- Alternador de tema (claro/escuro) ---------- */
 

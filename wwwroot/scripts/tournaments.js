@@ -61,6 +61,8 @@ async function loadTournaments() {
                         ? `<span class="status-pill prep" title="${t.swissRounds} rodadas Swiss · Top ${t.topCutSize}"><i class="bi bi-grid-3x3-gap-fill"></i> Swiss + Top Cut</span>`
                         : t.format === 2
                         ? `<span class="status-pill prep" title="${t.swissRounds} rodadas Swiss · Pontos Corridos"><i class="bi bi-bar-chart-steps"></i> Swiss P. Corridos</span>`
+                        : t.format === 3
+                        ? `<span class="status-pill prep" title="Todos jogam contra todos · Top ${t.topCutSize}"><i class="bi bi-arrow-repeat"></i> Todos x Todos</span>`
                         : `<span class="status-pill" style="background:rgba(109,111,255,0.15);color:var(--primary)"><i class="bi bi-diagram-3"></i> Dupla Elim.</span>`
                     }</td>
                     <td>${formatDate(t.startDate)}</td>

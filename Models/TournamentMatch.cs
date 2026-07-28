@@ -15,6 +15,14 @@
         public DateTime? Date { get; set; }
         public bool IsPlayed { get; set; }
         public bool IsBye { get; set; } = false;
+
+        /// <summary>
+        /// Placar em games da partida (melhor de 3): ex. 2x0, 2x1 ou 1x1 (empate).
+        /// Nulo em partidas antigas, registradas antes de existir placar por game, e em byes
+        /// (byes contam como 2x0 por convenção, resolvido no cálculo dos desempates).
+        /// </summary>
+        public int? Player1GameWins { get; set; }
+        public int? Player2GameWins { get; set; }
         public Tournament ?LoserGoesToMatch { get; set; }
         public TournamentMatch ?NextMatch { get; set; }
 

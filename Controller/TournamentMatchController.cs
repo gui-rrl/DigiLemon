@@ -34,6 +34,21 @@ namespace RankingDigi.Controller
             if (!isDraw && result.WinnerId != match.Player1Id && result.WinnerId != match.Player2Id)
                 return BadRequest(new { error = "O vencedor precisa ser um dos jogadores da partida (ou 0 para empate, apenas no Swiss)." });
 
+            // Placar em games (melhor de 3). Opcional: continua sendo possível registrar só o
+            // vencedor, e nesse caso os desempates assumem a convenção 2x0 / 1x1.
+            if (result.WinnerGames.HasValue || result.LoserGames.HasValue)
+            {
+                int wg = result.WinnerGames ?? 0;
+                int lg = result.LoserGames ?? 0;
+                bool placarValido = isDraw ? (wg == 1 && lg == 1) : (wg == 2 && (lg == 0 || lg == 1));
+                if (!placarValido)
+                    return BadRequest(new { error = "Placar inválido para melhor de 3: use 2x0, 2x1 ou 1x1 (empate)." });
+
+                bool vencedorEhPlayer1 = isDraw ? true : result.WinnerId == match.Player1Id;
+                match.Player1GameWins = vencedorEhPlayer1 ? wg : lg;
+                match.Player2GameWins = vencedorEhPlayer1 ? lg : wg;
+            }
+
             match.WinnerId = isDraw ? null : result.WinnerId;
             match.IsPlayed = true;
             match.Date = DateTime.UtcNow;
