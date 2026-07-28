@@ -2,6 +2,7 @@
 
 let participantsMap = new Map();
 let allMatchesCache = [];
+let myCodes         = new Map();   // matchId → { code, formatted, slot } do usuário logado
 
 async function loadTournamentParticipants(tournamentId) {
     const res = await apiFetch(`${API_BASE_URL}/tournament/${tournamentId}/participants`);
@@ -51,9 +52,33 @@ function renderMatchCard(match) {
     }
 
     const canRegister = !match.isPlayed && match.player1Id && match.player2Id;
-    const footer = (canRegister || match.isPlayed) ? `
+    const estado = match.reportState || 'none';   // relatos do DCGO
+    const rc = myCodes.get(match.id);
+
+    // Tudo fica dentro do .match-footer de propósito: alignBracketMatches mede a altura
+    // depois de renderizar e matchCenterY usa os .player, então os conectores não saem do lugar.
+    const btnCodigo = (rc && !match.isPlayed) ? `
+        <button class="btn btn-ghost btn-sm btn-report-code" data-code="${escapeHtml(rc.code)}"
+                title="Cole este código no DCGO para reportar o resultado desta partida">
+          <i class="bi bi-key"></i> ${escapeHtml(rc.formatted || rc.code)}
+        </button>` : '';
+
+    const conflito = (!match.isPlayed && estado === 'conflict')
+        ? (typeof authIsAdmin === 'function' && authIsAdmin()
+            ? `<button class="btn btn-sm btn-resolve" style="background:var(--danger);border-color:var(--danger);color:#fff;" data-match-id="${match.id}"><i class="bi bi-exclamation-triangle-fill"></i> Resolver conflito</button>`
+            : `<div class="match-status" style="color:var(--danger);"><i class="bi bi-exclamation-triangle"></i> Relatos divergentes</div>`)
+        : '';
+
+    const aguardando = (!match.isPlayed && estado === 'awaiting')
+        ? `<div class="match-status"><i class="bi bi-hourglass-split"></i> Aguardando o adversário</div>` : '';
+
+    const temRodape = canRegister || match.isPlayed || btnCodigo || conflito || aguardando;
+    const footer = temRodape ? `
         <div class="match-footer">
-            ${canRegister ? `<button class="btn btn-primary btn-sm result-btn" data-match-id="${match.id}"><i class="bi bi-flag"></i> Registrar resultado</button>` : ''}
+            ${btnCodigo}
+            ${conflito}
+            ${aguardando}
+            ${canRegister && estado !== 'conflict' ? `<button class="btn btn-primary btn-sm result-btn" data-match-id="${match.id}"><i class="bi bi-flag"></i> Registrar resultado</button>` : ''}
             ${match.isPlayed ? `<div class="match-status"><i class="bi bi-check2-circle"></i> Finalizada</div>` : ''}
         </div>` : '';
 
@@ -398,6 +423,20 @@ async function init() {
         document.getElementById('tournamentTitle').innerText = tournament.name;
         document.title = `${tournament.name} — Bracket`;
 
+        // Códigos do DCGO: só torneio online, só logado, e só se houver partida em aberto
+        // (senão a requisição volta vazia). Falhar aqui não derruba a tela.
+        myCodes.clear();
+        const temPartidaAberta = allMatchesCache.some(m => !m.isPlayed && !m.isBye && m.player1Id && m.player2Id);
+
+        if (tournament.mode === 1 && temPartidaAberta && typeof authToken === 'function' && authToken()) {
+            try {
+                const codes = await apiFetch(`${API_BASE_URL}/tournament/${id}/my-report-codes`).then(r => r.json());
+                codes.forEach(c => myCodes.set(c.matchId, c));
+            } catch (err) {
+                console.warn('Não foi possível carregar os códigos do DCGO:', err.message);
+            }
+        }
+
         const recapLink = document.getElementById('backToRecapLink');
         if (recapLink && tournament.status === 2) {
             recapLink.href = `/tournament-recap.html?id=${id}`;
@@ -412,6 +451,20 @@ async function init() {
         renameLastRounds();
 
         document.querySelectorAll('.result-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const match = allMatchesCache.find(m => m.id === parseInt(btn.dataset.matchId));
+                if (match) openResultModal(match.id, match.player1Id, match.player2Id);
+                else notifyError('Partida não encontrada.');
+            });
+        });
+
+        document.querySelectorAll('.btn-report-code').forEach(btn => {
+            btn.addEventListener('click', () =>
+                copyToClipboard(btn.dataset.code, 'Código copiado! Cole no DCGO.'));
+        });
+
+        // Conflito abre o modal de resultado normal — a gravação segue pelo endpoint de admin.
+        document.querySelectorAll('.btn-resolve').forEach(btn => {
             btn.addEventListener('click', () => {
                 const match = allMatchesCache.find(m => m.id === parseInt(btn.dataset.matchId));
                 if (match) openResultModal(match.id, match.player1Id, match.player2Id);

@@ -23,6 +23,19 @@
         /// </summary>
         public int? Player1GameWins { get; set; }
         public int? Player2GameWins { get; set; }
+
+        /// <summary>
+        /// Códigos que o simulador DCGO usa para reportar o resultado — um por slot de jogador,
+        /// para o código identificar tanto a partida quanto QUEM está reportando (o DCGO não tem
+        /// contas, só um apelido digitado). São credenciais portadoras: cada jogador só enxerga o
+        /// seu. Gerados sob demanda apenas em torneios online (Mode == 1) e só quando os dois
+        /// slots já estão preenchidos — nulos em torneios presenciais, byes e partidas futuras.
+        ///
+        /// NUNCA devolver estes campos em endpoint anônimo (ver projeção em GetTournamentMatches).
+        /// </summary>
+        public string? Player1ReportCode { get; set; }
+        public string? Player2ReportCode { get; set; }
+
         public Tournament ?LoserGoesToMatch { get; set; }
         public TournamentMatch ?NextMatch { get; set; }
 

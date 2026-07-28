@@ -24,6 +24,7 @@ namespace RankingDigi.Data
         public DbSet<Deck> Decks { get; set; }
         public DbSet<DeckCard> DeckCards { get; set; }
         public DbSet<CardArt> CardArts { get; set; }
+        public DbSet<MatchReport> MatchReports { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -190,6 +191,50 @@ namespace RankingDigi.Data
                 .HasForeignKey(tp => tp.DeckId)
                 .IsRequired(false)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            // ── Integração DCGO ──────────────────────────────────────────────────────
+            // Códigos de relato: únicos, mas o índice por coluna não impede o mesmo código
+            // aparecer no slot 1 de uma partida e no slot 2 de outra (o SQL Server não sabe
+            // expressar "único entre duas colunas da mesma tabela"). A garantia real está na
+            // geração, que consulta AS DUAS colunas — ver MatchReportCodeService.
+            modelBuilder.Entity<TournamentMatch>()
+                .Property(m => m.Player1ReportCode).HasMaxLength(16);
+            modelBuilder.Entity<TournamentMatch>()
+                .Property(m => m.Player2ReportCode).HasMaxLength(16);
+
+            modelBuilder.Entity<TournamentMatch>()
+                .HasIndex(m => m.Player1ReportCode)
+                .IsUnique()
+                .HasFilter("[Player1ReportCode] IS NOT NULL")
+                .HasDatabaseName("IX_TournamentMatches_Player1ReportCode");
+
+            modelBuilder.Entity<TournamentMatch>()
+                .HasIndex(m => m.Player2ReportCode)
+                .IsUnique()
+                .HasFilter("[Player2ReportCode] IS NOT NULL")
+                .HasDatabaseName("IX_TournamentMatches_Player2ReportCode");
+
+            modelBuilder.Entity<MatchReport>()
+                .Property(r => r.ReporterNickname).HasMaxLength(64);
+            modelBuilder.Entity<MatchReport>()
+                .Property(r => r.ClientVersion).HasMaxLength(64);
+            modelBuilder.Entity<MatchReport>()
+                .Property(r => r.SourceIp).HasMaxLength(64);
+
+            // Cascade é obrigatório: DeleteTournament, GenerateTopCutAsync(force) e o
+            // DoubleEliminationGenerator apagam TournamentMatches em massa, sem carregar
+            // os relatos junto — sem cascade, esses caminhos quebrariam por FK.
+            modelBuilder.Entity<MatchReport>()
+                .HasOne(r => r.TournamentMatch)
+                .WithMany()
+                .HasForeignKey(r => r.TournamentMatchId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Um relato por slot: a revisão atualiza a linha, não cria outra.
+            modelBuilder.Entity<MatchReport>()
+                .HasIndex(r => new { r.TournamentMatchId, r.PlayerSlot })
+                .IsUnique()
+                .HasDatabaseName("IX_MatchReports_MatchId_Slot");
         }
     }
 }

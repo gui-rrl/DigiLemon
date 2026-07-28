@@ -92,6 +92,11 @@ builder.Services.AddCors(options =>
 builder.Services.AddScoped<TournamentService>();
 builder.Services.AddScoped<SwissService>();
 builder.Services.AddScoped<MatchResultService>();
+builder.Services.AddScoped<MatchReportCodeService>();
+
+// Integração com o simulador DCGO
+builder.Services.AddScoped<IntegrationKeyFilter>();
+builder.Services.AddIntegrationRateLimiter();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddHostedService<SeasonAutoEndService>();
 builder.Services.AddHostedService<TournamentAutoEndService>();
@@ -163,6 +168,7 @@ app.UseCors("AllowAll");
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 
 app.MapGet("/api/_debug/db", (RankingContext ctx) => Results.Ok(new
 {

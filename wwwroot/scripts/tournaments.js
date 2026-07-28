@@ -113,18 +113,7 @@ async function cancelMyParticipation(tournamentId, participationId, name) {
 
 async function copyInvite(code) {
     const url = `${window.location.origin}/join-tournament.html?code=${encodeURIComponent(code)}`;
-    try {
-        await navigator.clipboard.writeText(url);
-        notifySuccess('Link de convite copiado!');
-    } catch (_) {
-        await Swal.fire({
-            icon: 'info',
-            title: 'Copie o link abaixo',
-            input: 'text',
-            inputValue: url,
-            confirmButtonText: 'Fechar',
-        });
-    }
+    await copyToClipboard(url, 'Link de convite copiado!');   // helper em common.js
 }
 
 document.addEventListener('DOMContentLoaded', () => {

@@ -7,6 +7,7 @@ let statusCache     = null;
 let currentMatchId  = null;
 let currentP1Id     = null;
 let currentP2Id     = null;
+let myCodes         = new Map();   // matchId → { code, formatted, slot } do usuário logado
 
 // ── Carregamento principal ────────────────────────────────────────────────────
 
@@ -21,6 +22,24 @@ async function loadAll() {
 
         // Status Swiss completo
         statusCache = await apiFetch(`${API_BASE_URL}/tournament/${tournamentId}/swiss/status`).then(r => r.json());
+
+        // Códigos do DCGO: só em torneio online, só pra quem está logado e só se houver
+        // partida em aberto — sem isso não há código nenhum pra mostrar e a requisição seria
+        // desperdiçada. Falha aqui não pode derrubar a página: sem código, some só o botão.
+        myCodes.clear();
+        const temPartidaAberta = []
+            .concat(...Object.values(statusCache.swissMatchesByRound || {}))
+            .concat(statusCache.topCutMatches || [])
+            .some(m => !m.isPlayed && !m.isBye);
+
+        if (statusCache.mode === 1 && temPartidaAberta && typeof authToken === 'function' && authToken()) {
+            try {
+                const codes = await apiFetch(`${API_BASE_URL}/tournament/${tournamentId}/my-report-codes`).then(r => r.json());
+                codes.forEach(c => myCodes.set(c.matchId, c));
+            } catch (err) {
+                console.warn('Não foi possível carregar os códigos do DCGO:', err.message);
+            }
+        }
 
         // Título
         const t = await apiFetch(`${API_BASE_URL}/tournament/${tournamentId}`).then(r => r.json());
@@ -148,6 +167,57 @@ function renderRounds(matchesByRound) {
             btn.dataset.p2 ? parseInt(btn.dataset.p2) : null,
         ));
     });
+
+    // Copiar o código do DCGO
+    container.querySelectorAll('.btn-report-code').forEach(btn => {
+        btn.addEventListener('click', () =>
+            copyToClipboard(btn.dataset.code, 'Código copiado! Cole no DCGO.'));
+    });
+
+    // Conflito: abre o MESMO modal de resultado, com o resumo dos relatos por cima.
+    // A gravação continua indo pelo endpoint de admin de sempre — nenhum caminho novo.
+    container.querySelectorAll('.btn-resolve').forEach(btn => {
+        btn.addEventListener('click', () => openConflictModal(
+            parseInt(btn.dataset.matchId),
+            parseInt(btn.dataset.p1),
+            btn.dataset.p2 ? parseInt(btn.dataset.p2) : null,
+        ));
+    });
+}
+
+/** Abre o modal de resultado já mostrando o que cada lado relatou no DCGO. */
+async function openConflictModal(matchId, p1Id, p2Id) {
+    openResultModal(matchId, p1Id, p2Id);
+
+    const modalBody = document.querySelector('#resultModal .modal-body');
+    if (!modalBody) return;
+
+    document.getElementById('conflictInfo')?.remove();
+    const box = document.createElement('div');
+    box.id = 'conflictInfo';
+    box.className = 'mb-3';
+    box.style.cssText = 'background:rgba(255,93,115,0.10);border:1px solid rgba(255,93,115,0.35);border-radius:10px;padding:0.75rem 0.9rem;font-size:0.85rem;';
+    box.innerHTML = '<div class="text-muted-2">Carregando relatos…</div>';
+    modalBody.prepend(box);
+
+    try {
+        const relatos = await apiFetch(`${API_BASE_URL}/tournamentmatch/${matchId}/reports`).then(r => r.json());
+        box.innerHTML = `
+            <div style="font-weight:700;color:var(--danger);margin-bottom:0.4rem;">
+                <i class="bi bi-exclamation-triangle-fill"></i> Relatos divergentes
+            </div>
+            ${relatos.map(r => `
+                <div style="margin-bottom:0.25rem;">
+                    <strong>${escapeHtml(r.playerName)}</strong> relatou:
+                    vencedor <strong>${escapeHtml(r.claimedWinnerName)}</strong> (${escapeHtml(r.claimedScore)})
+                    <span class="text-muted-2">
+                        · ${formatDateTime(r.reportedAt)}${r.reporterNickname ? ` · nick “${escapeHtml(r.reporterNickname)}”` : ''}${r.revisionCount ? ` · ${r.revisionCount} correção(ões)` : ''}
+                    </span>
+                </div>`).join('')}
+            <div class="text-muted-2" style="margin-top:0.4rem;">Escolha abaixo o resultado correto — ele vale sobre os relatos.</div>`;
+    } catch (err) {
+        box.innerHTML = `<div class="text-muted-2">Não foi possível carregar os relatos: ${escapeHtml(err.message)}</div>`;
+    }
 }
 
 function renderMatchRow(m, round) {
@@ -163,11 +233,22 @@ function renderMatchRow(m, round) {
     }
 
     const isAdmin = typeof authIsAdmin === 'function' && authIsAdmin();
+    const estado  = m.reportState || 'none';   // relatos do DCGO: none|awaiting|conflict|resolved
     let btnResult;
     if (m.isBye) {
         btnResult = '<span class="badge bg-secondary">BYE automático</span>';
     } else if (m.isPlayed) {
         btnResult = '<span class="status-pill live" style="font-size:0.75rem;"><i class="bi bi-check2-circle"></i> Finalizada</span>';
+    } else if (estado === 'conflict' && isAdmin) {
+        btnResult = `<button class="btn btn-sm btn-resolve"
+                style="background:var(--danger);border-color:var(--danger);color:#fff;"
+                data-match-id="${m.id}"
+                data-p1="${m.player1Id}"
+                ${m.player2Id ? `data-p2="${m.player2Id}"` : ''}>
+                <i class="bi bi-exclamation-triangle-fill"></i> Resolver conflito
+           </button>`;
+    } else if (estado === 'conflict') {
+        btnResult = '<span class="status-pill" style="font-size:0.75rem;background:rgba(255,93,115,0.15);color:var(--danger);"><i class="bi bi-exclamation-triangle"></i> Relatos divergentes</span>';
     } else if (isAdmin) {
         btnResult = `<button class="btn btn-primary btn-sm btn-result"
                 data-match-id="${m.id}"
@@ -175,9 +256,20 @@ function renderMatchRow(m, round) {
                 ${m.player2Id ? `data-p2="${m.player2Id}"` : ''}>
                 <i class="bi bi-flag"></i> Resultado
            </button>`;
+    } else if (estado === 'awaiting') {
+        btnResult = '<span class="status-pill prep" style="font-size:0.75rem;"><i class="bi bi-hourglass-split"></i> Aguardando o adversário</span>';
     } else {
         btnResult = '<span class="status-pill prep" style="font-size:0.75rem;"><i class="bi bi-hourglass-split"></i> Em andamento</span>';
     }
+
+    // Código do DCGO: aparece só para quem é dono do slot (o backend já filtra por usuário).
+    const rc = myCodes.get(m.id);
+    const btnCodigo = (rc && !m.isPlayed && !m.isBye)
+        ? `<button class="btn btn-ghost btn-sm btn-report-code" data-code="${escapeHtml(rc.code)}"
+                   title="Cole este código no DCGO para reportar o resultado desta partida">
+             <i class="bi bi-key"></i> ${escapeHtml(rc.formatted || rc.code)}
+           </button>`
+        : '';
 
     // Partida encerrada mostra o placar em games no lugar do "VS". Partidas antigas, registradas
     // antes de existir placar, continuam com "VS" — melhor que inventar um 2x0 que ninguém digitou.
@@ -193,7 +285,7 @@ function renderMatchRow(m, round) {
             <div class="player-slot ${p1Class}">${p1Name}</div>
             ${centro}
             <div class="player-slot ${p2Class}">${p2Name}</div>
-            <div class="ms-auto">${btnResult}</div>
+            <div class="ms-auto d-flex align-items-center gap-2">${btnCodigo}${btnResult}</div>
         </div>`;
 }
 
@@ -292,6 +384,9 @@ function openResultModal(matchId, p1Id, p2Id) {
     currentMatchId = matchId;
     currentP1Id    = p1Id;
     currentP2Id    = p2Id;
+
+    // Limpa o resumo de conflito de uma abertura anterior (openConflictModal reinsere).
+    document.getElementById('conflictInfo')?.remove();
 
     const sel = document.getElementById('winnerSelect');
     sel.innerHTML = '<option value="">Selecione o vencedor…</option>';

@@ -138,6 +138,25 @@ function downloadCsv(filename, rows) {
     document.body.removeChild(link); URL.revokeObjectURL(url);
 }
 
+/* ---------- Área de transferência ---------- */
+
+/** Copia texto, com fallback pra quando o navegador bloqueia a API de clipboard
+ *  (contexto não seguro, permissão negada): aí mostra o valor pro usuário copiar na mão. */
+async function copyToClipboard(text, successMsg = 'Copiado!') {
+    try {
+        await navigator.clipboard.writeText(text);
+        notifySuccess(successMsg);
+    } catch (_) {
+        await Swal.fire({
+            icon: 'info',
+            title: 'Copie o texto abaixo',
+            input: 'text',
+            inputValue: text,
+            confirmButtonText: 'Fechar',
+        });
+    }
+}
+
 /* ---------- Prompts customizados (SweetAlert) ---------- */
 
 async function promptText({ title, label, defaultValue = '', placeholder = '', confirmText = 'Salvar', cancelText = 'Cancelar' }) {

@@ -15,12 +15,14 @@ public class TournamentController : ControllerBase
     private readonly RankingContext _context;
     private readonly TournamentService _tournamentService;
     private readonly SwissService _swissService;
+    private readonly MatchReportCodeService _reportCodes;
 
-    public TournamentController(RankingContext context, TournamentService tournamentService, SwissService swissService)
+    public TournamentController(RankingContext context, TournamentService tournamentService, SwissService swissService, MatchReportCodeService reportCodes)
     {
         _context = context;
         _tournamentService = tournamentService;
         _swissService = swissService;
+        _reportCodes = reportCodes;
     }
 
    //GET: api/tournament
@@ -656,13 +658,28 @@ public class TournamentController : ControllerBase
     }
 
     [HttpGet("{id}/matches")]
-    public async Task<ActionResult<IEnumerable<TournamentMatch>>> GetTournamentMatches(int id)
+    public async Task<IActionResult> GetTournamentMatches(int id)
     {
+        await _reportCodes.EnsureCodesAsync(id);
+        var estados = await _reportCodes.GetReportStatesAsync(id);
+
         var matches = await _context.TournamentMatches
             .Where(m => m.TournamentId == id)
             .OrderBy(m => m.MatchType).ThenBy(m => m.Round).ThenBy(m => m.Id)
             .ToListAsync();
-        return Ok(matches);
+
+        // Projeção explícita, NÃO a entidade: TournamentMatch carrega os Player1/2ReportCode,
+        // que são credenciais e não podem sair por aqui (este endpoint é lido sem autenticação
+        // pela tela de bracket). Os códigos saem só por /my-report-codes, filtrados por usuário.
+        return Ok(matches.Select(m => new
+        {
+            m.Id, m.TournamentId, m.MatchType, m.Round,
+            m.Player1Id, m.Player2Id, m.WinnerId,
+            m.LoserGoesToMatchId, m.NextMatchId, m.NextMatchPosition,
+            m.Date, m.IsPlayed, m.IsBye,
+            m.Player1GameWins, m.Player2GameWins,
+            ReportState = estados.TryGetValue(m.Id, out var st) ? st : "none",
+        }).ToList());
     }
 
     // ── Swiss endpoints ──────────────────────────────────────────────────────
@@ -731,12 +748,90 @@ public class TournamentController : ControllerBase
         return Ok(standings);
     }
 
+    // GET: api/tournament/{id}/my-report-codes — códigos que ESTE usuário pode usar no DCGO.
+    // Fica separado dos endpoints de partidas de propósito: aqueles são anônimos e os códigos
+    // são credenciais. Aqui exige login e devolve só os slots do próprio jogador (admin vê
+    // todos, para conseguir ditar um código a quem perdeu o seu).
+    [HttpGet("{id}/my-report-codes")]
+    [Authorize]
+    public async Task<IActionResult> GetMyReportCodes(int id)
+    {
+        var tournament = await _context.Tournaments.FindAsync(id);
+        if (tournament == null) return NotFound();
+        if (tournament.Mode != 1) return Ok(Array.Empty<object>());
+
+        await _reportCodes.EnsureCodesAsync(id);
+
+        bool isAdmin = User.IsInRole("Admin");
+
+        // O admin recebe todos os códigos, então nem precisa descobrir quais slots são dele —
+        // duas consultas a menos. O jogador comum precisa (só vê os próprios).
+        var meusTpIds = new List<int>();
+        if (!isAdmin)
+        {
+            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var appUser = await _context.AppUsers.FindAsync(userId);
+            if (appUser?.PlayerId == null) return Ok(Array.Empty<object>());
+
+            meusTpIds = await _context.TournamentPlayers
+                .Where(tp => tp.TournamentId == id && tp.PlayerId == appUser.PlayerId)
+                .Select(tp => tp.Id)
+                .ToListAsync();
+
+            if (meusTpIds.Count == 0) return Ok(Array.Empty<object>());
+        }
+
+        // Carrega as partidas UMA vez e deriva daqui tanto a lista de códigos quanto os ids
+        // das já jogadas (que o cálculo de estado precisa) — evita uma segunda consulta.
+        var todas = await _context.TournamentMatches
+            .Where(m => m.TournamentId == id)
+            .Select(m => new { m.Id, m.IsPlayed, m.IsBye, m.Player1Id, m.Player2Id, m.Player1ReportCode, m.Player2ReportCode })
+            .ToListAsync();
+
+        var jogadas = todas.Where(m => m.IsPlayed).Select(m => m.Id).ToHashSet();
+        var matches = todas.Where(m => !m.IsPlayed && !m.IsBye
+                                    && m.Player1ReportCode != null && m.Player2ReportCode != null).ToList();
+
+        if (matches.Count == 0) return Ok(Array.Empty<object>());
+
+        var estados = await _reportCodes.GetReportStatesAsync(id, jogadas);
+
+        var resultado = new List<object>();
+        foreach (var m in matches)
+        {
+            var estado = estados.TryGetValue(m.Id, out var st) ? st : "none";
+
+            void Adiciona(int slot, int? tpId, string? code)
+            {
+                if (code == null) return;
+                if (!isAdmin && (tpId == null || !meusTpIds.Contains(tpId.Value))) return;
+                resultado.Add(new
+                {
+                    matchId = m.Id,
+                    slot,
+                    tournamentPlayerId = tpId,
+                    code,
+                    formatted = MatchReportCodeService.Format(code),
+                    state = estado,
+                });
+            }
+
+            Adiciona(1, m.Player1Id, m.Player1ReportCode);
+            Adiciona(2, m.Player2Id, m.Player2ReportCode);
+        }
+
+        return Ok(resultado);
+    }
+
     [HttpGet("{id}/swiss/status")]
     [AllowAnonymous]
     public async Task<IActionResult> SwissStatus(int id)
     {
         var tournament = await _context.Tournaments.FindAsync(id);
         if (tournament == null) return NotFound();
+
+        await _reportCodes.EnsureCodesAsync(id);
+        var estados = await _reportCodes.GetReportStatesAsync(id);
 
         var allMatches = await _context.TournamentMatches
             .Where(m => m.TournamentId == id)
@@ -764,10 +859,13 @@ public class TournamentController : ControllerBase
             tournament.TopCutSize,
             tournament.CurrentSwissRound,
             tournament.Status,
+            tournament.Mode,
             AllSwissDone       = allSwissDone,
             CurrentRoundDone   = currentRoundDone,
             TopCutGenerated    = topCutGenerated,
             Standings          = standings,
+            // ReportState é seguro em endpoint anônimo (só diz "aguardando"/"conflito");
+            // os códigos em si NUNCA saem daqui — ver /my-report-codes.
             SwissMatchesByRound = swissMatches
                 .GroupBy(m => m.Round)
                 .OrderBy(g => g.Key)
@@ -776,6 +874,7 @@ public class TournamentController : ControllerBase
                     m.Id, m.Player1Id, m.Player2Id, m.WinnerId,
                     m.IsPlayed, m.IsBye, m.Date,
                     m.Player1GameWins, m.Player2GameWins,
+                    ReportState = estados.TryGetValue(m.Id, out var st) ? st : "none",
                 }).ToList()),
             TopCutMatches = topCutMatches.Select(m => new
             {
@@ -785,6 +884,7 @@ public class TournamentController : ControllerBase
                 m.NextMatchId, m.NextMatchPosition,
                 m.LoserGoesToMatchId, m.Date,
                 m.Player1GameWins, m.Player2GameWins,
+                ReportState = estados.TryGetValue(m.Id, out var st2) ? st2 : "none",
             }).ToList(),
         });
     }
