@@ -119,6 +119,36 @@ body {
     padding-top: 76px;
 }
 
+/* Faixa de alerta quando o app está conectado a um banco de teste. O deslocamento do
+   conteúdo é feito por JS (common.js), porque cada tela tem um padding-top diferente
+   e as páginas públicas nem têm navbar. */
+.env-banner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1040;              /* acima da navbar (1030) */
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    background: repeating-linear-gradient(45deg, #b45309, #b45309 12px, #92400e 12px, #92400e 24px);
+    color: #fff;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+    .env-banner .env-banner-detail {
+        font-weight: 500;
+        text-transform: none;
+        letter-spacing: normal;
+        opacity: 0.9;
+    }
+
 ::selection {
     background: var(--primary-glow);
     color: #fff;

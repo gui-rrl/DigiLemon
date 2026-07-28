@@ -170,5 +170,18 @@ app.MapGet("/api/_debug/db", (RankingContext ctx) => Results.Ok(new
     Environment = app.Environment.EnvironmentName,
 }));
 
+// Avisa o frontend quando o app está apontando para um banco de teste, para a faixa
+// "AMBIENTE DE TESTE" aparecer no topo. A checagem é pelo banco realmente conectado (e não
+// por uma flag de configuração) justamente para não depender de alguém lembrar de ligá-la.
+app.MapGet("/api/_env", (RankingContext ctx) =>
+{
+    var database = ctx.Database.GetDbConnection().Database ?? string.Empty;
+    return Results.Ok(new
+    {
+        IsTest = database.Contains("test", StringComparison.OrdinalIgnoreCase),
+        Database = database,
+    });
+});
+
 app.MapControllers();
 app.Run();

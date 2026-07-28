@@ -261,7 +261,46 @@ document.addEventListener('DOMContentLoaded', () => {
     const active = document.body.dataset.page;
     if (active) renderNavbar(active);
     renderFooter();
+    checkTestEnvironment();
 });
+
+/* ---------- Faixa de ambiente de teste ---------- */
+
+const ENV_BANNER_HEIGHT = 32;
+
+/**
+ * Mostra uma faixa no topo quando o app está conectado a um banco de teste, para não
+ * confundir com a produção e acabar mexendo no torneio real por engano.
+ */
+async function checkTestEnvironment() {
+    try {
+        const res = await fetch(`${API_BASE_URL}/_env`, { headers: { 'ngrok-skip-browser-warning': '1' } });
+        if (!res.ok) return;
+        const env = await res.json();
+        if (env.isTest) renderEnvBanner(env.database);
+    } catch (_) {
+        // Servidor antigo (sem esse endpoint) ou fora do ar: apenas não mostra a faixa
+    }
+}
+
+function renderEnvBanner(database) {
+    if (document.querySelector('.env-banner')) return;
+
+    const banner = document.createElement('div');
+    banner.className = 'env-banner';
+    banner.innerHTML =
+        `<i class="bi bi-exclamation-triangle-fill"></i> Ambiente de teste` +
+        `<span class="env-banner-detail"> — banco "${escapeHtml(database || '?')}", os dados aqui não são os do torneio real</span>`;
+    document.body.prepend(banner);
+
+    // Empurra o conteúdo: cada tela tem seu próprio padding-top (as públicas usam 0),
+    // então partimos do valor já aplicado em vez de assumir um número fixo.
+    const atual = parseInt(getComputedStyle(document.body).paddingTop, 10) || 0;
+    document.body.style.paddingTop = `${atual + ENV_BANNER_HEIGHT}px`;
+
+    const navbar = document.querySelector('.app-navbar');
+    if (navbar) navbar.style.top = `${ENV_BANNER_HEIGHT}px`;
+}
 
 /* ========== Preview ampliado ao passar o mouse sobre uma carta ==========
    Usado pelo construtor de deck e pela visualização de decks de torneio, para o zoom
