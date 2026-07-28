@@ -18,6 +18,22 @@ namespace RankingDigi.Services
             else        { player.Score += amount;       player.CareerScore += amount; }
         }
 
+        // Trava em 0: pontuação negativa no ranking não quer dizer nada, e chegar em negativo
+        // aqui significaria que os pontos já tinham sido mexidos por fora deste serviço.
+        private static void RemovePoints(Player player, bool online, int amount)
+        {
+            if (online)
+            {
+                player.ScoreOnline       = Math.Max(0, player.ScoreOnline - amount);
+                player.CareerScoreOnline = Math.Max(0, player.CareerScoreOnline - amount);
+            }
+            else
+            {
+                player.Score       = Math.Max(0, player.Score - amount);
+                player.CareerScore = Math.Max(0, player.CareerScore - amount);
+            }
+        }
+
         // Vitória = 3 pts, derrota = 0, empate = 1 pt pra cada (empate só é possível em rodada Swiss).
         public static async Task AwardMatchResultAsync(RankingContext context, TournamentMatch match, Tournament tournament)
         {
@@ -83,6 +99,80 @@ namespace RankingDigi.Services
                 if (!standings[i].PlayerId.HasValue) continue;
                 var player = await context.Players.FindAsync(standings[i].PlayerId!.Value);
                 if (player != null) AddPoints(player, online, PlacementBonus[i]);
+            }
+        }
+
+        /// <summary>
+        /// Desfaz no ranking geral tudo que este torneio creditou: pontos de partida e, se ele
+        /// chegou a ser finalizado, o bônus de colocação. Precisa rodar ANTES de apagar as
+        /// partidas/participantes, porque é deles que os valores são recalculados.
+        ///
+        /// Existe porque excluir um torneio deixava a pontuação inflada para sempre — quem
+        /// tivesse vencido nele continuava com os pontos, sem nenhum registro que explicasse.
+        /// </summary>
+        /// <param name="swissStandings">
+        /// Classificação final, obrigatória apenas para Swiss Pontos Corridos finalizado (é dela
+        /// que saiu o bônus). O chamador passa porque quem calcula é o SwissService.
+        /// </param>
+        public static async Task RevertTournamentAsync(RankingContext context, Tournament tournament, List<SwissStandingEntry>? swissStandings = null)
+        {
+            bool online = tournament.Mode == 1;
+
+            // ── 1) Pontos de partida (espelha AwardMatchResultAsync) ──────────────────
+            var matches = await context.TournamentMatches
+                .Where(m => m.TournamentId == tournament.Id && m.IsPlayed && !m.IsBye)
+                .ToListAsync();
+
+            foreach (var match in matches)
+            {
+                if (!match.Player1Id.HasValue || !match.Player2Id.HasValue) continue;
+
+                var tp1 = await context.TournamentPlayers.FindAsync(match.Player1Id.Value);
+                var tp2 = await context.TournamentPlayers.FindAsync(match.Player2Id.Value);
+                var player1 = tp1?.PlayerId.HasValue == true ? await context.Players.FindAsync(tp1.PlayerId!.Value) : null;
+                var player2 = tp2?.PlayerId.HasValue == true ? await context.Players.FindAsync(tp2.PlayerId!.Value) : null;
+
+                if (!match.WinnerId.HasValue)
+                {
+                    if (player1 != null) RemovePoints(player1, online, DrawPoints);
+                    if (player2 != null) RemovePoints(player2, online, DrawPoints);
+                    continue;
+                }
+
+                Player? winnerPlayer = match.WinnerId.Value == tp1?.Id ? player1
+                                      : match.WinnerId.Value == tp2?.Id ? player2
+                                      : null;
+                if (winnerPlayer != null) RemovePoints(winnerPlayer, online, WinPoints);
+            }
+
+            // ── 2) Bônus de colocação (só existe em torneio finalizado) ───────────────
+            if (tournament.Status != 2) return;
+
+            if (tournament.Format == 2)
+            {
+                // Swiss Pontos Corridos: bônus veio da classificação final.
+                if (swissStandings == null) return;
+                for (int i = 0; i < swissStandings.Count && i < PlacementBonus.Length; i++)
+                {
+                    if (!swissStandings[i].PlayerId.HasValue) continue;
+                    var player = await context.Players.FindAsync(swissStandings[i].PlayerId!.Value);
+                    if (player != null) RemovePoints(player, online, PlacementBonus[i]);
+                }
+                return;
+            }
+
+            // Dupla Eliminação / Swiss+Top Cut: bônus veio do resultado da Grande Final.
+            var (champion, runnerUp, third) = await GetBracketPlacementsAsync(context, tournament.Id);
+            if (!champion.HasValue) return;
+
+            var ordem = new[] { champion, runnerUp, third };
+            for (int i = 0; i < ordem.Length && i < PlacementBonus.Length; i++)
+            {
+                if (!ordem[i].HasValue) continue;
+                var tp = await context.TournamentPlayers.FindAsync(ordem[i]!.Value);
+                if (tp?.PlayerId == null) continue;
+                var player = await context.Players.FindAsync(tp.PlayerId.Value);
+                if (player != null) RemovePoints(player, online, PlacementBonus[i]);
             }
         }
 

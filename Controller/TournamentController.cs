@@ -573,6 +573,15 @@ public class TournamentController : ControllerBase
         if (tournament == null)
             return NotFound();
 
+        // Devolve ao ranking geral os pontos que este torneio creditou, ANTES de apagar
+        // participantes e partidas (é deles que os valores são recalculados). Sem isso, quem
+        // venceu no torneio excluído ficava com os pontos para sempre, sem nada que explicasse
+        // a diferença no ranking.
+        var standingsParaReverter = (tournament.Format == 2 && tournament.Status == 2)
+            ? await _swissService.GetStandingsAsync(id)   // bônus do Swiss Pontos Corridos veio daqui
+            : null;
+        await TournamentScoringService.RevertTournamentAsync(_context, tournament, standingsParaReverter);
+
         // Remove primeiro os TournamentPlayers (participantes)
         _context.TournamentPlayers.RemoveRange(tournament.TournamentPlayers);
 
