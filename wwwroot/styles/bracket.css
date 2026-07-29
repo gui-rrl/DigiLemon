@@ -26,21 +26,29 @@
 
 .upper-bracket-container,
 .lower-bracket-container {
-    flex: 1 1 auto;
-    min-width: 0;
     background: linear-gradient(180deg, rgba(var(--surface-rgb),0.035) 0%, rgba(var(--surface-rgb),0.01) 100%);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     padding: 1.5rem 1.5rem 1.25rem;
-    overflow-x: auto;           /* scroll horizontal interno */
     overflow-y: visible;
+}
+
+/* Sem scroll interno — quem controla o tamanho é o .upper-stack (pai direto no bracket-row,
+   ver mais abaixo). Se não couber na tela, quem rola é a página inteira (padrão do
+   navegador), em vez de uma barra de rolagem escondida numa caixinha interna. */
+.upper-bracket-container {
+    overflow-x: visible;
+}
+
+.lower-bracket-container {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-x: auto;           /* scroll horizontal interno */
     scrollbar-width: thin;
     scrollbar-color: var(--border-strong) transparent;
 }
 
-.upper-bracket-container::-webkit-scrollbar,
-.lower-bracket-container::-webkit-scrollbar      { height: 5px; }
-.upper-bracket-container::-webkit-scrollbar-thumb,
+.lower-bracket-container::-webkit-scrollbar       { height: 5px; }
 .lower-bracket-container::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
 
 .grand-final-container {
@@ -58,8 +66,7 @@
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
-    flex: 1 1 auto;   /* clássico: preenche o espaço da linha, como .upper-bracket-container fazia antes */
-    min-width: 0;     /* sem isso, texto/nome comprido dentro força a coluna a crescer além do flex-basis */
+    flex: 0 0 auto;   /* clássico: cresce pro tamanho do conteúdo (Chave Superior) em vez de encolher e rolar por dentro */
 }
 
     .upper-stack > * {
@@ -253,8 +260,16 @@
 .match-wrapper {
     display: flex;
     align-items: center;
-    /* margin-bottom removido — o alinhamento é feito via JS (position: absolute) */
     position: relative;
+}
+
+/* Espaço entre partidas quando a seção tem só 1 rodada (ex: Semifinais do Top 4) — nesse
+   caso alignBracketMatches() nem roda (exige 2+ rodadas), então os cards ficam em fluxo
+   normal e precisam dessa margem pra não colar um no outro. Com 2+ rodadas, o JS assume o
+   posicionamento (position:absolute) e zera a margem via inline style, então essa regra
+   não tem efeito nenhum ali. */
+.match-wrapper + .match-wrapper {
+    margin-top: 1.25rem;
 }
 
 /* ── Card da partida ────────────────────────────────────────────────────── */
