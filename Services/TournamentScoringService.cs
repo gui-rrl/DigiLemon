@@ -61,8 +61,12 @@ namespace RankingDigi.Services
             if (winnerPlayer != null) AddPoints(winnerPlayer, online, WinPoints);
         }
 
-        // Dupla Eliminação / Swiss+Top Cut: campeão = vencedor da Grande Final, vice = perdedor da
-        // Grande Final, 3º = perdedor da Final do Lower Bracket (última derrota antes da Grande Final).
+        // Dupla Eliminação / Swiss+Top Cut / Todos contra todos+Top Cut: campeão = vencedor da
+        // Grande Final, vice = perdedor da Grande Final. O 3º lugar depende do formato do chaveamento:
+        //   - Top 8 (ou o torneio avulso "Dupla Eliminação"): perdedor da Final do Lower Bracket
+        //     (última derrota antes da Grande Final).
+        //   - Top 4 (TopFourGenerator, sem lower bracket): vencedor da partida dedicada de
+        //     disputa de 3º lugar (MatchType 4), entre os dois perdedores das semifinais.
         // Além do 3º, a estrutura de bracket não dá uma ordem limpa pros demais (empate técnico por rodada de eliminação).
         public static async Task<(int? Champion, int? RunnerUp, int? Third)> GetBracketPlacementsAsync(RankingContext context, int tournamentId)
         {
@@ -75,11 +79,17 @@ namespace RankingDigi.Services
 
             var lowerFinal = await context.TournamentMatches.FirstOrDefaultAsync(m =>
                 m.TournamentId == tournamentId && m.MatchType == 1 && m.NextMatchId == grandFinal.Id);
-            int? thirdTpId = lowerFinal?.WinnerId.HasValue == true
-                ? (lowerFinal.Player1Id == lowerFinal.WinnerId ? lowerFinal.Player2Id : lowerFinal.Player1Id)
-                : null;
+            if (lowerFinal != null)
+            {
+                int? thirdViaLower = lowerFinal.WinnerId.HasValue
+                    ? (lowerFinal.Player1Id == lowerFinal.WinnerId ? lowerFinal.Player2Id : lowerFinal.Player1Id)
+                    : null;
+                return (championTpId, runnerUpTpId, thirdViaLower);
+            }
 
-            return (championTpId, runnerUpTpId, thirdTpId);
+            var thirdPlaceMatch = await context.TournamentMatches
+                .FirstOrDefaultAsync(m => m.TournamentId == tournamentId && m.MatchType == 4);
+            return (championTpId, runnerUpTpId, thirdPlaceMatch?.WinnerId);
         }
 
         public static async Task AwardBracketPlacementBonusAsync(RankingContext context, Tournament tournament)

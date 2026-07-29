@@ -15,13 +15,14 @@ async function loadTournamentMatches(tournamentId) {
 }
 
 function groupMatchesByTypeAndRound(matches) {
-    const upper = new Map(), lower = new Map(), finals = [];
+    const upper = new Map(), lower = new Map(), finals = [], thirdPlace = [];
     matches.forEach(m => {
         if      (m.matchType === 0) { if (!upper.has(m.round)) upper.set(m.round, []); upper.get(m.round).push(m); }
         else if (m.matchType === 1) { if (!lower.has(m.round)) lower.set(m.round, []); lower.get(m.round).push(m); }
         else if (m.matchType === 2) { finals.push(m); }
+        else if (m.matchType === 4) { thirdPlace.push(m); }   // Top 4 sem lower bracket: disputa de 3º lugar
     });
-    return { upper, lower, finals };
+    return { upper, lower, finals, thirdPlace };
 }
 
 /* ── Renderização ───────────────────────────────────────────────────────── */
@@ -122,10 +123,14 @@ function renderGrandFinals(finals, containerId) {
 
 /* ── Renomear última rodada ─────────────────────────────────────────────── */
 
-function renameLastRounds() {
+// isTopFour: true quando o chaveamento é o Top 4 novo (semifinais + 3º lugar, sem lower
+// bracket) — nesse caso "Final da Upper" não faz sentido, é só a Semifinal mesmo, e não há
+// "Final da Lower" pra renomear porque não existe lower bracket.
+function renameLastRounds(isTopFour) {
     const up = document.querySelectorAll('#upperBracketRoot > .round');
-    if (up.length) up[up.length - 1].querySelector('h5').textContent = 'Final da Upper';
+    if (up.length) up[up.length - 1].querySelector('h5').textContent = isTopFour ? 'Semifinal' : 'Final da Upper';
 
+    if (isTopFour) return;
     const lo = document.querySelectorAll('#lowerBracketRoot > .round');
     if (lo.length) lo[lo.length - 1].querySelector('h5').textContent = 'Final da Lower';
 }
@@ -443,12 +448,55 @@ async function init() {
             recapLink.style.display = '';
         }
 
-        const { upper, lower, finals } = groupMatchesByTypeAndRound(allMatchesCache);
+        const { upper, lower, finals, thirdPlace } = groupMatchesByTypeAndRound(allMatchesCache);
+        const isTopFour = thirdPlace.length > 0; // TopFourGenerator: sem lower bracket, com 3º lugar dedicado
+
+        // No Top 4, Semifinais + Grande Final + Disputa de 3º lugar viram uma única caixa
+        // (ver .bracket-merged em bracket.css), em vez de três caixas lado a lado.
+        document.getElementById('upperBracketRow').classList.toggle('bracket-merged', isTopFour);
+
         renderBracketSection('upperBracketRoot', upper);
-        renderBracketSection('lowerBracketRoot', lower);
         renderGrandFinals(finals, 'grandFinalRoot');
 
-        renameLastRounds();
+        const lowerRow = document.getElementById('lowerBracketRow');
+        if (isTopFour) {
+            lowerRow.style.display = 'none';
+        } else {
+            lowerRow.style.display = '';
+            renderBracketSection('lowerBracketRoot', lower);
+        }
+
+        const thirdPlaceSection = document.getElementById('thirdPlaceSection');
+        if (isTopFour) {
+            thirdPlaceSection.style.display = '';
+            renderGrandFinals(thirdPlace, 'thirdPlaceRoot');
+        }
+
+        const championSection = document.getElementById('championSection');
+        if (isTopFour) {
+            championSection.style.display = '';
+            const championNameEl = document.getElementById('championName');
+            const winnerId = finals[0]?.winnerId;
+            if (winnerId) {
+                const p = participantsMap.get(winnerId);
+                championNameEl.textContent = p?.playerName ?? 'Desconhecido';
+                championNameEl.classList.remove('pending');
+            } else {
+                championNameEl.textContent = 'Aguardando';
+                championNameEl.classList.add('pending');
+            }
+        }
+
+        const subtitle = document.getElementById('bracketSubtitle');
+        if (isTopFour && subtitle) {
+            subtitle.textContent = 'Semifinais (1ºx4º, 2ºx3º) + disputa de 3º lugar · clique em "Registrar resultado" para definir o vencedor de cada partida.';
+        }
+        const upperTitle = document.getElementById('upperSectionTitle');
+        if (isTopFour && upperTitle) {
+            upperTitle.innerHTML = '<i class="bi bi-diagram-2-fill"></i> Semifinais';
+        }
+
+        renameLastRounds(isTopFour);
 
         document.querySelectorAll('.result-btn').forEach(btn => {
             btn.addEventListener('click', () => {

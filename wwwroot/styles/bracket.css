@@ -44,13 +44,144 @@
 .lower-bracket-container::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
 
 .grand-final-container {
-    flex: 0 0 290px;
-    align-self: center;
     background: linear-gradient(180deg, rgba(22,224,189,0.08) 0%, rgba(22,224,189,0.02) 100%);
     border: 1px solid rgba(22,224,189,0.35);
     border-radius: var(--radius-lg);
     padding: 1.25rem;
     box-shadow: 0 0 0 1px rgba(22,224,189,0.06), 0 12px 40px rgba(0,0,0,0.3);
+}
+
+/* Coluna que empilha a Chave Superior/Semifinais (em cima) e a Disputa de 3º lugar
+   (embaixo — só aparece no Top 4). No formato clássico (Top 8 / Dupla Eliminação) o 3º
+   lugar fica display:none e a coluna só assume o tamanho natural da Chave Superior. */
+.upper-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    flex: 1 1 auto;   /* clássico: preenche o espaço da linha, como .upper-bracket-container fazia antes */
+    min-width: 0;     /* sem isso, texto/nome comprido dentro força a coluna a crescer além do flex-basis */
+}
+
+    .upper-stack > * {
+        flex: 0 0 auto;
+        align-self: stretch;
+        width: 100%;
+    }
+
+    /* Divisória horizontal entre Semifinais e Disputa de 3º lugar, só quando as duas
+       estiverem visíveis (Top 4 — no clássico a disputa fica display:none). */
+    .upper-stack > *:not(:first-child) {
+        border-top: 1px solid var(--border);
+        padding-top: 1.25rem;
+    }
+
+/* Coluna da Grande Final. No Top 4, mesma largura do .round da Semifinal, pra ficar do
+   mesmo tamanho que a coluna .upper-stack ao lado. */
+.grand-final-column {
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 320px;
+    min-width: 0;
+    align-self: center;
+}
+
+    .grand-final-column .grand-final-container {
+        flex: 0 0 auto;
+        align-self: stretch;
+        width: 100%;
+    }
+
+    /* No Top 4 (dentro de .bracket-merged), a carta da Grande Final/Disputa de 3º ganha o
+       mesmo respiro lateral que o .round da Semifinal tem (2.5rem cada lado) — sem isso, a
+       carta (.match tem flex:1) estica pra preencher a coluna inteira e fica bem maior que
+       a carta da semifinal, que "perde" 80px pro padding do round. */
+    .bracket-merged .grand-final-column .grand-final-container,
+    .bracket-merged .upper-stack .grand-final-container {
+        padding: 0 2.5rem;
+    }
+
+/* ── Top 4 sem lower bracket: Semifinais + Disputa de 3º lugar de um lado, Grande Final
+   do outro e Campeão à direita, dentro de UMA única caixa e com as colunas do mesmo tamanho.
+   Aplicado via JS (double-bracket.js) só quando o torneio é o TopFourGenerator (isTopFour). ── */
+.bracket-merged {
+    background: linear-gradient(180deg, rgba(var(--surface-rgb),0.035) 0%, rgba(var(--surface-rgb),0.01) 100%);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    align-items: stretch;
+}
+
+    /* Dentro da caixa única, as sub-seções perdem a borda/fundo próprios — viram só
+       divisórias verticais entre si, para não parecer caixas separadas dentro de uma. */
+    .bracket-merged .upper-bracket-container,
+    .bracket-merged .grand-final-container {
+        background: none;
+        border: none;
+        box-shadow: none;
+        border-radius: 0;
+        padding: 0;
+        align-self: auto;
+    }
+
+    /* Semifinais (+ 3º lugar) fica do tamanho natural do seu conteúdo (um .round de 320px)
+       — nada de esticar pra dividir a largura toda da caixa com a Grande Final, senão as
+       cartas (que não têm o padding do .round) ficam bem maiores que a da semifinal. */
+    .bracket-merged .upper-stack {
+        flex: 0 0 320px;
+    }
+
+    /* Só a linha, sem padding extra — o espaçamento entre as colunas já vem do gap do
+       .bracket-row. Um padding aqui consumiria largura só desta coluna (a 1ª não recebe,
+       por ser :first-child), fazendo a carta da Grande Final/3º lugar/Campeão ficar menor
+       que a da Semifinal mesmo com as colunas na mesma largura total. */
+    .bracket-merged > *:not(:first-child) {
+        border-left: 1px solid var(--border);
+    }
+
+/* Caixa que mostra só o campeão (vencedor da Grande Final), só no Top 4 (isTopFour). É o
+   3º item do .bracket-row.bracket-merged, à direita da Grande Final — align-items:center
+   da .bracket-row já centraliza verticalmente na altura total da linha (Semifinais + GF +
+   Disputa de 3º). */
+.champion-container {
+    flex: 0 0 220px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    text-align: center;
+    background: linear-gradient(180deg, rgba(255,181,71,0.12) 0%, rgba(255,181,71,0.03) 100%);
+    border: 1px solid rgba(255,181,71,0.35);
+    border-radius: var(--radius-lg);
+    padding: 1.75rem 1.25rem;
+    box-shadow: 0 0 0 1px rgba(255,181,71,0.08), 0 12px 40px rgba(0,0,0,0.3);
+}
+
+.champion-container .champion-icon {
+    font-size: 2rem;
+    color: var(--warning);
+}
+
+.champion-container .champion-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-weight: 700;
+    color: var(--text-3);
+}
+
+.champion-container .champion-name {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text-1);
+    word-break: break-word;
+}
+
+.champion-container .champion-name.pending {
+    opacity: 0.5;
+    font-style: italic;
+    font-weight: 500;
+    font-size: 0.9rem;
 }
 
 .bracket-section-title {
@@ -271,15 +402,26 @@
 
 @media (max-width: 1200px) {
     .round { width: 290px; padding: 0 2rem; }
-    .grand-final-container { flex: 0 0 260px; }
-    .lower-bracket-container { margin-right: calc(260px + 1.5rem); }
+    .grand-final-column { flex-basis: 290px; }   /* acompanha o .round, que também encolheu pra 290px aqui */
+    .bracket-merged .upper-stack { flex-basis: 290px; }
+    .lower-bracket-container { margin-right: calc(290px + 1.5rem); }
 }
 
 @media (max-width: 992px) {
     .bracket-row { flex-wrap: wrap; }
-    .grand-final-container {
+    .grand-final-column {
         flex: 0 0 100%;
         align-self: auto;
+    }
+    .bracket-merged .upper-stack,
+    .bracket-merged .grand-final-column,
+    .bracket-merged .champion-container {
+        flex: 1 1 100%;
+    }
+    .bracket-merged > *:not(:first-child) {
+        border-left: none;
+        border-top: 1px solid var(--border);
+        padding-top: 1.5rem;
     }
     .lower-bracket-container { margin-right: 0; }
     .round { width: 270px; padding: 0 1.75rem; }

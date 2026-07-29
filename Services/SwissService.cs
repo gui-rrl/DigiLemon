@@ -198,8 +198,20 @@ namespace RankingDigi.Services
             if (topPlayers.Count < 2)
                 throw new InvalidOperationException("Não há jogadores suficientes para o Top Cut.");
 
-            var generator = new DoubleEliminationGenerator(_context);
-            await generator.GenerateAsync(tournamentId, topPlayers);
+            // Top 4: semifinais cruzadas (1ºx4º, 2ºx3º) + disputa de 3º lugar, sem lower bracket.
+            // Top 8 (ou qualquer outro tamanho): dupla eliminação completa, como sempre foi.
+            if (topN == 4)
+            {
+                if (topPlayers.Count < 4)
+                    throw new InvalidOperationException("O Top 4 exige pelo menos 4 participantes classificados.");
+                var topFour = new TopFourGenerator(_context);
+                await topFour.GenerateAsync(tournamentId, topPlayers);
+            }
+            else
+            {
+                var generator = new DoubleEliminationGenerator(_context);
+                await generator.GenerateAsync(tournamentId, topPlayers);
+            }
         }
 
         // ── Standings ────────────────────────────────────────────────────────

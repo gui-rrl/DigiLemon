@@ -22,7 +22,7 @@
                     <span class="icon-badge"><i class="bi bi-diagram-3-fill"></i></span>
                     <span id="tournamentTitle">Carregando…</span>
                 </h1>
-                <p class="page-subtitle mt-2">Dupla eliminação · clique em "Registrar resultado" para definir o vencedor de cada partida.</p>
+                <p class="page-subtitle mt-2" id="bracketSubtitle">Dupla eliminação · clique em "Registrar resultado" para definir o vencedor de cada partida.</p>
             </div>
             <div class="d-flex gap-2 flex-wrap">
                 <a href="#" id="backToRecapLink" class="btn btn-primary" style="display:none;">
@@ -36,25 +36,52 @@
 
         <div class="bracket-wrapper">
 
-            <!-- Linha 1: Chave Superior + Grande Final (separados, lado a lado) -->
+            <!-- Linha 1: Chave Superior (+ Disputa de 3º) + Grande Final + Campeão -->
             <div class="bracket-row" id="upperBracketRow">
-                <div class="upper-bracket-container">
-                    <h3 class="bracket-section-title">
-                        <i class="bi bi-arrow-up-circle-fill"></i> Chave Superior
-                    </h3>
-                    <div id="upperBracketRoot" class="bracket-horizontal"></div>
+                <!-- Semifinais em cima, Disputa de 3º lugar embaixo (só aparece no Top 4) — a
+                     coluna toda tem a mesma largura da coluna da Grande Final (ver .upper-stack
+                     em bracket.css). -->
+                <div class="upper-stack" id="upperStack">
+                    <div class="upper-bracket-container">
+                        <h3 class="bracket-section-title" id="upperSectionTitle">
+                            <i class="bi bi-arrow-up-circle-fill"></i> Chave Superior
+                        </h3>
+                        <div id="upperBracketRoot" class="bracket-horizontal"></div>
+                    </div>
+
+                    <!-- Só aparece no Top 4 sem lower bracket (TopFourGenerator): os dois
+                         perdedores das semifinais disputam o 3º lugar entre si. -->
+                    <div class="grand-final-container" id="thirdPlaceSection" style="display:none;">
+                        <h3 class="bracket-section-title" style="color: var(--text-2);">
+                            <i class="bi bi-award-fill"></i> Disputa de 3º lugar
+                        </h3>
+                        <div id="thirdPlaceRoot"></div>
+                    </div>
                 </div>
 
-                <div class="grand-final-container" id="grandFinalSection">
-                    <h3 class="bracket-section-title grand-final-title">
-                        <i class="bi bi-trophy-fill"></i> Grande Final
-                    </h3>
-                    <div id="grandFinalRoot"></div>
+                <div class="grand-final-column" id="grandFinalColumn">
+                    <div class="grand-final-container" id="grandFinalSection">
+                        <h3 class="bracket-section-title grand-final-title">
+                            <i class="bi bi-trophy-fill"></i> Grande Final
+                        </h3>
+                        <div id="grandFinalRoot"></div>
+                    </div>
+                </div>
+
+                <!-- Só aparece no Top 4 (TopFourGenerator): mostra só o campeão (vencedor da
+                     Grande Final). Fica como 3º item do bracket-row — o align-items:center da
+                     .bracket-row já centraliza verticalmente na altura total da linha. -->
+                <div class="champion-container" id="championSection" style="display:none;">
+                    <div class="champion-icon"><i class="bi bi-trophy-fill"></i></div>
+                    <div class="champion-label">Campeão</div>
+                    <div class="champion-name" id="championName">—</div>
                 </div>
             </div>
 
-            <!-- Linha 2: Chave Inferior -->
-            <div class="bracket-row">
+            <!-- Linha 2: Chave Inferior — só existe na dupla eliminação completa (Top 8 ou o
+                 formato avulso "Dupla Eliminação"). No Top 4 novo (TopFourGenerator) essa linha
+                 fica escondida via JS, porque não há lower bracket nenhum. -->
+            <div class="bracket-row" id="lowerBracketRow">
                 <div class="lower-bracket-container">
                     <h3 class="bracket-section-title">
                         <i class="bi bi-arrow-down-circle-fill"></i> Chave Inferior
