@@ -37,14 +37,16 @@
                             <label for="name" class="form-label">Nome do torneio</label>
                             <input type="text" id="name" class="form-control" placeholder="Digite o nome do Torneio" required>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-4" id="startDateGroup">
                             <label for="startDate" class="form-label">Data de início</label>
                             <input type="date" id="startDate" class="form-control" required>
                         </div>
                         <div class="col-md-4">
-                            <label for="endDate" class="form-label">Data de término</label>
-                            <input type="date" id="endDate" class="form-control" required>
-                            <small class="text-muted-2" style="font-size:0.78rem;">O torneio se encerra automaticamente à meia-noite do dia seguinte.</small>
+                            <label for="endDate" class="form-label">
+                                Data de término <small class="text-muted-2" id="endDateOptionalHint" style="display:none;">(opcional)</small>
+                            </label>
+                            <input type="date" id="endDate" class="form-control">
+                            <small class="text-muted-2" style="font-size:0.78rem;" id="endDateHelp">O torneio se encerra automaticamente à meia-noite do dia seguinte.</small>
                         </div>
                         <div class="col-md-4">
                             <label for="registrationDeadline" class="form-label">
@@ -63,6 +65,7 @@
                         <div class="col-md-3">
                             <label for="maxPlayers" class="form-label">Número de vagas</label>
                             <select id="maxPlayers" class="form-select" required>
+                                <option value="0">Indefinido (inscrições abertas)</option>
                                 <option value="6">6 jogadores</option>
                                 <option value="8" selected>8 jogadores</option>
                                 <option value="10">10 jogadores</option>
@@ -74,6 +77,9 @@
                                 <option value="24">24 jogadores</option>
                                 <option value="32">32 jogadores</option>
                             </select>
+                            <small class="text-muted-2 d-none" style="font-size:0.78rem;" id="unlimitedHint">
+                                O torneio inicia sozinho quando o prazo de inscrição vencer, ou quando você encerrar as inscrições manualmente na tela de configuração.
+                            </small>
                         </div>
                     </div>
 

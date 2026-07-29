@@ -166,22 +166,29 @@ public class TournamentController : ControllerBase
 
         if (dto.Format is < 0 or > 3)
             return BadRequest(new { error = "Formato de torneio inválido." });
-        if (dto.MaxPlayers < 2)
-            return BadRequest(new { error = "O número máximo de jogadores deve ser maior ou igual a 2." });
+        // MaxPlayers == 0 é o sentinela de "Indefinido" (vagas abertas até o prazo de inscrição
+        // vencer ou o admin encerrar manualmente) — reaproveita a convenção já usada em
+        // GetByInviteCode/JoinByInvite (tournament.MaxPlayers > 0 já trata 0 como "sem teto").
+        bool isUnlimited = dto.MaxPlayers == 0;
+        if (!isUnlimited && dto.MaxPlayers < 2)
+            return BadRequest(new { error = "O número máximo de jogadores deve ser maior ou igual a 2 (ou 0 para Indefinido)." });
         if (dto.Format == 0 && dto.MaxPlayers % 2 != 0)
             return BadRequest(new { error = "Para o formato Double Elimination, o número de vagas deve ser par." });
 
-        if (!dto.EndDate.HasValue)
+        // Data de término só é obrigatória com vagas fixas. Em modo Indefinido ela é opcional
+        // (o torneio pode não ter fim previsto) e a data de início não é escolhida pelo admin —
+        // o frontend preenche com a data de hoje.
+        if (!isUnlimited && !dto.EndDate.HasValue)
             return BadRequest(new { error = "Informe a data de término do torneio." });
-        if (dto.EndDate.Value.Date < dto.StartDate.Date)
+        if (dto.EndDate.HasValue && dto.EndDate.Value.Date < dto.StartDate.Date)
             return BadRequest(new { error = "A data de término não pode ser anterior à data de início." });
 
-        if (dto.RegistrationDeadline.HasValue && dto.RegistrationDeadline.Value.Date > dto.EndDate.Value.Date)
+        if (dto.RegistrationDeadline.HasValue && dto.EndDate.HasValue && dto.RegistrationDeadline.Value.Date > dto.EndDate.Value.Date)
             return BadRequest(new { error = "O prazo de inscrição não pode ser depois da data de término do torneio." });
 
         var players = dto.Players ?? new List<PlayerDeckDto>();
 
-        if (players.Count > dto.MaxPlayers)
+        if (!isUnlimited && players.Count > dto.MaxPlayers)
             return BadRequest(new { error = $"Você adicionou {players.Count} jogadores, mas o limite do torneio é {dto.MaxPlayers}." });
 
         // Permite criar torneio vazio (sem participantes) para depois convidar via link.
@@ -217,7 +224,10 @@ public class TournamentController : ControllerBase
         }
 
         // Todos contra todos (3): uma "rodada" única com todas as partidas, então SwissRounds = 1.
-        int swissRounds = dto.Format == 3 ? 1
+        // Indefinido (isUnlimited): fica 0 de propósito — SwissService.StartAsync já recalcula a
+        // partir da contagem real de participantes no momento de iniciar (SwissService.cs:54-56).
+        int swissRounds = isUnlimited ? 0
+                        : dto.Format == 3 ? 1
                         : dto.Format >= 1 ? SwissService.CalculateRounds(dto.MaxPlayers)
                         : 0;
         int topCutSize  = dto.Format is 1 or 3 ? (dto.TopCutSize is 4 or 8 ? dto.TopCutSize : 4) : 0;
@@ -226,7 +236,7 @@ public class TournamentController : ControllerBase
         {
             Name = dto.Name,
             StartDate = dto.StartDate,
-            EndDate = dto.EndDate.Value,
+            EndDate = dto.EndDate,
             RegistrationDeadline = dto.RegistrationDeadline,
             Status = 0,
             MaxPlayers = dto.MaxPlayers,

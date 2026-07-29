@@ -100,6 +100,7 @@ builder.Services.AddIntegrationRateLimiter();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddHostedService<SeasonAutoEndService>();
 builder.Services.AddHostedService<TournamentAutoEndService>();
+builder.Services.AddHostedService<TournamentAutoStartService>();
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<CardSyncService>();
 

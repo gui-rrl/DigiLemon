@@ -44,6 +44,18 @@ async function loadTournamentInfo() {
         const inviteUrl = currentTournament.inviteCode ? buildInviteUrl(currentTournament.inviteCode) : '';
         document.getElementById('inviteUrlInput').value = inviteUrl;
 
+        // Vagas Indefinido com prazo definido: avisa que o torneio pode iniciar sozinho, pra não
+        // parecer que o botão "Iniciar torneio" é a única forma de começar.
+        const hint = document.getElementById('autoStartHint');
+        if (currentTournament.status === 0 && !currentTournament.maxPlayers && currentTournament.registrationDeadline) {
+            const deadline = formatDate(currentTournament.registrationDeadline);
+            document.getElementById('autoStartHintText').textContent =
+                `Vagas indefinidas — as inscrições encerram em ${deadline} e o torneio inicia automaticamente. Você também pode encerrar as inscrições e iniciar antes, pelo botão abaixo.`;
+            hint.classList.remove('d-none');
+        } else {
+            hint.classList.add('d-none');
+        }
+
         await loadParticipants();
     } catch (error) {
         notifyError('Erro ao carregar torneio: ' + error.message);

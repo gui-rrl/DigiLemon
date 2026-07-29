@@ -44,6 +44,13 @@ function updateMaxPlayersOptions(fmt) {
     const sel = document.getElementById('maxPlayers');
     const current = sel.value;
     sel.innerHTML = '';
+
+    // 0 = "Indefinido" (vagas abertas) — vale para qualquer formato.
+    const unlimitedOpt = document.createElement('option');
+    unlimitedOpt.value = '0';
+    unlimitedOpt.textContent = 'Indefinido (inscrições abertas)';
+    sel.appendChild(unlimitedOpt);
+
     const options = fmt >= 1
         ? [4,5,6,7,8,9,10,11,12,14,16,18,20,24,32]
         : [6,8,10,12,14,16,18,20,24,32];
@@ -54,8 +61,22 @@ function updateMaxPlayersOptions(fmt) {
         if (String(n) === current) opt.selected = true;
         sel.appendChild(opt);
     });
-    if (!sel.value) sel.value = '8';
+    // Preserva "Indefinido" ao trocar de formato; senão cai no padrão de 8.
+    if (current === '0') sel.value = '0';
+    else if (!sel.value || sel.value === '0') sel.value = '8';
     if (fmt >= 1) updateSwissRoundsInfo();
+    updateUnlimitedUi();
+}
+
+// Alterna a UI entre vagas fixas e "Indefinido": esconde a data de início (preenchida com
+// hoje no submit), torna a data de término opcional e mostra o aviso de auto-início.
+function updateUnlimitedUi() {
+    const isUnlimited = getMaxPlayers() === 0;
+    document.getElementById('startDateGroup').classList.toggle('d-none', isUnlimited);
+    document.getElementById('endDateOptionalHint').style.display = isUnlimited ? '' : 'none';
+    document.getElementById('endDateHelp').classList.toggle('d-none', isUnlimited);
+    document.getElementById('unlimitedHint').classList.toggle('d-none', !isUnlimited);
+    document.getElementById('startDate').required = !isUnlimited;
 }
 
 // Registrar listeners e inicializar após DOM pronto
@@ -111,16 +132,19 @@ function updatePlayerCount() {
         .filter(s => s.value).length;
     const max = getMaxPlayers();
     const pill = document.getElementById('playerCountPill');
-    pill.textContent = `${filledCount} / ${max} jogadores`;
-
     const addBtn = document.getElementById('addPlayerBtn');
     const rowCount = document.querySelectorAll('.player-row').length;
 
-    if (filledCount === max) {
-        pill.className = 'status-pill live';
-    } else {
+    if (max === 0) {
+        // Indefinido: sem teto, mesmo texto usado em tournament-setup.js pra consistência.
+        pill.textContent = `${filledCount} jogador${filledCount === 1 ? '' : 'es'}`;
         pill.className = 'status-pill prep';
+        addBtn.disabled = false;
+        return;
     }
+
+    pill.textContent = `${filledCount} / ${max} jogadores`;
+    pill.className = filledCount === max ? 'status-pill live' : 'status-pill prep';
 
     // Bloqueia botão de adicionar quando atingir o limite
     addBtn.disabled = rowCount >= max;
@@ -129,7 +153,7 @@ function updatePlayerCount() {
 function addPlayerRow() {
     const max = getMaxPlayers();
     const rowCount = document.querySelectorAll('.player-row').length;
-    if (rowCount >= max) return;
+    if (max > 0 && rowCount >= max) return;
 
     const container = document.getElementById('playersContainer');
     const row = document.createElement('div');
@@ -194,11 +218,12 @@ document.getElementById('addPlayerBtn').addEventListener('click', addPlayerRow);
 document.getElementById('maxPlayers').addEventListener('change', () => {
     const max = getMaxPlayers();
     const rows = Array.from(document.querySelectorAll('.player-row'));
-    if (rows.length > max) {
+    if (max > 0 && rows.length > max) {
         rows.slice(max).forEach(r => r.remove());
         refreshAllSelects();
     }
     updatePlayerCount();
+    updateUnlimitedUi();
     const fmt = parseInt(document.getElementById('format').value, 10);
     if (fmt >= 1) updateSwissRoundsInfo();
 });
@@ -206,7 +231,14 @@ document.getElementById('maxPlayers').addEventListener('change', () => {
 document.getElementById('createTournamentForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const name = document.getElementById('name').value.trim();
-    const startDate = document.getElementById('startDate').value;
+    const isUnlimited = getMaxPlayers() === 0;
+    // Indefinido: a data de início não é escolhida pelo admin (campo fica oculto) — usa hoje.
+    // Formato YYYY-MM-DD local, mesmo cálculo já usado mais abaixo pro min dos date pickers.
+    const todayStr = (() => {
+        const now = new Date();
+        return new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+    })();
+    const startDate = isUnlimited ? todayStr : document.getElementById('startDate').value;
     const endDate = document.getElementById('endDate').value;
     const registrationDeadline = document.getElementById('registrationDeadline').value;
     const maxPlayers = getMaxPlayers();
@@ -215,20 +247,21 @@ document.getElementById('createTournamentForm').addEventListener('submit', async
         notifyWarning('Informe o nome do torneio.');
         return;
     }
-    if (!startDate) {
+    if (!isUnlimited && !startDate) {
         notifyWarning('Informe a data de início.');
         return;
     }
-    if (!endDate) {
+    // Data de término é opcional em modo Indefinido — o torneio pode não ter fim previsto.
+    if (!isUnlimited && !endDate) {
         notifyWarning('Informe a data de término.');
         return;
     }
     const today = new Date(); today.setHours(0, 0, 0, 0);
-    if (new Date(startDate + 'T00:00:00') < today) {
+    if (!isUnlimited && new Date(startDate + 'T00:00:00') < today) {
         notifyWarning('Não é permitido criar torneios com data no passado.');
         return;
     }
-    if (new Date(endDate + 'T00:00:00') < new Date(startDate + 'T00:00:00')) {
+    if (endDate && new Date(endDate + 'T00:00:00') < new Date(startDate + 'T00:00:00')) {
         notifyWarning('A data de término não pode ser anterior à data de início.');
         return;
     }
@@ -237,7 +270,7 @@ document.getElementById('createTournamentForm').addEventListener('submit', async
             notifyWarning('O fim das inscrições não pode ser uma data no passado.');
             return;
         }
-        if (new Date(registrationDeadline + 'T00:00:00') > new Date(endDate + 'T00:00:00')) {
+        if (endDate && new Date(registrationDeadline + 'T00:00:00') > new Date(endDate + 'T00:00:00')) {
             notifyWarning('O fim das inscrições não pode ser depois da data de término do torneio.');
             return;
         }
@@ -270,7 +303,7 @@ document.getElementById('createTournamentForm').addEventListener('submit', async
         return;
     }
 
-    if (players.length > maxPlayers) {
+    if (!isUnlimited && players.length > maxPlayers) {
         notifyWarning(`Você adicionou ${players.length} jogadores, mas o limite é ${maxPlayers}.`);
         return;
     }
@@ -282,14 +315,16 @@ document.getElementById('createTournamentForm').addEventListener('submit', async
     try {
         const response = await apiFetch(`${API_BASE_URL}/tournament`, {
             method: 'POST',
-            body: JSON.stringify({ name, startDate, endDate, registrationDeadline: registrationDeadline || null, maxPlayers, players, format, topCutSize, mode }),
+            body: JSON.stringify({ name, startDate, endDate: endDate || null, registrationDeadline: registrationDeadline || null, maxPlayers, players, format, topCutSize, mode }),
         });
         const result = await response.json();
         await Swal.fire({
             icon: 'success',
             title: 'Torneio criado!',
             text: players.length === 0
-                ? `Torneio criado com ${maxPlayers} vagas. Use o link de convite para inscrever os participantes.`
+                ? (isUnlimited
+                    ? 'Torneio criado com vagas indefinidas. Use o link de convite para inscrever os participantes.'
+                    : `Torneio criado com ${maxPlayers} vagas. Use o link de convite para inscrever os participantes.`)
                 : 'Vamos para a tela de configuração.',
             timer: 1800,
             showConfirmButton: false,
