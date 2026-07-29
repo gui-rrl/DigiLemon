@@ -261,6 +261,7 @@
 
 .match {
     flex: 1;
+    display: flex;   /* nomes à esquerda (.match-players) + ação/código à direita (.match-actions) */
     background: linear-gradient(160deg, rgba(var(--surface-rgb),0.06) 0%, rgba(var(--surface-rgb),0.02) 100%);
     border: 1px solid var(--border);
     border-radius: var(--radius);
@@ -268,6 +269,11 @@
     transition: border-color 0.2s, box-shadow 0.2s;
     position: relative;
     z-index: 1;
+}
+
+.match-players {
+    flex: 1;
+    min-width: 0;
 }
 
 .match:hover {
@@ -283,10 +289,11 @@
 
 .match .player {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-    padding: 0.6rem 0.85rem;
+    flex-direction: column;   /* nome em cima, deck embaixo — a coluna de ações ao lado deixou pouca largura pros dois lado a lado */
+    align-items: flex-start;
+    justify-content: center;
+    gap: 0.15rem;
+    padding: 0.45rem 0.7rem;
     border-left: 3px solid transparent;
     font-size: 0.875rem;
     font-weight: 500;
@@ -297,7 +304,7 @@
 .match .player:first-child { border-bottom: 1px solid var(--border); }
 
 .match .player .player-name {
-    flex: 1;
+    max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -312,10 +319,9 @@
     border-radius: 5px;
     font-weight: 500;
     white-space: nowrap;
-    max-width: 140px;
+    max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
-    flex-shrink: 0;
 }
 
 .match .player.winner {
@@ -345,28 +351,42 @@
     color: var(--text-3);
 }
 
-/* ── Rodapé do card ─────────────────────────────────────────────────────── */
+/* ── Ações do card (botão de resultado + código do DCGO) ────────────────── */
 
-.match-footer {
-    padding: 0.5rem 0.85rem;
-    border-top: 1px solid var(--border);
+.match-actions {
+    flex: 0 0 110px;
+    min-width: 0;
+    padding: 0.5rem;
+    border-left: 1px solid var(--border);
     background: rgba(0,0,0,0.15);
     display: flex;
-    align-items: center;
+    flex-direction: column;
     justify-content: center;
+    align-items: stretch;
+    gap: 0.4rem;
+    text-align: center;
 }
 
 .match button.result-btn {
     font-size: 0.78rem;
-    padding: 0.35rem 0.75rem;
+    padding: 0.35rem 0.5rem;
     width: 100%;
     border-radius: 7px;
     font-weight: 600;
 }
 
+.match-actions .btn-report-code {
+    font-size: 0.7rem;
+    padding: 0.3rem 0.4rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .match .match-status {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 0.3rem;
     font-size: 0.7rem;
     color: var(--accent);

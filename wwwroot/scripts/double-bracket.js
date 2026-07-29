@@ -56,8 +56,6 @@ function renderMatchCard(match) {
     const estado = match.reportState || 'none';   // relatos do DCGO
     const rc = myCodes.get(match.id);
 
-    // Tudo fica dentro do .match-footer de propósito: alignBracketMatches mede a altura
-    // depois de renderizar e matchCenterY usa os .player, então os conectores não saem do lugar.
     const btnCodigo = (rc && !match.isPlayed) ? `
         <button class="btn btn-ghost btn-sm btn-report-code" data-code="${escapeHtml(rc.code)}"
                 title="Cole este código no DCGO para reportar o resultado desta partida">
@@ -73,22 +71,27 @@ function renderMatchCard(match) {
     const aguardando = (!match.isPlayed && estado === 'awaiting')
         ? `<div class="match-status"><i class="bi bi-hourglass-split"></i> Aguardando o adversário</div>` : '';
 
-    const temRodape = canRegister || match.isPlayed || btnCodigo || conflito || aguardando;
-    const footer = temRodape ? `
-        <div class="match-footer">
+    // Estado/ação da partida (botão de registrar, conflito, aguardando ou "Finalizada") vem
+    // primeiro na coluna; o código do DCGO (quando existe) fica embaixo dele.
+    const acao = `${conflito}${aguardando}${canRegister && estado !== 'conflict' ? `<button class="btn btn-primary btn-sm result-btn" data-match-id="${match.id}"><i class="bi bi-flag"></i> Registrar resultado</button>` : ''}${match.isPlayed ? `<div class="match-status"><i class="bi bi-check2-circle"></i> Finalizada</div>` : ''}`;
+
+    // Tudo fica dentro do .match-actions de propósito: alignBracketMatches mede a altura
+    // depois de renderizar e matchCenterY usa os .player, então os conectores não saem do lugar.
+    const temAcoes = acao || btnCodigo;
+    const actions = temAcoes ? `
+        <div class="match-actions">
+            ${acao}
             ${btnCodigo}
-            ${conflito}
-            ${aguardando}
-            ${canRegister && estado !== 'conflict' ? `<button class="btn btn-primary btn-sm result-btn" data-match-id="${match.id}"><i class="bi bi-flag"></i> Registrar resultado</button>` : ''}
-            ${match.isPlayed ? `<div class="match-status"><i class="bi bi-check2-circle"></i> Finalizada</div>` : ''}
         </div>` : '';
 
     return `
         <div class="match-wrapper">
             <div class="match ${match.isPlayed ? 'match-done' : ''}">
-                ${renderPlayerLine(match.player1Id, winner === match.player1Id, loser === match.player1Id)}
-                ${renderPlayerLine(match.player2Id, winner === match.player2Id, loser === match.player2Id)}
-                ${footer}
+                <div class="match-players">
+                    ${renderPlayerLine(match.player1Id, winner === match.player1Id, loser === match.player1Id)}
+                    ${renderPlayerLine(match.player2Id, winner === match.player2Id, loser === match.player2Id)}
+                </div>
+                ${actions}
             </div>
         </div>`;
 }
