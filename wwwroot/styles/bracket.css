@@ -21,7 +21,7 @@
 /* ── Containers de seção ────────────────────────────────────────────────── */
 
 .lower-bracket-container {
-    margin-right: calc(290px + 1.5rem);
+    margin-right: calc(516px + 1.5rem);
 }
 
 .upper-bracket-container,
@@ -80,7 +80,7 @@
 .grand-final-column {
     display: flex;
     flex-direction: column;
-    flex: 0 0 320px;
+    flex: 0 0 560px;
     min-width: 0;
     align-self: center;
 }
@@ -127,7 +127,7 @@
        — nada de esticar pra dividir a largura toda da caixa com a Grande Final, senão as
        cartas (que não têm o padding do .round) ficam bem maiores que a da semifinal. */
     .bracket-merged .upper-stack {
-        flex: 0 0 320px;
+        flex: 0 0 560px;
     }
 
     /* Só a linha, sem padding extra — o espaçamento entre as colunas já vem do gap do
@@ -213,7 +213,7 @@
 
 .round {
     flex-shrink: 0;
-    width: 320px;
+    width: 560px;
     padding: 0 2.5rem;          /* 40px de cada lado — espaço para os conectores SVG */
     position: relative;
     overflow: visible;
@@ -354,7 +354,7 @@
 /* ── Ações do card (botão de resultado + código do DCGO) ────────────────── */
 
 .match-actions {
-    flex: 0 0 110px;
+    flex: 0 0 220px;
     min-width: 0;
     padding: 0.5rem;
     border-left: 1px solid var(--border);
@@ -421,10 +421,10 @@
 /* ── Responsive ─────────────────────────────────────────────────────────── */
 
 @media (max-width: 1200px) {
-    .round { width: 290px; padding: 0 2rem; }
-    .grand-final-column { flex-basis: 290px; }   /* acompanha o .round, que também encolheu pra 290px aqui */
-    .bracket-merged .upper-stack { flex-basis: 290px; }
-    .lower-bracket-container { margin-right: calc(290px + 1.5rem); }
+    .round { width: 516px; padding: 0 2rem; }
+    .grand-final-column { flex-basis: 516px; }   /* acompanha o .round, que também encolheu aqui */
+    .bracket-merged .upper-stack { flex-basis: 516px; }
+    .lower-bracket-container { margin-right: calc(516px + 1.5rem); }
 }
 
 @media (max-width: 992px) {
@@ -444,5 +444,5 @@
         padding-top: 1.5rem;
     }
     .lower-bracket-container { margin-right: 0; }
-    .round { width: 270px; padding: 0 1.75rem; }
+    .round { width: 484px; padding: 0 1.75rem; }
 }
