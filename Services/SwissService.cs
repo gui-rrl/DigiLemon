@@ -198,7 +198,7 @@ namespace RankingDigi.Services
             if (topPlayers.Count < 2)
                 throw new InvalidOperationException("Não há jogadores suficientes para o Top Cut.");
 
-            // Top 4: semifinais cruzadas (1ºx4º, 2ºx3º) + disputa de 3º lugar, sem lower bracket.
+            // Top 4: semifinais com sorteio aleatório + disputa de 3º lugar, sem lower bracket.
             // Top 8 (ou qualquer outro tamanho): dupla eliminação completa, como sempre foi.
             if (topN == 4)
             {

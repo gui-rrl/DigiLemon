@@ -489,7 +489,7 @@ async function init() {
 
         const subtitle = document.getElementById('bracketSubtitle');
         if (isTopFour && subtitle) {
-            subtitle.textContent = 'Semifinais (1ºx4º, 2ºx3º) + disputa de 3º lugar · clique em "Registrar resultado" para definir o vencedor de cada partida.';
+            subtitle.textContent = 'Semifinais (sorteio aleatório entre os 4 classificados) + disputa de 3º lugar · clique em "Registrar resultado" para definir o vencedor de cada partida.';
         }
         const upperTitle = document.getElementById('upperSectionTitle');
         if (isTopFour && upperTitle) {

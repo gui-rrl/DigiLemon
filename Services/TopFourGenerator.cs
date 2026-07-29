@@ -1,14 +1,16 @@
 using Microsoft.EntityFrameworkCore;
 using RankingDigi.Data;
 using RankingDigi.Models;
+using System.Linq;
 
 namespace RankingDigi.Services
 {
     /// <summary>
-    /// Chaveamento do Top 4 sem lower bracket: semifinais cruzadas (1ºx4º, 2ºx3º) — os vencedores
-    /// vão direto pra Grande Final e os perdedores disputam o 3º lugar entre si. Usado só quando
-    /// TopCutSize == 4 (ver SwissService.GenerateTopCutAsync); Top 8 e o formato avulso "Dupla
-    /// Eliminação" continuam na dupla eliminação completa (DoubleEliminationGenerator).
+    /// Chaveamento do Top 4 sem lower bracket: semifinais com sorteio aleatório entre os 4
+    /// classificados — os vencedores vão direto pra Grande Final e os perdedores disputam o
+    /// 3º lugar entre si. Usado só quando TopCutSize == 4 (ver SwissService.GenerateTopCutAsync);
+    /// Top 8 e o formato avulso "Dupla Eliminação" continuam na dupla eliminação completa
+    /// (DoubleEliminationGenerator).
     ///
     /// Reaproveita a mesma infraestrutura de avanço da dupla eliminação: MatchResultService já
     /// propaga vencedor via NextMatchId e perdedor via LoserGoesToMatchId sem olhar o tipo da
@@ -23,7 +25,7 @@ namespace RankingDigi.Services
             _context = context;
         }
 
-        /// <param name="seeds">Os 4 classificados, na ordem da classificação: [1º, 2º, 3º, 4º].</param>
+        /// <param name="seeds">Os 4 classificados. A ordem não importa — as semifinais são sorteadas aleatoriamente.</param>
         public async Task GenerateAsync(int tournamentId, List<int> seeds)
         {
             if (seeds.Count != 4)
@@ -36,8 +38,11 @@ namespace RankingDigi.Services
             _context.TournamentMatches.RemoveRange(old);
             await _context.SaveChangesAsync();
 
-            var semiA = new TournamentMatch { TournamentId = tournamentId, MatchType = 0, Round = 1, Player1Id = seeds[0], Player2Id = seeds[3] }; // 1º x 4º
-            var semiB = new TournamentMatch { TournamentId = tournamentId, MatchType = 0, Round = 1, Player1Id = seeds[1], Player2Id = seeds[2] }; // 2º x 3º
+            // Sorteio aleatório dos confrontos das semifinais — sem cruzamento por classificação.
+            var draw = seeds.OrderBy(_ => Random.Shared.Next()).ToList();
+
+            var semiA = new TournamentMatch { TournamentId = tournamentId, MatchType = 0, Round = 1, Player1Id = draw[0], Player2Id = draw[1] };
+            var semiB = new TournamentMatch { TournamentId = tournamentId, MatchType = 0, Round = 1, Player1Id = draw[2], Player2Id = draw[3] };
             var grandFinal = new TournamentMatch { TournamentId = tournamentId, MatchType = 2, Round = 1 };
             var thirdPlace = new TournamentMatch { TournamentId = tournamentId, MatchType = 4, Round = 1 }; // Disputa de 3º lugar
 
