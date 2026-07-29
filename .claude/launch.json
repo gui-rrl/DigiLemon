@@ -4,8 +4,24 @@
     {
       "name": "RankingDigi",
       "runtimeExecutable": "dotnet",
-      "runtimeArgs": ["run", "--project", "C:\\Users\\AAPI\\OneDrive\\Área de Trabalho\\Ranking-master\\Ranking-master\\RankingDigi.csproj", "--launch-profile", "http"],
+      "runtimeArgs": ["run", "--project", "C:\\Users\\gui_r\\source\\repos\\RankingNovo\\RankingDigi.csproj", "--launch-profile", "http"],
       "port": 5297,
+      "autoPort": false
+    },
+    {
+      "name": "RankingDigi (Teste)",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": [
+        "run",
+        "--project", "C:\\Users\\gui_r\\source\\repos\\RankingNovo\\RankingDigi.csproj",
+        "-c", "Release",
+        "--no-launch-profile",
+        "--",
+        "--urls", "http://localhost:5298",
+        "--environment", "Development",
+        "--ConnectionStrings:DefaultConnection=Server=localhost;Database=rankingd_test;Integrated Security=True;TrustServerCertificate=True;MultipleActiveResultSets=False;"
+      ],
+      "port": 5298,
       "autoPort": false
     }
   ]
