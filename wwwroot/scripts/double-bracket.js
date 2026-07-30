@@ -27,7 +27,9 @@ function groupMatchesByTypeAndRound(matches) {
 
 /* ── Renderização ───────────────────────────────────────────────────────── */
 
-function renderPlayerLine(tpId, isWinner, isLoser) {
+// score: placar em games (melhor de 3) deste jogador na partida, ou null quando a partida
+// não tem placar registrado (partidas antigas, ou ainda não jogada) — nesse caso não mostra nada.
+function renderPlayerLine(tpId, isWinner, isLoser, score) {
     if (!tpId) return `<div class="player waiting"><span class="player-name">Aguardando</span></div>`;
     const p    = participantsMap.get(tpId);
     const name = p?.playerName ?? 'Desconhecido';
@@ -37,9 +39,14 @@ function renderPlayerLine(tpId, isWinner, isLoser) {
     const nameHtml = link
         ? `<a href="${link}" style="color:inherit;text-decoration:none;">${escapeHtml(name)}</a>`
         : escapeHtml(name);
+    const scoreHtml = (score !== null && score !== undefined)
+        ? `<span class="player-score" title="Placar em games (melhor de 3)">${score}</span>` : '';
     return `
         <div class="player ${cls}">
-            <span class="player-name">${nameHtml}</span>
+            <div class="player-name-row">
+                <span class="player-name">${nameHtml}</span>
+                ${scoreHtml}
+            </div>
             ${deck ? `<span class="deck-tag" title="${escapeHtml(deck)}"><i class="bi bi-layers"></i> ${escapeHtml(deck)}</span>` : ''}
         </div>`;
 }
@@ -51,6 +58,15 @@ function renderMatchCard(match) {
         if (match.player1Id && match.player2Id)
             loser = match.winnerId === match.player1Id ? match.player2Id : match.player1Id;
     }
+
+    // Placar em games (melhor de 3): só mostra quando a partida foi jogada e tem os dois
+    // valores registrados — partidas antigas, de antes do placar por game, ficam sem número
+    // (mesma convenção usada na tela de Swiss), em vez de inventar um 2x0 que ninguém digitou.
+    const temPlacar = match.isPlayed
+        && match.player1GameWins !== null && match.player1GameWins !== undefined
+        && match.player2GameWins !== null && match.player2GameWins !== undefined;
+    const p1Score = temPlacar ? match.player1GameWins : null;
+    const p2Score = temPlacar ? match.player2GameWins : null;
 
     const canRegister = !match.isPlayed && match.player1Id && match.player2Id;
     const estado = match.reportState || 'none';   // relatos do DCGO
@@ -88,8 +104,8 @@ function renderMatchCard(match) {
         <div class="match-wrapper">
             <div class="match ${match.isPlayed ? 'match-done' : ''}">
                 <div class="match-players">
-                    ${renderPlayerLine(match.player1Id, winner === match.player1Id, loser === match.player1Id)}
-                    ${renderPlayerLine(match.player2Id, winner === match.player2Id, loser === match.player2Id)}
+                    ${renderPlayerLine(match.player1Id, winner === match.player1Id, loser === match.player1Id, p1Score)}
+                    ${renderPlayerLine(match.player2Id, winner === match.player2Id, loser === match.player2Id, p2Score)}
                 </div>
                 ${actions}
             </div>
