@@ -1100,6 +1100,11 @@ a {
         color: var(--accent-2);
     }
 
+    .match-mode-tag.tournament {
+        background: rgba(255, 181, 71, 0.14);
+        color: var(--warning);
+    }
+
 .timeline-row {
     display: flex;
     align-items: center;

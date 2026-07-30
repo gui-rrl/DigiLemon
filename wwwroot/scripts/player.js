@@ -314,11 +314,20 @@ function renderRecentMatches(matches) {
         const modeLabel = m.mode === 1
             ? '<span class="match-mode-tag online" title="Partida online (DCGO)"><i class="bi bi-controller"></i> Online</span>'
             : '<span class="match-mode-tag" title="Partida presencial"><i class="bi bi-people-fill"></i> Presencial</span>';
+        // Partida veio de um torneio (Swiss, chaveamento, todos contra todos) em vez de
+        // registrada avulsa — mostra de qual, com link pro detalhe.
+        const tournamentTag = m.source === 'torneio' && m.tournamentId
+            ? `<a href="/tournament.html?id=${m.tournamentId}" style="text-decoration:none;">
+                 <span class="match-mode-tag tournament" title="Partida do torneio &quot;${escapeHtml(m.tournamentName || '')}&quot;">
+                   <i class="bi bi-trophy"></i> ${escapeHtml(m.tournamentName || 'Torneio')}
+                 </span>
+               </a>`
+            : '';
         return `
             <div class="timeline-row">
                 <span class="avatar" style="width:34px;height:34px;font-size:0.85rem;">${getInitials(m.opponentName)}</span>
                 <div class="opp-info">
-                    <div class="opp-name">vs ${opponentLink} ${modeLabel}</div>
+                    <div class="opp-name">vs ${opponentLink} ${modeLabel} ${tournamentTag}</div>
                     <div class="opp-deck">${m.myDeck ? `<i class="bi bi-layers"></i> ${escapeHtml(m.myDeck)}` : ''} ${m.opponentDeck ? `· oponente: ${escapeHtml(m.opponentDeck)}` : ''}</div>
                 </div>
                 <div class="d-flex flex-column align-items-end gap-1">
@@ -343,6 +352,10 @@ function renderTournaments(tournaments) {
                     ? t.finalPosition
                     : (t.status === 2 ? 'Eliminado(a)' : 'Participando');
                 const icon = isChamp ? 'bi-trophy-fill' : isRunnerUp ? 'bi-award-fill' : 'bi-flag';
+                const totalMatches = (t.matchesWon || 0) + (t.matchesLost || 0) + (t.matchesDrawn || 0);
+                const matchTally = totalMatches > 0
+                    ? `<span class="ms-2"><i class="bi bi-controller"></i> ${t.matchesWon}V ${t.matchesLost}D${t.matchesDrawn ? ` ${t.matchesDrawn}E` : ''}</span>`
+                    : '';
                 return `
                     <div class="col-md-6 col-lg-4">
                         <div class="tournament-card ${isChamp ? 'champion' : ''}">
@@ -350,6 +363,7 @@ function renderTournaments(tournaments) {
                             <div class="tour-meta">
                                 <i class="bi bi-calendar3"></i> ${formatDate(t.startDate)}
                                 <span class="ms-2"><i class="bi bi-layers"></i> ${escapeHtml(t.deck || '-')}</span>
+                                ${matchTally}
                             </div>
                             <div class="d-flex justify-content-between align-items-center mt-2 gap-2 flex-wrap">
                                 <span class="status-pill ${statusInfo.cls}">${statusInfo.label}</span>
