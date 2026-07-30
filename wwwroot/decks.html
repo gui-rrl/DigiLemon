@@ -12,7 +12,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" rel="stylesheet">
     <link rel="stylesheet" href="/styles/app.css">
-    <link rel="stylesheet" href="/styles/deckbuilder.css">
+    <link rel="stylesheet" href="/styles/deckbuilder.css?v=4">
 </head>
 <body data-page="ranking">
     <main class="container-fluid py-4">
@@ -114,7 +114,12 @@
                 </div>
                 <div class="col-6 align-self-start">
                     <section class="card-app">
-                        <div class="card-header"><i class="bi bi-list-ul"></i> Cartas no deck</div>
+                        <div class="card-header">
+                            <i class="bi bi-list-ul"></i> Cartas no deck
+                            <button class="btn btn-sm btn-ghost ms-auto" id="handTestBtn" onclick="openHandTest()" title="Testar mão inicial (5 cartas aleatórias do deck principal)">
+                                <i class="bi bi-shuffle"></i> Teste de mão
+                            </button>
+                        </div>
                         <div class="card-body">
                             <h3 class="deck-zone-title">Deck principal <span class="text-muted-2" id="mainZoneCount">(0/50)</span></h3>
                             <div id="mainZoneList" class="deck-card-list"></div>
@@ -134,6 +139,6 @@
          depender do initCardHoverPreview() que agora mora no common.js. -->
     <script src="/scripts/common.js?v=2"></script>
     <script src="/scripts/theme.js"></script>
-    <script src="/scripts/decks.js?v=2"></script>
+    <script src="/scripts/decks.js?v=3"></script>
 </body>
 </html>

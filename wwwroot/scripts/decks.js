@@ -493,6 +493,85 @@ async function chooseCoverCard() {
     });
 }
 
+/* ---------- Teste de mão inicial ---------- */
+// Simula a mão inicial de 5 cartas (regra do Digimon TCG) sorteada do deck principal
+// (Digi-Egg não entra na mão inicial). Permite comprar mais uma carta pra continuar testando.
+
+let handTestPool = []; // cópias do deck principal ainda não compradas nesta simulação
+let handTestDrawn = []; // cartas já compradas (a "mão" atual)
+
+function buildMainDeckPool() {
+    const pool = [];
+    [...deckCards.values()].filter(e => !e.isDigiEgg).forEach(e => {
+        for (let i = 0; i < e.quantity; i++) pool.push(e.card);
+    });
+    return pool;
+}
+
+function shuffleArray(arr) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+}
+
+function drawNewHand() {
+    handTestPool = shuffleArray(buildMainDeckPool());
+    handTestDrawn = handTestPool.splice(0, 5);
+}
+
+function openHandTest() {
+    if (buildMainDeckPool().length < 5) {
+        notifyWarning('Adicione ao menos 5 cartas ao deck principal para testar a mão inicial.');
+        return;
+    }
+    drawNewHand();
+
+    Swal.fire({
+        title: 'Teste de mão inicial',
+        html: `
+            <div id="handTestGrid" class="hand-test-grid"></div>
+            <div id="handTestInfo" class="text-muted-2 mt-2" style="font-size:0.85rem;"></div>
+            <div class="d-flex justify-content-center gap-2 mt-3">
+                <button type="button" id="handTestDrawBtn" class="btn btn-sm btn-success"><i class="bi bi-plus-circle"></i> Comprar mais uma carta</button>
+                <button type="button" id="handTestNewBtn" class="btn btn-sm btn-secondary"><i class="bi bi-arrow-repeat"></i> Nova mão</button>
+            </div>
+        `,
+        showConfirmButton: false,
+        showCancelButton: true,
+        cancelButtonText: 'Fechar',
+        width: 760,
+        didOpen: () => {
+            renderHandTestGrid();
+            document.getElementById('handTestDrawBtn').addEventListener('click', drawHandTestCard);
+            document.getElementById('handTestNewBtn').addEventListener('click', () => {
+                drawNewHand();
+                renderHandTestGrid();
+            });
+        },
+    });
+}
+
+function drawHandTestCard() {
+    if (!handTestPool.length) return;
+    handTestDrawn.push(handTestPool.shift());
+    renderHandTestGrid();
+}
+
+function renderHandTestGrid() {
+    const grid = document.getElementById('handTestGrid');
+    if (!grid) return;
+    grid.innerHTML = handTestDrawn.map(card => `<div class="hand-test-card">${cardThumbHtml(card)}</div>`).join('');
+
+    const info = document.getElementById('handTestInfo');
+    if (info) info.textContent = `${handTestDrawn.length} carta${handTestDrawn.length !== 1 ? 's' : ''} na mão · ${handTestPool.length} restante${handTestPool.length !== 1 ? 's' : ''} no deck`;
+
+    const drawBtn = document.getElementById('handTestDrawBtn');
+    if (drawBtn) drawBtn.disabled = handTestPool.length === 0;
+}
+
 /* O preview ampliado ao passar o mouse agora vive em common.js, compartilhado com a
    tela de visualização de decks do torneio (deck-view). Aqui só chamamos initCardHoverPreview(). */
 

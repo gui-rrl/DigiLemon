@@ -329,6 +329,39 @@
     font-size: 1.4rem;
 }
 
+/* Modal "Teste de mão inicial" */
+.hand-test-grid {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1.3rem;
+    max-height: 60vh;
+    overflow-y: auto;
+    padding: 0.5rem;
+}
+
+.hand-test-card {
+    flex: 0 0 auto;
+    width: 84px;
+}
+
+    .hand-test-card .card-thumb {
+        position: relative;
+        width: 84px;
+        height: 117px;
+        border-radius: 8px;
+        overflow: hidden;
+        background: var(--surface-strong);
+        border: 1px solid var(--border);
+    }
+
+        .hand-test-card .card-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
 .card-hover-preview {
     display: none;
     position: fixed;
