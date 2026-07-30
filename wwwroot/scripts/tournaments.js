@@ -39,10 +39,12 @@ async function loadTournaments() {
         }
 
         const isAdmin = typeof authIsAdmin === 'function' && authIsAdmin();
+        const isPlayer = typeof authIsLoggedIn === 'function' && authIsLoggedIn() && !isAdmin;
 
         tbody.innerHTML = tournaments.map(t => {
             const info = tournamentStatusInfo(t.status);
             const canInvite = t.status === 0 && t.inviteCode;
+            const canJoin = isPlayer && t.status === 0 && t.inviteCode && !t.myParticipationId;
             const winnerAvatar = t.winnerAvatarUrl
                 ? `<img src="${escapeHtml(t.winnerAvatarUrl)}" class="avatar avatar-img" style="width:26px;height:26px;" alt="${escapeHtml(t.winnerName)}">`
                 : `<span class="avatar" style="width:26px;height:26px;font-size:0.7rem;">${getInitials(t.winnerName || '')}</span>`;
@@ -70,6 +72,7 @@ async function loadTournaments() {
                     <td>${winner}</td>
                     <td style="text-align:right; white-space:nowrap;">
                         <div class="d-inline-flex gap-1 justify-content-end" style="flex-wrap:nowrap;">
+                            ${canJoin ? `<a href="/join-tournament.html?code=${encodeURIComponent(t.inviteCode)}" class="btn btn-sm btn-success" title="Inscrever-se no torneio"><i class="bi bi-plus-lg"></i></a>` : ''}
                             ${canInvite ? `<button class="btn btn-sm btn-ghost" onclick="copyInvite('${escapeHtml(t.inviteCode)}')" title="Copiar link de convite"><i class="bi bi-link-45deg"></i> Convite</button>` : ''}
                             ${isAdmin && t.status === 0 ? `<a href="/tournament-setup.html?id=${t.id}" class="btn btn-sm btn-secondary" title="Configurar"><i class="bi bi-gear"></i></a>` : ''}
                             ${t.status >= 1
