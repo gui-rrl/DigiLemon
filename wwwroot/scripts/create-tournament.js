@@ -25,9 +25,25 @@ function selectFormat(fmt) {
 
 function updateSwissRoundsInfo() {
     const n = parseInt(document.getElementById('maxPlayers').value, 10);
-    const rounds = n <= 2 ? 1 : n <= 4 ? 2 : n <= 8 ? 3 : n <= 16 ? 4 : n <= 32 ? 5 : 6;
     const fmt = parseInt(document.getElementById('format').value, 10);
     const info = document.getElementById('swissRoundsInfo');
+
+    // Indefinido (n=0): a contagem final só existe quando o torneio iniciar, então nenhuma
+    // conta de rodadas/partidas faz sentido aqui — mesmo cálculo adiado que o backend já faz
+    // em SwissService.StartAsync/GenerateAllPairingsAsync a partir dos inscritos reais.
+    if (n === 0) {
+        const topCut = document.getElementById('topCutSize').value;
+        if (fmt === 3) {
+            info.textContent = `Vagas indefinidas: o número de partidas (todos contra todos, sem rodadas e sem bye) será calculado a partir de quantos jogadores estiverem inscritos ao iniciar → Top ${topCut} (double elimination).`;
+        } else if (fmt === 2) {
+            info.textContent = `Vagas indefinidas: o número de rodadas Swiss será calculado a partir de quantos jogadores estiverem inscritos ao iniciar. Classificação final por pontos, Top 4 destacado.`;
+        } else {
+            info.textContent = `Vagas indefinidas: o número de rodadas Swiss será calculado a partir de quantos jogadores estiverem inscritos ao iniciar → Top ${topCut} (double elimination).`;
+        }
+        return;
+    }
+
+    const rounds = n <= 2 ? 1 : n <= 4 ? 2 : n <= 8 ? 3 : n <= 16 ? 4 : n <= 32 ? 5 : 6;
     if (fmt === 3) {
         // Todos contra todos: cada um joga N-1 partidas; o total é N×(N-1)/2
         const topCut = document.getElementById('topCutSize').value;

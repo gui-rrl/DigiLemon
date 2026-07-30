@@ -318,12 +318,32 @@
 
 .match .player:first-child { border-bottom: 1px solid var(--border); }
 
+.match .player .player-name-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 0.5rem;
+}
+
 .match .player .player-name {
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     font-size: 0.88rem;
+}
+
+.match .player .player-score {
+    flex-shrink: 0;
+    min-width: 20px;
+    text-align: center;
+    padding: 0.05rem 0.42rem;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    background: rgba(var(--surface-rgb), 0.08);
+    color: var(--text-2);
 }
 
 .match .player .deck-tag {
@@ -351,12 +371,23 @@
     color: var(--pill-teal-text);
 }
 
+.match .player.winner .player-score {
+    background: rgba(22,224,189,0.24);
+    color: var(--pill-teal-text);
+}
+
 .match .player.loser {
     background: rgba(255,93,115,0.07);
     border-left-color: var(--danger);
     color: var(--text-3);
     text-decoration: line-through;
     text-decoration-color: rgba(255,93,115,0.4);
+}
+
+.match .player.loser .player-score {
+    background: rgba(255,93,115,0.14);
+    color: var(--pill-red-text);
+    text-decoration: none;
 }
 
 .match .player.waiting {

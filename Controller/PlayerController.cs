@@ -151,41 +151,127 @@ namespace RankingDigi.Controller
                 .ToListAsync();
             int position = allByScore.IndexOf(id) + 1;
 
-            // Partidas avulsas do jogador
+            // Partidas avulsas do jogador (registradas manualmente via match.html)
             var matches = await _context.Matches
                 .Where(m => m.Player1Id == id || m.Player2Id == id)
-                .OrderBy(m => m.Date)
                 .ToListAsync();
 
-            int wins = matches.Count(m => m.WinnerId == id);
-            int draws = matches.Count(m => m.WinnerId == 0);
-            int losses = matches.Count - wins - draws;
-            int played = matches.Count;
-            double winRate = played > 0 ? Math.Round((double)wins / played * 100, 1) : 0;
+            var avulsaOpponentIds = matches.Select(m => m.Player1Id == id ? m.Player2Id : m.Player1Id).Distinct().ToList();
+            var avulsaOpponentNames = await _context.Players
+                .Where(p => avulsaOpponentIds.Contains(p.Id))
+                .ToDictionaryAsync(p => p.Id, p => p.Name);
 
-            // Evolução de pontuação (replay)
-            int runningScore = 0;
-            var scoreHistory = matches.Select(m =>
-            {
-                if (m.WinnerId == 0) runningScore += 1;
-                else if (m.WinnerId == id) runningScore += 3;
-                return new
-                {
-                    Date = m.Date.ToString("yyyy-MM-dd"),
-                    Score = runningScore,
-                };
-            }).ToList();
+            // Partidas de torneio do jogador (Swiss, chaveamento, todos-contra-todos — qualquer
+            // formato). Fica de fora do histórico quem só olha a tabela Matches: por isso um
+            // jogador podia ter ScoreOnline > 0 (creditado por TournamentScoringService) e "0
+            // partidas jogadas" no perfil — as duas fontes precisam ser somadas aqui.
+            var myTpIds = await _context.TournamentPlayers
+                .Where(tp => tp.PlayerId == id)
+                .Select(tp => tp.Id)
+                .ToListAsync();
 
-            // Decks (agregado: usos, vitórias e taxa)
-            var deckStats = new Dictionary<string, (int Used, int Wins)>(StringComparer.OrdinalIgnoreCase);
+            var tournamentMatches = myTpIds.Count == 0
+                ? new List<TournamentMatch>()
+                : await _context.TournamentMatches
+                    .Where(m => m.IsPlayed && !m.IsBye
+                             && ((m.Player1Id.HasValue && myTpIds.Contains(m.Player1Id.Value))
+                              || (m.Player2Id.HasValue && myTpIds.Contains(m.Player2Id.Value))))
+                    .ToListAsync();
+
+            var tournamentIds = tournamentMatches.Select(m => m.TournamentId).Distinct().ToList();
+            var tournamentsById = await _context.Tournaments
+                .Where(t => tournamentIds.Contains(t.Id))
+                .ToDictionaryAsync(t => t.Id, t => t);
+
+            var involvedTpIds = tournamentMatches
+                .SelectMany(m => new[] { m.Player1Id, m.Player2Id })
+                .Where(x => x.HasValue).Select(x => x!.Value).Distinct().ToList();
+            var tpById = involvedTpIds.Count == 0
+                ? new Dictionary<int, TournamentPlayer>()
+                : await _context.TournamentPlayers
+                    .Include(tp => tp.Player)
+                    .Where(tp => involvedTpIds.Contains(tp.Id))
+                    .ToDictionaryAsync(tp => tp.Id, tp => tp);
+
+            // Formato comum entre as duas fontes, pra estatísticas/histórico tratarem tudo junto.
+            var unified = new List<(int Id, DateTime Date, int Mode, string Result, int? OpponentId,
+                string OpponentName, string? MyDeck, string? OpponentDeck, string Source,
+                int? TournamentId, string? TournamentName)>();
+
             foreach (var m in matches)
             {
-                string? deck = m.Player1Id == id ? m.Deck1 : m.Deck2;
-                if (string.IsNullOrWhiteSpace(deck)) continue;
-                var key = deck.Trim();
+                int? oppId = m.Player1Id == id ? m.Player2Id : m.Player1Id;
+                unified.Add((
+                    m.Id, m.Date, m.Mode,
+                    m.WinnerId == 0 ? "draw" : (m.WinnerId == id ? "win" : "loss"),
+                    oppId, avulsaOpponentNames.TryGetValue(oppId!.Value, out var an) ? an : "Desconhecido",
+                    m.Player1Id == id ? m.Deck1 : m.Deck2,
+                    m.Player1Id == id ? m.Deck2 : m.Deck1,
+                    "avulsa", null, null));
+            }
+
+            // Tally de vitórias/derrotas/empates por torneio, usado depois na seção "tournaments".
+            var tallyByTournament = new Dictionary<int, (int Wins, int Losses, int Draws)>();
+
+            foreach (var m in tournamentMatches)
+            {
+                int? myTpId = (m.Player1Id.HasValue && myTpIds.Contains(m.Player1Id.Value)) ? m.Player1Id
+                            : (m.Player2Id.HasValue && myTpIds.Contains(m.Player2Id.Value)) ? m.Player2Id
+                            : null;
+                if (!myTpId.HasValue) continue; // defensivo — não deveria acontecer dado o filtro da query
+
+                int? oppTpId = m.Player1Id == myTpId ? m.Player2Id : m.Player1Id;
+                var oppTp = oppTpId.HasValue && tpById.TryGetValue(oppTpId.Value, out var otp) ? otp : null;
+                var myTp = tpById.TryGetValue(myTpId.Value, out var mtp) ? mtp : null;
+                var tournament = tournamentsById.TryGetValue(m.TournamentId, out var t) ? t : null;
+
+                string result = !m.WinnerId.HasValue ? "draw" : (m.WinnerId == myTpId ? "win" : "loss");
+
+                unified.Add((
+                    m.Id, m.Date ?? DateTime.MinValue, tournament?.Mode ?? 0, result,
+                    oppTp?.PlayerId, oppTp?.DisplayName ?? "Desconhecido",
+                    myTp?.Deck, oppTp?.Deck,
+                    "torneio", m.TournamentId, tournament?.Name));
+
+                if (!tallyByTournament.TryGetValue(m.TournamentId, out var tally)) tally = (0, 0, 0);
+                tallyByTournament[m.TournamentId] = result switch
+                {
+                    "win"  => (tally.Wins + 1, tally.Losses, tally.Draws),
+                    "loss" => (tally.Wins, tally.Losses + 1, tally.Draws),
+                    _      => (tally.Wins, tally.Losses, tally.Draws + 1),
+                };
+            }
+
+            int wins = unified.Count(m => m.Result == "win");
+            int draws = unified.Count(m => m.Result == "draw");
+            int losses = unified.Count - wins - draws;
+            int played = unified.Count;
+            double winRate = played > 0 ? Math.Round((double)wins / played * 100, 1) : 0;
+
+            // Evolução de pontuação (replay), agora em ordem cronológica das duas fontes juntas.
+            int runningScore = 0;
+            var scoreHistory = unified
+                .OrderBy(m => m.Date)
+                .Select(m =>
+                {
+                    if (m.Result == "draw") runningScore += 1;
+                    else if (m.Result == "win") runningScore += 3;
+                    return new
+                    {
+                        Date = m.Date.ToString("yyyy-MM-dd"),
+                        Score = runningScore,
+                    };
+                }).ToList();
+
+            // Decks (agregado: usos, vitórias e taxa) — inclui decks usados em torneio.
+            var deckStats = new Dictionary<string, (int Used, int Wins)>(StringComparer.OrdinalIgnoreCase);
+            foreach (var m in unified)
+            {
+                if (string.IsNullOrWhiteSpace(m.MyDeck)) continue;
+                var key = m.MyDeck.Trim();
                 if (!deckStats.TryGetValue(key, out var stats)) stats = (0, 0);
                 stats.Used += 1;
-                if (m.WinnerId == id) stats.Wins += 1;
+                if (m.Result == "win") stats.Wins += 1;
                 deckStats[key] = stats;
             }
             var decks = deckStats
@@ -200,8 +286,8 @@ namespace RankingDigi.Controller
                 })
                 .ToList();
 
-            // Últimas 10 partidas (resumo p/ exibição)
-            var recentMatches = matches
+            // Últimas 10 partidas (resumo p/ exibição), das duas fontes combinadas.
+            var recentMatchesView = unified
                 .OrderByDescending(m => m.Date)
                 .Take(10)
                 .Select(m => new
@@ -209,29 +295,16 @@ namespace RankingDigi.Controller
                     m.Id,
                     m.Date,
                     m.Mode,
-                    OpponentId = m.Player1Id == id ? m.Player2Id : m.Player1Id,
-                    MyDeck = m.Player1Id == id ? m.Deck1 : m.Deck2,
-                    OpponentDeck = m.Player1Id == id ? m.Deck2 : m.Deck1,
-                    Result = m.WinnerId == 0 ? "draw" : (m.WinnerId == id ? "win" : "loss"),
+                    m.OpponentId,
+                    m.OpponentName,
+                    m.MyDeck,
+                    m.OpponentDeck,
+                    m.Result,
+                    m.Source,
+                    m.TournamentId,
+                    m.TournamentName,
                 })
                 .ToList();
-
-            var opponentIds = recentMatches.Select(r => r.OpponentId).Distinct().ToList();
-            var opponentNames = await _context.Players
-                .Where(p => opponentIds.Contains(p.Id))
-                .ToDictionaryAsync(p => p.Id, p => p.Name);
-
-            var recentMatchesView = recentMatches.Select(r => new
-            {
-                r.Id,
-                r.Date,
-                r.Mode,
-                r.OpponentId,
-                OpponentName = opponentNames.TryGetValue(r.OpponentId, out var n) ? n : "Desconhecido",
-                r.MyDeck,
-                r.OpponentDeck,
-                r.Result,
-            }).ToList();
 
             // Torneios em que o jogador participou (como jogador registrado)
             var participations = await _context.TournamentPlayers
@@ -266,15 +339,21 @@ namespace RankingDigi.Controller
                                   : null;
                 }
 
+                var tally = tallyByTournament.TryGetValue(t.Id, out var ty) ? ty : (Wins: 0, Losses: 0, Draws: 0);
+
                 tournaments.Add(new
                 {
                     t.Id,
                     t.Name,
                     t.StartDate,
                     t.Status,
+                    t.Mode,
                     Deck = part.Deck,
                     FinalPosition = finalPosition,
                     IsChampion = isChampion,
+                    MatchesWon = tally.Wins,
+                    MatchesLost = tally.Losses,
+                    MatchesDrawn = tally.Draws,
                 });
             }
 
