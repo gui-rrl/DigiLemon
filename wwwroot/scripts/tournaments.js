@@ -27,7 +27,7 @@ async function loadTournaments() {
         if (!tournaments.length) {
             tbody.innerHTML = `
                 <tr class="empty-row">
-                    <td colspan="9">
+                    <td colspan="8">
                         <div class="empty-state">
                             <div class="icon"><i class="bi bi-trophy"></i></div>
                             <div class="title">Nenhum torneio criado</div>
@@ -51,7 +51,6 @@ async function loadTournaments() {
                 : `<span class="text-muted-2">—</span>`;
             return `
                 <tr>
-                    <td><span class="text-muted-2">#${t.id}</span></td>
                     <td style="white-space:nowrap;"><strong>${escapeHtml(t.name)}</strong></td>
                     <td>${t.mode === 1
                         ? '<span class="status-pill prep"><i class="bi bi-controller"></i> Online</span>'
@@ -72,7 +71,7 @@ async function loadTournaments() {
                     <td style="text-align:right; white-space:nowrap;">
                         <div class="d-inline-flex gap-1 justify-content-end" style="flex-wrap:nowrap;">
                             ${canInvite ? `<button class="btn btn-sm btn-ghost" onclick="copyInvite('${escapeHtml(t.inviteCode)}')" title="Copiar link de convite"><i class="bi bi-link-45deg"></i> Convite</button>` : ''}
-                            ${isAdmin && t.status === 0 ? `<a href="/tournament-setup.html?id=${t.id}" class="btn btn-sm btn-secondary" title="Configurar"><i class="bi bi-gear"></i> Configurar</a>` : ''}
+                            ${isAdmin && t.status === 0 ? `<a href="/tournament-setup.html?id=${t.id}" class="btn btn-sm btn-secondary" title="Configurar"><i class="bi bi-gear"></i></a>` : ''}
                             ${t.status >= 1
                                 ? (t.format >= 1
                                     ? `<a href="/tournament-swiss.html?id=${t.id}" class="btn btn-sm btn-info" title="Ver Swiss"><i class="bi bi-grid-3x3-gap-fill"></i> Swiss</a>`
@@ -88,7 +87,7 @@ async function loadTournaments() {
         }).join('');
     } catch (error) {
         console.error(error);
-        tbody.innerHTML = `<tr class="empty-row"><td colspan="9"><div class="empty-state"><div class="icon"><i class="bi bi-exclamation-octagon"></i></div><div class="title">Erro ao carregar torneios</div><div>${escapeHtml(error.message)}</div></div></td></tr>`;
+        tbody.innerHTML = `<tr class="empty-row"><td colspan="8"><div class="empty-state"><div class="icon"><i class="bi bi-exclamation-octagon"></i></div><div class="title">Erro ao carregar torneios</div><div>${escapeHtml(error.message)}</div></div></td></tr>`;
     }
 }
 
