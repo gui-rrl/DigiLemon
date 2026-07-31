@@ -60,6 +60,7 @@ namespace RankingDigi.Controller
             });
         }
 
+
         // GET api/auth/me  (requer token)
         [HttpGet("me")]
         [Authorize]
