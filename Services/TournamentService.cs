@@ -17,6 +17,66 @@ namespace RankingDigi.Services
             _context = context;
         }
 
+        public class TournamentWinnerInfo
+        {
+            public int? TournamentPlayerId { get; set; }
+            public string? Name { get; set; }
+            public string? AvatarUrl { get; set; }
+        }
+
+        /// <summary>
+        /// Campeão de cada torneio: vencedor da Grand Final (Dupla Elim. / Swiss+TopCut) ou,
+        /// na falta dela, 1º colocado do Swiss Puro finalizado (desempate por OMW%).
+        /// `tournaments` precisa vir com TournamentPlayers.Player incluído.
+        /// </summary>
+        public async Task<Dictionary<int, TournamentWinnerInfo>> GetTournamentWinnersAsync(List<Tournament> tournaments, SwissService swissService)
+        {
+            var tournamentIds = tournaments.Select(t => t.Id).ToList();
+            var grandFinalMatches = await _context.TournamentMatches
+                .Where(m => tournamentIds.Contains(m.TournamentId) && m.MatchType == 2 && m.WinnerId != null)
+                .ToListAsync();
+
+            var pureSwissIds = tournaments.Where(t => t.Format == 2 && t.Status == 2).Select(t => t.Id).ToList();
+            var pureSwissTop = new Dictionary<int, SwissStandingEntry?>();
+            foreach (var tid in pureSwissIds)
+            {
+                var standings = await swissService.GetStandingsAsync(tid);
+                pureSwissTop[tid] = standings.FirstOrDefault();
+            }
+
+            var result = new Dictionary<int, TournamentWinnerInfo>();
+            foreach (var t in tournaments)
+            {
+                var gf = grandFinalMatches.FirstOrDefault(m => m.TournamentId == t.Id);
+                var winnerTp = gf?.WinnerId != null
+                    ? t.TournamentPlayers?.FirstOrDefault(p => p.Id == gf.WinnerId)
+                    : null;
+
+                var info = new TournamentWinnerInfo
+                {
+                    TournamentPlayerId = winnerTp?.Id,
+                    Name = winnerTp?.DisplayName,
+                    AvatarUrl = winnerTp?.Player?.AvatarUrl,
+                };
+
+                if (info.TournamentPlayerId == null && pureSwissTop.TryGetValue(t.Id, out var top) && top != null)
+                {
+                    string? avatarUrl = null;
+                    if (top.PlayerId.HasValue)
+                    {
+                        var topPlayer = await _context.Players.FindAsync(top.PlayerId.Value);
+                        avatarUrl = topPlayer?.AvatarUrl;
+                    }
+                    info.TournamentPlayerId = top.TpId;
+                    info.Name = top.PlayerName;
+                    info.AvatarUrl = avatarUrl;
+                }
+
+                result[t.Id] = info;
+            }
+            return result;
+        }
+
 
         //public async Task GenerateBrackets(int tournamentId)
         //{

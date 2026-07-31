@@ -77,7 +77,7 @@ function renderError(message) {
 }
 
 function renderProfile(data) {
-    const { player, stats, scoreHistory, decks, recentMatches, tournaments } = data;
+    const { player, stats, scoreHistory, decks, recentMatches, tournaments, trophies } = data;
     document.title = `${player.name} — RankingDigi`;
 
     const currentUser = typeof authUser === 'function' ? authUser() : null;
@@ -103,6 +103,17 @@ function renderProfile(data) {
             </label>
         </div>` : '';
 
+    const trophiesHtml = (trophies && trophies.length)
+        ? `<div class="profile-trophies">
+            <div class="profile-trophies-label">Troféus</div>
+            <div class="profile-trophies-row">
+                ${trophies.map(tr => `
+                    <a href="/tournament-recap.html?id=${tr.tournamentId}" title="Campeão — ${escapeHtml(tr.tournamentName)}">
+                        <img src="${escapeHtml(tr.trophyImageUrl)}" alt="Troféu — ${escapeHtml(tr.tournamentName)}">
+                    </a>`).join('')}
+            </div>
+        </div>` : '';
+
     document.getElementById('profileContent').innerHTML = `
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
             <a href="/Index.html" class="btn btn-ghost btn-sm"><i class="bi bi-arrow-left"></i> Voltar</a>
@@ -122,6 +133,7 @@ function renderProfile(data) {
                 </div>
                 ${editButtons}
             </div>
+            ${trophiesHtml}
         </section>
 
         <section class="row g-2 mb-4">

@@ -18,6 +18,7 @@
         public List<BracketDto>? Brackets { get; set; }
         public string? WinnerName { get; set; }
         public string? WinnerAvatarUrl { get; set; }
+        public string? TrophyImageUrl { get; set; }
         public int? MyParticipationId { get; set; }
     }
 }

@@ -133,7 +133,20 @@
             <div class="row g-3 mb-4" id="statsRow"></div>
 
             <section class="card-app mb-4">
-                <div class="card-header"><i class="bi bi-trophy-fill"></i> Pódio</div>
+                <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <span><i class="bi bi-trophy-fill"></i> Pódio</span>
+                    <div id="trophyAdminWidget" class="d-none align-items-center gap-2">
+                        <div id="trophyPreviewWrap" class="trophy-preview" style="width:44px;height:44px;">
+                            <img id="trophyPreviewImg" src="" alt="Troféu" style="display:none;">
+                            <i class="bi bi-trophy trophy-preview-placeholder" id="trophyPreviewPlaceholder" style="font-size:1.1rem;"></i>
+                        </div>
+                        <label class="btn btn-sm btn-secondary mb-0" style="cursor:pointer;" title="Vincular imagem de troféu a este torneio">
+                            <i class="bi bi-upload"></i>
+                            <input type="file" id="trophyInput" accept="image/jpeg,image/png,image/webp,image/gif" style="display:none;">
+                        </label>
+                        <button class="btn btn-sm btn-ghost d-none" id="removeTrophyBtn" title="Remover troféu"><i class="bi bi-trash3"></i></button>
+                    </div>
+                </div>
                 <div class="card-body">
                     <div class="podium-container" id="podiumContainer"></div>
                 </div>
@@ -179,9 +192,16 @@
             </div>
 
             <section class="card-app mb-4" id="topCardsSection" style="display:none;">
-                <div class="card-header"><i class="bi bi-star-fill"></i> Cartas mais jogadas no torneio</div>
+                <div class="card-header"><i class="bi bi-star-fill"></i> Cartas mais utilizadas por decks</div>
                 <div class="card-body">
                     <div class="row g-3" id="topCardsGrid"></div>
+                </div>
+            </section>
+
+            <section class="card-app mb-4" id="topCardsByQuantitySection" style="display:none;">
+                <div class="card-header"><i class="bi bi-bar-chart-fill"></i> Cartas mais utilizadas por quantidade</div>
+                <div class="card-body">
+                    <div class="row g-3" id="topCardsByQuantityGrid"></div>
                 </div>
             </section>
         </div>

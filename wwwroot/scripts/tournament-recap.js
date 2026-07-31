@@ -35,6 +35,7 @@ async function load() {
         renderParticipants(data.participants);
         renderPieChart(data.deckNameBreakdown);
         renderTopCards(data.topCards, data.topCardsMode, data.stats.totalParticipants);
+        renderTopCardsByQuantity(data.topCardsByQuantity);
         show('recapContent');
     } catch (error) {
         document.getElementById('errorText').textContent = error.message || 'Não foi possível carregar o resumo.';
@@ -45,6 +46,12 @@ async function load() {
 function renderHero(t, stats) {
     document.title = `${t.name} — Resumo`;
     document.getElementById('recapTourName').textContent = t.name;
+
+    if (typeof authIsAdmin === 'function' && authIsAdmin()) {
+        document.getElementById('trophyAdminWidget').classList.remove('d-none');
+        document.getElementById('trophyAdminWidget').classList.add('d-flex');
+        renderTrophyPreview(t.trophyImageUrl);
+    }
 
     const bracketLink = document.getElementById('backToBracketLink');
     bracketLink.href = t.format === 0
@@ -216,7 +223,7 @@ function renderTopCards(topCards, mode, totalDecks) {
     section.style.display = '';
 
     section.querySelector('.card-header').innerHTML = mode === 'shared'
-        ? '<i class="bi bi-star-fill"></i> Cartas mais jogadas no torneio'
+        ? '<i class="bi bi-star-fill"></i> Cartas mais utilizadas por decks'
         : '<i class="bi bi-star-fill"></i> Carta de destaque de cada deck';
 
     document.getElementById('topCardsGrid').innerHTML = topCards.map(c => {
@@ -234,5 +241,86 @@ function renderTopCards(topCards, mode, totalDecks) {
         </div>`;
     }).join('');
 }
+
+function renderTopCardsByQuantity(topCards) {
+    const section = document.getElementById('topCardsByQuantitySection');
+    if (!topCards || !topCards.length) { section.style.display = 'none'; return; }
+    section.style.display = '';
+
+    document.getElementById('topCardsByQuantityGrid').innerHTML = topCards.map(c => `
+        <div class="col-6 col-md-3 col-lg-2">
+            <div class="top-card-tile">
+                <img src="${c.imageUrl ? escapeHtml(c.imageUrl) : ''}" alt="${escapeHtml(c.name || c.cardNumber)}" loading="lazy"
+                     onerror="this.style.visibility='hidden'">
+                <div style="font-size:0.8rem;font-weight:600;margin-top:0.3rem;">${escapeHtml(c.name || c.cardNumber)}</div>
+                <div class="tc-rate">${c.totalQuantity} cópia${c.totalQuantity === 1 ? '' : 's'} no torneio</div>
+            </div>
+        </div>`).join('');
+}
+
+/* ---------- Troféu do torneio (admin) ---------- */
+
+function renderTrophyPreview(trophyImageUrl) {
+    const img = document.getElementById('trophyPreviewImg');
+    const placeholder = document.getElementById('trophyPreviewPlaceholder');
+    const removeBtn = document.getElementById('removeTrophyBtn');
+    if (trophyImageUrl) {
+        img.src = trophyImageUrl;
+        img.style.display = '';
+        placeholder.style.display = 'none';
+        removeBtn.classList.remove('d-none');
+    } else {
+        img.style.display = 'none';
+        img.src = '';
+        placeholder.style.display = '';
+        removeBtn.classList.add('d-none');
+    }
+}
+
+document.getElementById('trophyInput').addEventListener('change', async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { notifyError('A imagem deve ter no máximo 2 MB.'); return; }
+    const form = new FormData();
+    form.append('file', file);
+    try {
+        const token = typeof authToken === 'function' ? authToken() : null;
+        const resp = await fetch(`${API_BASE_URL}/tournament/${tournamentId}/trophy`, {
+            method: 'POST',
+            headers: {
+                'ngrok-skip-browser-warning': '1',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+            },
+            body: form,
+        });
+        if (!resp.ok) {
+            const j = await resp.json().catch(() => ({}));
+            throw new Error(j.error || `Erro ${resp.status}`);
+        }
+        const data = await resp.json();
+        renderTrophyPreview(data.trophyImageUrl);
+        notifySuccess('Troféu atualizado!');
+    } catch (err) {
+        notifyError(err.message, 'Não foi possível enviar o troféu');
+    } finally {
+        e.target.value = '';
+    }
+});
+
+document.getElementById('removeTrophyBtn').addEventListener('click', async () => {
+    const result = await confirmAction({
+        title: 'Remover troféu?',
+        text: 'A imagem será desvinculada deste torneio.',
+        confirmText: 'Sim, remover', cancelText: 'Cancelar', icon: 'warning',
+    });
+    if (!result.isConfirmed) return;
+    try {
+        await apiFetch(`${API_BASE_URL}/tournament/${tournamentId}/trophy`, { method: 'DELETE' });
+        renderTrophyPreview(null);
+        notifySuccess('Troféu removido.');
+    } catch (err) {
+        notifyError('Erro ao remover troféu: ' + err.message);
+    }
+});
 
 load();

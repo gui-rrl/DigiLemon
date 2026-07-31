@@ -67,43 +67,14 @@ public class TournamentController : ControllerBase
         }
         if (changed) await _context.SaveChangesAsync();
 
-        // Pré-calcula campeão dos torneios Swiss Pontos Corridos finalizados (usa OMW% como desempate)
-        var purSwissFinishedIds = tournaments
-            .Where(t => t.Format == 2 && t.Status == 2)
-            .Select(t => t.Id)
-            .ToList();
-        var pureSwissWinners = new Dictionary<int, (string? Name, string? AvatarUrl)>();
-        foreach (var tid in purSwissFinishedIds)
-        {
-            var standings = await _swissService.GetStandingsAsync(tid);
-            var top = standings.FirstOrDefault();
-            if (top != null)
-            {
-                string? avatarUrl = null;
-                if (top.PlayerId.HasValue)
-                {
-                    var topPlayer = await _context.Players.FindAsync(top.PlayerId.Value);
-                    avatarUrl = topPlayer?.AvatarUrl;
-                }
-                pureSwissWinners[tid] = (top.PlayerName, avatarUrl);
-            }
-        }
+        // Campeão de cada torneio: Grand Final (Double Elim / Swiss+TopCut) ou 1º lugar Swiss puro (com OMW%)
+        var winners = await _tournamentService.GetTournamentWinnersAsync(tournaments, _swissService);
 
         var dtos = tournaments.Select(t =>
         {
-            // Campeão: Grand Final (Double Elim / Swiss+TopCut) ou 1º lugar Swiss puro (com OMW%)
-            var grandFinalWinnerId = grandFinalMatches
-                .FirstOrDefault(m => m.TournamentId == t.Id)?.WinnerId;
-            var grandFinalWinnerTp = grandFinalWinnerId.HasValue
-                ? t.TournamentPlayers?.FirstOrDefault(p => p.Id == grandFinalWinnerId)
-                : null;
-            string? winnerName = grandFinalWinnerTp?.DisplayName;
-            string? winnerAvatarUrl = grandFinalWinnerTp?.Player?.AvatarUrl;
-            if (winnerName == null && pureSwissWinners.TryGetValue(t.Id, out var sw))
-            {
-                winnerName = sw.Name;
-                winnerAvatarUrl = sw.AvatarUrl;
-            }
+            winners.TryGetValue(t.Id, out var winner);
+            string? winnerName = winner?.Name;
+            string? winnerAvatarUrl = winner?.AvatarUrl;
 
             return new TournamentDto
             {
@@ -122,6 +93,7 @@ public class TournamentController : ControllerBase
             CurrentSwissRound = t.CurrentSwissRound,
             WinnerName = winnerName,
             WinnerAvatarUrl = winnerAvatarUrl,
+            TrophyImageUrl = t.TrophyImageUrl,
             MyParticipationId = myPlayerId.HasValue
                 ? t.TournamentPlayers?.FirstOrDefault(tp => tp.PlayerId == myPlayerId.Value)?.Id
                 : null,
@@ -148,6 +120,39 @@ public class TournamentController : ControllerBase
         }).ToList();
 
         return Ok(dtos);
+    }
+
+    //GET: api/tournament/trophies — galeria pública dos troféus (torneios com imagem de troféu + campeão definido)
+    [HttpGet("trophies")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetTrophies()
+    {
+        var tournaments = await _context.Tournaments
+            .Where(t => t.TrophyImageUrl != null)
+            .Include(t => t.TournamentPlayers)
+                .ThenInclude(tp => tp.Player)
+            .ToListAsync();
+
+        var winners = await _tournamentService.GetTournamentWinnersAsync(tournaments, _swissService);
+
+        var trophies = tournaments
+            .Select(t =>
+            {
+                winners.TryGetValue(t.Id, out var winner);
+                return new
+                {
+                    TournamentId = t.Id,
+                    TournamentName = t.Name,
+                    TrophyImageUrl = t.TrophyImageUrl,
+                    WinnerName = winner?.Name,
+                    WinnerAvatarUrl = winner?.AvatarUrl,
+                };
+            })
+            .Where(x => x.WinnerName != null)
+            .OrderByDescending(x => x.TournamentId)
+            .ToList();
+
+        return Ok(trophies);
     }
 
     // As inscrições ficam abertas durante todo o dia do prazo e fecham à meia-noite seguinte
@@ -518,6 +523,7 @@ public class TournamentController : ControllerBase
             SwissRounds = tournament.SwissRounds,
             TopCutSize = tournament.TopCutSize,
             CurrentSwissRound = tournament.CurrentSwissRound,
+            TrophyImageUrl = tournament.TrophyImageUrl,
             Brackets = tournament.Brackets?.Select(b => new BracketDto
             {
                 Id = b.Id,
@@ -546,6 +552,68 @@ public class TournamentController : ControllerBase
         };
 
         return Ok(dto);
+    }
+
+    // POST api/tournament/{id}/trophy — Admin only
+    [HttpPost("{id}/trophy")]
+    public async Task<IActionResult> UploadTrophy(int id, IFormFile file)
+    {
+        if (!User.IsInRole("Admin")) return Forbid();
+
+        if (file == null || file.Length == 0)
+            return BadRequest(new { error = "Nenhum arquivo enviado." });
+
+        var allowed = new[] { "image/jpeg", "image/png", "image/webp", "image/gif" };
+        if (!allowed.Contains(file.ContentType.ToLower()))
+            return BadRequest(new { error = "Formato inválido. Use JPG, PNG, WEBP ou GIF." });
+
+        if (file.Length > 2 * 1024 * 1024)
+            return BadRequest(new { error = "A imagem deve ter no máximo 2 MB." });
+
+        var tournament = await _context.Tournaments.FindAsync(id);
+        if (tournament == null) return NotFound(new { error = "Torneio não encontrado." });
+
+        var ext = Path.GetExtension(file.FileName).ToLower();
+        if (string.IsNullOrEmpty(ext)) ext = ".png";
+
+        var trophyDir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "trophies");
+        Directory.CreateDirectory(trophyDir);
+
+        // Remove troféu anterior se existir
+        if (!string.IsNullOrEmpty(tournament.TrophyImageUrl))
+        {
+            var oldFile = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", tournament.TrophyImageUrl.TrimStart('/'));
+            if (System.IO.File.Exists(oldFile)) System.IO.File.Delete(oldFile);
+        }
+
+        var fileName = $"{id}{ext}";
+        var filePath = Path.Combine(trophyDir, fileName);
+        using (var stream = new FileStream(filePath, FileMode.Create))
+            await file.CopyToAsync(stream);
+
+        tournament.TrophyImageUrl = $"/trophies/{fileName}";
+        await _context.SaveChangesAsync();
+        return Ok(new { trophyImageUrl = tournament.TrophyImageUrl });
+    }
+
+    // DELETE api/tournament/{id}/trophy — Admin only
+    [HttpDelete("{id}/trophy")]
+    public async Task<IActionResult> DeleteTrophy(int id)
+    {
+        if (!User.IsInRole("Admin")) return Forbid();
+
+        var tournament = await _context.Tournaments.FindAsync(id);
+        if (tournament == null) return NotFound(new { error = "Torneio não encontrado." });
+
+        if (!string.IsNullOrEmpty(tournament.TrophyImageUrl))
+        {
+            var oldFile = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", tournament.TrophyImageUrl.TrimStart('/'));
+            if (System.IO.File.Exists(oldFile)) System.IO.File.Delete(oldFile);
+            tournament.TrophyImageUrl = null;
+            await _context.SaveChangesAsync();
+        }
+
+        return NoContent();
     }
 
     [HttpGet("{id}/participants")]
@@ -1098,6 +1166,24 @@ public class TournamentController : ControllerBase
                 }).ToList();
         }
 
+        // ── Top 3 cartas por quantidade total (soma de cópias entre todos os decks) ──
+        var topCardsByQuantity = deckCards
+            .GroupBy(dc => dc.CardNumber)
+            .Select(g => new { CardNumber = g.Key, TotalQuantity = g.Sum(dc => dc.Quantity) })
+            .OrderByDescending(g => g.TotalQuantity)
+            .Take(3)
+            .Select(g =>
+            {
+                cardsInfo.TryGetValue(g.CardNumber, out var card);
+                return new
+                {
+                    g.CardNumber,
+                    Name = card?.Name,
+                    ImageUrl = Card.BuildImageUrl(card?.TcgplayerId),
+                    g.TotalQuantity,
+                };
+            }).ToList();
+
         // ── Estatísticas gerais ──────────────────────────────────────────────
         var matches = await _context.TournamentMatches.Where(m => m.TournamentId == id).ToListAsync();
         var realMatches = matches.Where(m => m.IsPlayed && !m.IsBye).ToList();
@@ -1117,6 +1203,7 @@ public class TournamentController : ControllerBase
                 FinishedAt = lastMatchDate == default ? (DateTime?)null : lastMatchDate,
                 tournament.SwissRounds,
                 tournament.TopCutSize,
+                tournament.TrophyImageUrl,
             },
             Podium = podium,
             IsFullyRanked = isFullyRanked,
@@ -1125,6 +1212,7 @@ public class TournamentController : ControllerBase
             DeckNameBreakdown = deckNameBreakdown,
             TopCards = topCards,
             TopCardsMode = topCardsMode,
+            TopCardsByQuantity = topCardsByQuantity,
             Stats = new
             {
                 TotalParticipants = tps.Count,

@@ -16,11 +16,15 @@ namespace RankingDigi.Controller
     public class PlayerController : ControllerBase
     {
         private readonly RankingContext _context;
+        private readonly RankingDigi.Services.TournamentService _tournamentService;
+        private readonly RankingDigi.Services.SwissService _swissService;
 
         // Construtor para injetar o RankingContext
-        public PlayerController(RankingContext context)
+        public PlayerController(RankingContext context, RankingDigi.Services.TournamentService tournamentService, RankingDigi.Services.SwissService swissService)
         {
             _context = context;
+            _tournamentService = tournamentService;
+            _swissService = swissService;
         }
 
         [HttpPost]
@@ -310,33 +314,44 @@ namespace RankingDigi.Controller
             var participations = await _context.TournamentPlayers
                 .Where(tp => tp.PlayerId == id)
                 .Include(tp => tp.Tournament)
+                    .ThenInclude(t => t!.TournamentPlayers)
+                    .ThenInclude(tp2 => tp2.Player)
                 .ToListAsync();
 
+            // Campeão de cada torneio (Grand Final ou 1º lugar Swiss Puro) — mesma lógica usada
+            // na listagem de torneios, pra não deixar campeões de Swiss Puro sem o troféu no próprio perfil.
+            var myTournaments = participations.Where(p => p.Tournament != null).Select(p => p.Tournament!).ToList();
+            var winners = await _tournamentService.GetTournamentWinnersAsync(myTournaments, _swissService);
+
             var tournaments = new List<object>();
+            var trophies = new List<object>();
             foreach (var part in participations)
             {
                 var t = part.Tournament;
                 if (t == null) continue;
 
+                winners.TryGetValue(t.Id, out var winner);
+                bool isChampion = winner?.TournamentPlayerId == part.Id;
+
                 string? finalPosition = null;
-                bool isChampion = false;
-
-                // Matches referenciam TournamentPlayer.Id — usamos part.Id para comparar
-                var grandFinal = await _context.TournamentMatches
-                    .Where(m => m.TournamentId == t.Id && m.MatchType == 2 && m.IsPlayed && m.WinnerId.HasValue)
-                    .OrderByDescending(m => m.Round)
-                    .FirstOrDefaultAsync();
-
-                if (grandFinal != null)
+                if (isChampion)
                 {
-                    var runnerUpId = grandFinal.Player1Id == grandFinal.WinnerId
-                        ? grandFinal.Player2Id
-                        : grandFinal.Player1Id;
-
-                    isChampion    = grandFinal.WinnerId == part.Id;
-                    finalPosition = isChampion        ? "1º lugar"
-                                  : runnerUpId == part.Id ? "2º lugar"
-                                  : null;
+                    finalPosition = "1º lugar";
+                }
+                else
+                {
+                    // 2º lugar só faz sentido quando existe Grand Final (Dupla Elim. / Swiss+TopCut)
+                    var grandFinal = await _context.TournamentMatches
+                        .Where(m => m.TournamentId == t.Id && m.MatchType == 2 && m.IsPlayed && m.WinnerId.HasValue)
+                        .OrderByDescending(m => m.Round)
+                        .FirstOrDefaultAsync();
+                    if (grandFinal != null)
+                    {
+                        var runnerUpId = grandFinal.Player1Id == grandFinal.WinnerId
+                            ? grandFinal.Player2Id
+                            : grandFinal.Player1Id;
+                        finalPosition = runnerUpId == part.Id ? "2º lugar" : null;
+                    }
                 }
 
                 var tally = tallyByTournament.TryGetValue(t.Id, out var ty) ? ty : (Wins: 0, Losses: 0, Draws: 0);
@@ -355,6 +370,16 @@ namespace RankingDigi.Controller
                     MatchesLost = tally.Losses,
                     MatchesDrawn = tally.Draws,
                 });
+
+                if (isChampion && !string.IsNullOrEmpty(t.TrophyImageUrl))
+                {
+                    trophies.Add(new
+                    {
+                        TournamentId = t.Id,
+                        TournamentName = t.Name,
+                        TrophyImageUrl = t.TrophyImageUrl,
+                    });
+                }
             }
 
             return Ok(new
@@ -381,6 +406,7 @@ namespace RankingDigi.Controller
                 decks,
                 recentMatches = recentMatchesView,
                 tournaments,
+                trophies,
             });
         }
 

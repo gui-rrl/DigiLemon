@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+<script>(function(){var t=localStorage.getItem("rankingdigi-theme")||(matchMedia("(prefers-color-scheme: light)").matches?"light":"dark");document.documentElement.setAttribute("data-theme",t);})();</script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Troféus — RankingDigi</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/styles/app.css">
+</head>
+<body data-page="trophies">
+    <main class="container-xxl py-4">
+        <header class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+            <div>
+                <h1 class="page-title">
+                    <span class="icon-badge"><i class="bi bi-award-fill"></i></span>
+                    Galeria de Troféus
+                </h1>
+                <p class="page-subtitle mt-2">Os troféus conquistados pelos campeões de cada torneio.</p>
+            </div>
+        </header>
+
+        <div id="trophyGallery" class="trophy-gallery">
+            <div class="col-12 text-center py-4"><div class="spinner-border spinner-border-sm text-secondary"></div></div>
+        </div>
+    </main>
+
+    <script src="/scripts/auth.js"></script>
+    <script src="/scripts/common.js"></script>
+    <script src="/scripts/theme.js"></script>
+    <script src="/scripts/trophies.js"></script>
+</body>
+</html>

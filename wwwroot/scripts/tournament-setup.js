@@ -56,11 +56,78 @@ async function loadTournamentInfo() {
             hint.classList.add('d-none');
         }
 
+        renderTrophyPreview(currentTournament.trophyImageUrl);
+
         await loadParticipants();
     } catch (error) {
         notifyError('Erro ao carregar torneio: ' + error.message);
     }
 }
+
+function renderTrophyPreview(trophyImageUrl) {
+    const img = document.getElementById('trophyPreviewImg');
+    const placeholder = document.getElementById('trophyPreviewPlaceholder');
+    const removeBtn = document.getElementById('removeTrophyBtn');
+    if (trophyImageUrl) {
+        img.src = trophyImageUrl;
+        img.style.display = '';
+        placeholder.style.display = 'none';
+        removeBtn.classList.remove('d-none');
+    } else {
+        img.style.display = 'none';
+        img.src = '';
+        placeholder.style.display = '';
+        removeBtn.classList.add('d-none');
+    }
+}
+
+document.getElementById('trophyInput').addEventListener('change', async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { notifyError('A imagem deve ter no máximo 2 MB.'); return; }
+    const form = new FormData();
+    form.append('file', file);
+    try {
+        const token = typeof authToken === 'function' ? authToken() : null;
+        const resp = await fetch(`${API_BASE_URL}/tournament/${tournamentId}/trophy`, {
+            method: 'POST',
+            headers: {
+                'ngrok-skip-browser-warning': '1',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+            },
+            body: form,
+        });
+        if (!resp.ok) {
+            const j = await resp.json().catch(() => ({}));
+            throw new Error(j.error || `Erro ${resp.status}`);
+        }
+        const data = await resp.json();
+        currentTournament.trophyImageUrl = data.trophyImageUrl;
+        renderTrophyPreview(data.trophyImageUrl);
+        notifySuccess('Troféu atualizado!');
+    } catch (err) {
+        notifyError(err.message, 'Não foi possível enviar o troféu');
+    } finally {
+        e.target.value = '';
+    }
+});
+
+document.getElementById('removeTrophyBtn').addEventListener('click', async () => {
+    const result = await confirmAction({
+        title: 'Remover troféu?',
+        text: 'A imagem será desvinculada deste torneio.',
+        confirmText: 'Sim, remover', cancelText: 'Cancelar', icon: 'warning',
+    });
+    if (!result.isConfirmed) return;
+    try {
+        await apiFetch(`${API_BASE_URL}/tournament/${tournamentId}/trophy`, { method: 'DELETE' });
+        currentTournament.trophyImageUrl = null;
+        renderTrophyPreview(null);
+        notifySuccess('Troféu removido.');
+    } catch (err) {
+        notifyError('Erro ao remover troféu: ' + err.message);
+    }
+});
 
 async function loadParticipants() {
     try {

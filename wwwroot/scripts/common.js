@@ -241,6 +241,11 @@ function renderNavbar(activeName) {
               <i class="bi bi-trophy"></i><span class="d-none d-sm-inline">Torneios</span>
             </a>
           </li>
+          <li class="nav-item">
+            <a class="nav-link" data-nav="trophies" href="/trophies.html">
+              <i class="bi bi-award-fill"></i><span class="d-none d-sm-inline">Troféus</span>
+            </a>
+          </li>
           ${adminLinks}
           ${sharedLinks}
         </ul>
