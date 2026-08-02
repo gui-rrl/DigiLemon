@@ -45,11 +45,21 @@ namespace RankingDigi.Controller
             return appUser?.PlayerId == playerId;
         }
 
+        // Trava só enquanto o deck estiver de fato disputando algo em aberto: uma partida avulsa
+        // (Matches, sempre já encerrada no momento em que é registrada — trava pra sempre, não há
+        // "andamento" pra esperar terminar) ou um torneio ainda não finalizado (Status 0 ou 1).
+        // Assim que o(s) torneio(s) que usam esse deck terminam (Status 2), ele volta a poder ser
+        // editado/excluído — a trava existe pra impedir mudança de decklist NO MEIO da competição,
+        // não pra sempre.
         private async Task<bool> IsDeckLockedAsync(int deckId)
         {
             bool inMatch = await _context.Matches.AnyAsync(m => m.Deck1Id == deckId || m.Deck2Id == deckId);
             if (inMatch) return true;
-            return await _context.TournamentPlayers.AnyAsync(tp => tp.DeckId == deckId);
+
+            return await _context.TournamentPlayers
+                .Where(tp => tp.DeckId == deckId)
+                .Join(_context.Tournaments, tp => tp.TournamentId, t => t.Id, (tp, t) => t.Status)
+                .AnyAsync(status => status != 2);
         }
 
         // Valida as regras oficiais do Digimon Card Game: 50 cartas no deck principal,
@@ -135,6 +145,8 @@ namespace RankingDigi.Controller
                 .Select(g => new { DeckId = g.Key, Total = g.Sum(x => x.Quantity) })
                 .ToDictionaryAsync(x => x.DeckId, x => x.Total);
 
+            // Mesmo critério do IsDeckLockedAsync: partida avulsa trava pra sempre; torneio só
+            // trava enquanto não tiver terminado (Status 0 ou 1) — ver comentário lá.
             var lockedIds = (await _context.Matches
                 .Where(m => (m.Deck1Id != null && deckIds.Contains(m.Deck1Id.Value)) || (m.Deck2Id != null && deckIds.Contains(m.Deck2Id.Value)))
                 .Select(m => new { m.Deck1Id, m.Deck2Id })
@@ -144,7 +156,9 @@ namespace RankingDigi.Controller
                 .Select(id => id!.Value)
                 .Union(await _context.TournamentPlayers
                     .Where(tp => tp.DeckId != null && deckIds.Contains(tp.DeckId.Value))
-                    .Select(tp => tp.DeckId!.Value)
+                    .Join(_context.Tournaments, tp => tp.TournamentId, t => t.Id, (tp, t) => new { tp.DeckId, t.Status })
+                    .Where(x => x.Status != 2)
+                    .Select(x => x.DeckId!.Value)
                     .ToListAsync())
                 .ToHashSet();
 
