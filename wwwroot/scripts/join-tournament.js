@@ -110,7 +110,7 @@ async function renderJoinStep() {
 
     document.getElementById('pickDeckPlayerName').textContent = myPlayerName;
     document.getElementById('joinDeckSelect').innerHTML = decks
-        .map(d => `<option value="${d.id}">${escapeHtml(d.name)} (${d.cardCount} cartas)</option>`)
+        .map(d => `<option value="${d.id}"${d.isBannedNextTournament ? ' disabled' : ''}>${escapeHtml(d.name)} (${d.cardCount} cartas)${d.isBannedNextTournament ? ' — banido (Top 4 do último torneio)' : ''}</option>`)
         .join('');
     setJoinStep('stepPickDeck');
 }

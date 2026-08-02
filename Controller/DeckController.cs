@@ -181,6 +181,8 @@ namespace RankingDigi.Controller
                 return null;
             }
 
+            var bannedDeckIds = await DeckBanService.GetBannedDeckIdsAsync(_context);
+
             var result = decks.Select(d => new
             {
                 d.Id,
@@ -189,6 +191,7 @@ namespace RankingDigi.Controller
                 d.UpdatedAt,
                 CardCount = cardCounts.TryGetValue(d.Id, out var c) ? c : 0,
                 IsLocked = lockedIds.Contains(d.Id),
+                IsBannedNextTournament = bannedDeckIds.Contains(d.Id),
                 CoverImageUrl = BuildCoverImageUrl(d),
             });
 

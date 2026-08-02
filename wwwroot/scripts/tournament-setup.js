@@ -273,7 +273,7 @@ async function loadSavedDecksForAdd() {
             return;
         }
         savedSelect.innerHTML = '<option value="">Selecione o deck</option>' +
-            decks.map(d => `<option value="${d.id}" data-name="${escapeHtml(d.name)}">${escapeHtml(d.name)} (${d.cardCount} cartas)</option>`).join('');
+            decks.map(d => `<option value="${d.id}" data-name="${escapeHtml(d.name)}"${d.isBannedNextTournament ? ' disabled' : ''}>${escapeHtml(d.name)} (${d.cardCount} cartas)${d.isBannedNextTournament ? ' — banido (Top 4 do último torneio)' : ''}</option>`).join('');
     } catch (_) {
         savedSelect.innerHTML = '<option value="">Não foi possível carregar os decks</option>';
     }

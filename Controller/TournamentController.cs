@@ -371,6 +371,10 @@ public class TournamentController : ControllerBase
         if (deck == null || deck.PlayerId != user.PlayerId.Value)
             return BadRequest(new { error = "Deck não encontrado ou não pertence a você." });
 
+        var bannedDeckIds = await DeckBanService.GetBannedDeckIdsAsync(_context);
+        if (bannedDeckIds.Contains(deck.Id))
+            return BadRequest(new { error = $"O deck \"{deck.Name}\" ficou entre os 4 primeiros do último Top Cut e está banido de disputar o próximo torneio. Escolha outro deck." });
+
         var playerId = user.PlayerId.Value;
         bool alreadyIn = await _context.TournamentPlayers
             .AnyAsync(tp => tp.TournamentId == tournament.Id && tp.PlayerId == playerId);
@@ -433,6 +437,11 @@ public class TournamentController : ControllerBase
             var savedDeck = await _context.Decks.FindAsync(dto.DeckId.Value);
             if (savedDeck == null || savedDeck.PlayerId != dto.PlayerId)
                 return BadRequest(new { error = "O deck escolhido não pertence a esse jogador." });
+
+            var bannedDeckIds = await DeckBanService.GetBannedDeckIdsAsync(_context);
+            if (bannedDeckIds.Contains(savedDeck.Id))
+                return BadRequest(new { error = $"O deck \"{savedDeck.Name}\" ficou entre os 4 primeiros do último Top Cut e está banido de disputar o próximo torneio." });
+
             deckName = savedDeck.Name;
             deckId   = savedDeck.Id;
         }
