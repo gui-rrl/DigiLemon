@@ -83,7 +83,7 @@ async function loadTournaments() {
                             }
                             ${t.status === 2 ? `<a href="/tournament-recap.html?id=${t.id}" class="btn btn-sm btn-primary" title="Ver resumo do torneio"><i class="bi bi-stars"></i> Resumo</a>` : ''}
                             ${isAdmin ? `<button class="btn btn-sm btn-danger" onclick="deleteTournament(${t.id}, '${escapeHtml(t.name)}')" title="Excluir"><i class="bi bi-trash3"></i></button>` : ''}
-                            ${!isAdmin && t.myParticipationId && t.status === 0 ? `<button class="btn btn-sm btn-danger" onclick="cancelMyParticipation(${t.id}, ${t.myParticipationId}, '${escapeHtml(t.name)}')" title="Cancelar minha inscrição"><i class="bi bi-person-dash"></i> Cancelar inscrição</button>` : ''}
+                            ${!isAdmin && t.myParticipationId && t.status === 0 ? `<button class="btn btn-sm btn-danger" onclick="cancelMyParticipation(${t.id}, ${t.myParticipationId}, '${escapeHtml(t.name)}')" title="Cancelar minha inscrição"><i class="bi bi-person-dash"></i> Cancelar </button>` : ''}
                         </div>
                     </td>
                 </tr>`;
