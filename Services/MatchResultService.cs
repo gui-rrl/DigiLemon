@@ -151,5 +151,63 @@ namespace RankingDigi.Services
             await _context.SaveChangesAsync();
             return MatchResultOutcome.Ok();
         }
+
+        /// <summary>
+        /// Desfaz um resultado lançado errado: some vitória/derrota/empate do TournamentPlayer,
+        /// devolve os pontos do ranking geral (espelho de AwardMatchResultAsync) e limpa o
+        /// resultado da partida, deixando-a pronta pra ser relançada certa.
+        ///
+        /// Só cobre a fase de pontos (MatchType 3 — Swiss/Todos contra todos): partidas de
+        /// mata-mata (Top Cut) avançam o vencedor pro próximo confronto via NextMatchId e o
+        /// perdedor via LoserGoesToMatchId, e reverter isso com segurança exigiria checar se
+        /// esses confrontos seguintes já foram jogados também (efeito cascata) — fora de escopo
+        /// por ora. Nada impede que o admin apague o Top Cut e gere de novo nesse caso.
+        /// </summary>
+        public async Task<MatchResultOutcome> RevertAsync(TournamentMatch match)
+        {
+            if (!match.IsPlayed)
+                return MatchResultOutcome.Fail(MatchResultErrorCode.AlreadyPlayed, "Esta partida ainda não foi jogada — não há resultado para reverter.");
+            if (match.MatchType != 3)
+                return MatchResultOutcome.Fail(MatchResultErrorCode.WinnerNotInMatch, "Só é possível reverter partidas da fase de pontos (Swiss ou Todos contra todos). Partidas do Top Cut não podem ser revertidas por aqui.");
+            if (match.IsBye)
+                return MatchResultOutcome.Fail(MatchResultErrorCode.WinnerNotInMatch, "Partidas de bye não podem ser revertidas.");
+
+            var tournament = await _context.Tournaments.FindAsync(match.TournamentId);
+            if (tournament == null)
+                return MatchResultOutcome.Fail(MatchResultErrorCode.WinnerNotInMatch, "Torneio não encontrado.");
+
+            bool wasDraw = !match.WinnerId.HasValue;
+            if (wasDraw)
+            {
+                var tp1 = match.Player1Id.HasValue ? await _context.TournamentPlayers.FindAsync(match.Player1Id.Value) : null;
+                var tp2 = match.Player2Id.HasValue ? await _context.TournamentPlayers.FindAsync(match.Player2Id.Value) : null;
+                if (tp1 != null) { tp1.SwissPoints -= 1; tp1.SwissDraws -= 1; }
+                if (tp2 != null) { tp2.SwissPoints -= 1; tp2.SwissDraws -= 1; }
+            }
+            else
+            {
+                int? loserId = match.Player1Id == match.WinnerId ? match.Player2Id : match.Player1Id;
+
+                var winner = await _context.TournamentPlayers.FindAsync(match.WinnerId!.Value);
+                if (winner != null) { winner.SwissPoints -= 3; winner.SwissWins -= 1; }
+
+                if (loserId.HasValue)
+                {
+                    var loser = await _context.TournamentPlayers.FindAsync(loserId.Value);
+                    if (loser != null) loser.SwissLosses -= 1;
+                }
+            }
+
+            // Precisa rodar ANTES de zerar WinnerId/IsPlayed — é dali que ele sabe quem venceu.
+            await TournamentScoringService.RevertMatchResultAsync(_context, match, tournament);
+
+            match.WinnerId = null;
+            match.IsPlayed = false;
+            match.Player1GameWins = null;
+            match.Player2GameWins = null;
+
+            await _context.SaveChangesAsync();
+            return MatchResultOutcome.Ok();
+        }
     }
 }

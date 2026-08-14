@@ -61,6 +61,38 @@ namespace RankingDigi.Services
             if (winnerPlayer != null) AddPoints(winnerPlayer, online, WinPoints);
         }
 
+        /// <summary>
+        /// Desfaz exatamente o que AwardMatchResultAsync concedeu para esta partida — espelho
+        /// ponto a ponto, trocando AddPoints por RemovePoints. Usado pelo botão de reverter
+        /// partida (admin corrige um lançamento errado sem precisar reverter o torneio inteiro).
+        /// Precisa ser chamado ANTES de zerar match.WinnerId/IsPlayed, senão não há como saber
+        /// quem foi o vencedor.
+        /// </summary>
+        public static async Task RevertMatchResultAsync(RankingContext context, TournamentMatch match, Tournament tournament)
+        {
+            if (match.IsBye || !match.IsPlayed) return;
+            if (!match.Player1Id.HasValue || !match.Player2Id.HasValue) return;
+
+            bool online = tournament.Mode == 1;
+
+            var tp1 = await context.TournamentPlayers.FindAsync(match.Player1Id.Value);
+            var tp2 = await context.TournamentPlayers.FindAsync(match.Player2Id.Value);
+            var player1 = tp1?.PlayerId.HasValue == true ? await context.Players.FindAsync(tp1.PlayerId!.Value) : null;
+            var player2 = tp2?.PlayerId.HasValue == true ? await context.Players.FindAsync(tp2.PlayerId!.Value) : null;
+
+            if (!match.WinnerId.HasValue)
+            {
+                if (player1 != null) RemovePoints(player1, online, DrawPoints);
+                if (player2 != null) RemovePoints(player2, online, DrawPoints);
+                return;
+            }
+
+            Player? winnerPlayer = match.WinnerId.Value == tp1?.Id ? player1
+                                  : match.WinnerId.Value == tp2?.Id ? player2
+                                  : null;
+            if (winnerPlayer != null) RemovePoints(winnerPlayer, online, WinPoints);
+        }
+
         // Dupla Eliminação / Swiss+Top Cut / Todos contra todos+Top Cut: campeão = vencedor da
         // Grande Final, vice = perdedor da Grande Final. O 3º lugar depende do formato do chaveamento:
         //   - Top 8 (ou o torneio avulso "Dupla Eliminação"): perdedor da Final do Lower Bracket

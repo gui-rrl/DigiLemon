@@ -37,6 +37,21 @@ namespace RankingDigi.Controller
 
             return Ok();
         }
+
+        // Desfaz um lançamento errado: some com vitória/derrota/empate, devolve os pontos do
+        // ranking geral e deixa a partida pronta pra ser relançada certa. Só cobre a fase de
+        // pontos (Swiss/Todos contra todos) — ver comentário em MatchResultService.RevertAsync.
+        [HttpPost("{id}/revert")]
+        public async Task<IActionResult> RevertMatchResult(int id)
+        {
+            var match = await _context.TournamentMatches.FindAsync(id);
+            if (match == null) return NotFound();
+
+            var outcome = await _matchResults.RevertAsync(match);
+            if (!outcome.Success) return BadRequest(new { error = outcome.Error });
+
+            return Ok();
+        }
         // GET: api/tournamentmatch/{id}/reports — os relatos que o DCGO enviou para esta
         // partida, com nomes resolvidos, para o admin julgar um conflito sem consultar o banco.
         [HttpGet("{id}/reports")]

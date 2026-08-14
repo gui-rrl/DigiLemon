@@ -90,6 +90,7 @@ function renderStandings(standings, topCutSize) {
             </td>
             <td style="font-weight:700;color:var(--accent);text-align:center;">${s.points}</td>
             <td style="text-align:center;color:var(--text-2);">${s.wins}-${s.losses}</td>
+            <td style="text-align:center;color:var(--text-3);">${s.wins + s.losses + s.draws}</td>
             <td style="text-align:right;color:var(--text-3);font-size:0.78rem;" title="OMW% = aproveitamento dos adversários · GW% = seu aproveitamento em games">
                 ${s.omw}% <span style="opacity:0.6;">/ ${s.gw ?? 0}%</span>
             </td>
@@ -112,6 +113,7 @@ function renderStandings(standings, topCutSize) {
                     <th>Jogador</th>
                     <th style="text-align:center;" title="Pontos">Pts</th>
                     <th style="text-align:center;" title="Vitórias-Derrotas">V-D</th>
+                    <th style="text-align:center;" title="Total de partidas jogadas (vitórias + derrotas + empates)">Partidas</th>
                     <th style="text-align:right;" title="OMW% = aproveitamento dos adversários (força da tabela) · GW% = seu aproveitamento em games na melhor de 3">OMW% / GW%</th>
                 </tr>
             </thead>
@@ -183,6 +185,27 @@ function renderRounds(matchesByRound) {
             btn.dataset.p2 ? parseInt(btn.dataset.p2) : null,
         ));
     });
+
+    // Reverter: desfaz um resultado lançado errado (devolve os pontos e libera a partida).
+    container.querySelectorAll('.btn-revert-result').forEach(btn => {
+        btn.addEventListener('click', () => revertMatchResult(parseInt(btn.dataset.matchId)));
+    });
+}
+
+async function revertMatchResult(matchId) {
+    const confirm = await confirmAction({
+        title: 'Reverter resultado?',
+        text: 'A partida volta a ficar em aberto e os pontos que ela deu (no torneio e no ranking geral) são desfeitos. Use só em caso de lançamento errado.',
+        confirmText: 'Reverter', cancelText: 'Cancelar', icon: 'warning',
+    });
+    if (!confirm.isConfirmed) return;
+    try {
+        await apiFetch(`${API_BASE_URL}/tournamentmatch/${matchId}/revert`, { method: 'POST' });
+        notifySuccess('Resultado revertido — a partida está livre para ser relançada.');
+        loadAll();
+    } catch (err) {
+        notifyError('Não foi possível reverter: ' + err.message);
+    }
 }
 
 /** Abre o modal de resultado já mostrando o que cada lado relatou no DCGO. */
@@ -238,7 +261,11 @@ function renderMatchRow(m, round) {
     if (m.isBye) {
         btnResult = '<span class="badge bg-secondary">BYE automático</span>';
     } else if (m.isPlayed) {
-        btnResult = '<span class="status-pill live" style="font-size:0.75rem;"><i class="bi bi-check2-circle"></i> Finalizada</span>';
+        btnResult = '<span class="status-pill live" style="font-size:0.75rem;"><i class="bi bi-check2-circle"></i> Finalizada</span>'
+            + (isAdmin ? `<button class="btn btn-sm btn-ghost btn-revert-result" data-match-id="${m.id}"
+                    title="Desfaz este resultado — devolve os pontos (no torneio e no ranking geral) e libera a partida pra ser relançada. Use em caso de lançamento errado.">
+                    <i class="bi bi-arrow-counterclockwise"></i> Reverter
+               </button>` : '');
     } else if (estado === 'conflict' && isAdmin) {
         btnResult = `<button class="btn btn-sm btn-resolve"
                 style="background:var(--danger);border-color:var(--danger);color:#fff;"
