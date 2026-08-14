@@ -1467,6 +1467,7 @@ a {
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+        min-width: 0;   /* sem isso, o nome não trunca de verdade — só transborda por cima do resto */
     }
 
     /* jogador da esquerda: texto alinhado à esquerda */
@@ -1496,6 +1497,25 @@ a {
             background: rgba(109, 111, 255, 0.18);
             border: 1px solid rgba(109, 111, 255, 0.35);
         }
+
+/* Em telas de celular, as 4 colunas (jogador 1 / placar / jogador 2 / botões) não cabem lado a
+   lado — a coluna de botões (que agora pode ter "Finalizada" + "Reverter" juntos) empurra o
+   nome do segundo jogador pra fora, sobrepondo tudo. Solução: nomes + placar continuam numa
+   linha só (achando espaço via 1fr em vez de auto), e os botões descem pra linha de baixo,
+   ocupando a largura toda. */
+@media (max-width: 575.98px) {
+    .swiss-round-card .swiss-match {
+        grid-template-columns: 1fr auto 1fr;
+        row-gap: 0.5rem;
+    }
+
+    .swiss-match > .ms-auto {
+        grid-column: 1 / -1;
+        margin-left: 0;
+        justify-content: flex-start;
+        flex-wrap: wrap;
+    }
+}
 
 /* ---------- Alternador de tema (claro/escuro) ---------- */
 
