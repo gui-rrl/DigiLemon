@@ -1452,7 +1452,11 @@ a {
 
     .swiss-round-card .swiss-match {
         display: grid;
-        grid-template-columns: auto 4rem 1fr auto;
+        /* 1fr nas duas colunas de nome (em vez de auto): cada .swiss-match é um grid
+           independente, então "auto" (ajustado ao conteúdo) dava uma largura de coluna
+           diferente em cada partida da rodada — com 1fr as duas colunas de nome sempre
+           dividem o espaço em partes iguais, alinhadas entre si em todas as linhas. */
+        grid-template-columns: 1fr 4rem 1fr auto;
         align-items: center;
         padding: 0.75rem 1.1rem;
         border-bottom: 1px solid var(--border);
@@ -1470,8 +1474,15 @@ a {
         min-width: 0;   /* sem isso, o nome não trunca de verdade — só transborda por cima do resto */
     }
 
-    /* jogador da esquerda: texto alinhado à esquerda */
+    /* Os dois nomes "olham" pro placar no meio (1º à direita, 2º à esquerda) — fica lido como
+       um bloco centralizado ("Fulano · VS · Ciclano"), em vez dos dois alinhados à esquerda
+       de forma solta. Child 1 = jogador 1, child 2 = placar/VS, child 3 = jogador 2 (ordem
+       fixa vinda do JS em swiss.js). */
     .swiss-match .player-slot:first-child {
+        text-align: right;
+    }
+
+    .swiss-match .player-slot:nth-child(3) {
         text-align: left;
     }
 
