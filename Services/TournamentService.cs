@@ -11,10 +11,12 @@ namespace RankingDigi.Services
     public class TournamentService
     {
         private readonly RankingContext _context;
+        private readonly TournamentDeckDrawService _deckDrawService;
 
-        public TournamentService(RankingContext context)
+        public TournamentService(RankingContext context, TournamentDeckDrawService deckDrawService)
         {
             _context = context;
+            _deckDrawService = deckDrawService;
         }
 
         public class TournamentWinnerInfo
@@ -198,6 +200,11 @@ namespace RankingDigi.Services
         // NOVO MÉTODO para dupla eliminação
         public async Task GenerateDoubleElimination(int tournamentId, List<int> playerIds)
         {
+            // Sorteio de deck (DeckMode 1/2): no-op se DeckMode == 0 ou já sorteado — protege
+            // esse endpoint de sortear/clonar decks de novo quando o admin regenera o chaveamento
+            // (Format 0 não tem Status "iniciado" pra travar isso de outro jeito).
+            await _deckDrawService.DrawAsync(tournamentId);
+
             var generator = new DoubleEliminationGenerator(_context);
             await generator.GenerateAsync(tournamentId, playerIds);
         }

@@ -167,9 +167,13 @@
                         <div id="stepPickDeck" style="display:none;">
                             <p class="mb-3">Inscrevendo como <strong id="pickDeckPlayerName"></strong></p>
                             <form id="joinForm">
-                                <div class="mb-3">
+                                <div class="mb-3" id="joinDeckSelectWrap">
                                     <label class="form-label" for="joinDeckSelect">Deck que vai usar</label>
                                     <select id="joinDeckSelect" class="form-select" required></select>
+                                </div>
+                                <div id="joinDeckPickersOuterWrap" style="display:none;">
+                                    <p class="text-muted-2" style="font-size:0.85rem;" id="joinDeckPoolHint"></p>
+                                    <div id="joinDeckPickersWrap"></div>
                                 </div>
                                 <button type="submit" class="btn btn-primary w-100">
                                     <i class="bi bi-check-circle"></i> Confirmar inscrição

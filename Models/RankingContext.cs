@@ -25,6 +25,7 @@ namespace RankingDigi.Data
         public DbSet<DeckCard> DeckCards { get; set; }
         public DbSet<CardArt> CardArts { get; set; }
         public DbSet<MatchReport> MatchReports { get; set; }
+        public DbSet<TournamentPlayerDeckOption> TournamentPlayerDeckOptions { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -190,6 +191,41 @@ namespace RankingDigi.Data
                 .WithMany()
                 .HasForeignKey(tp => tp.DeckId)
                 .IsRequired(false)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // ── Modo de deck (Sorteio entre decks próprios / Death Random) ────────────
+            // Restrict: não apaga o deck original enquanto a cópia (Death Random) existir —
+            // perderia a proveniência mostrada no selo.
+            modelBuilder.Entity<Deck>()
+                .HasOne<Deck>()
+                .WithMany()
+                .HasForeignKey(d => d.SourceDeckId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // SetNull (não Restrict): apagar um torneio Death Random antigo não pode ficar
+            // bloqueado só porque alguém ainda tem o deck copiado — a cópia continua existindo e
+            // marcada (SourceDeckId ainda aponta pro original), só perde o nome do torneio no tooltip.
+            modelBuilder.Entity<Deck>()
+                .HasOne<Tournament>()
+                .WithMany()
+                .HasForeignKey(d => d.SourceTournamentId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // Opções de deck pendentes de sorteio: apagar o participante/torneio limpa as opções.
+            modelBuilder.Entity<TournamentPlayerDeckOption>()
+                .HasOne(o => o.TournamentPlayer)
+                .WithMany()
+                .HasForeignKey(o => o.TournamentPlayerId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Mesmo padrão de TournamentPlayer.DeckId: um deck com opção pendente não pode ser
+            // excluído (DeckController.IsDeckLockedAsync trava isso antes mesmo de chegar aqui).
+            modelBuilder.Entity<TournamentPlayerDeckOption>()
+                .HasOne(o => o.Deck)
+                .WithMany()
+                .HasForeignKey(o => o.DeckId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             // ── Integração DCGO ──────────────────────────────────────────────────────

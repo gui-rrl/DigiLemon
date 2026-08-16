@@ -86,7 +86,7 @@ function renderStandings(standings, topCutSize) {
             <td><span class="pos-badge ${posClass}">${s.position}</span></td>
             <td>
                 <div style="font-weight:600;line-height:1.2;">${escapeHtml(s.playerName)}</div>
-                <div class="text-muted-2" style="font-size:0.75rem;">${escapeHtml(s.deck || '')}</div>
+                <div class="text-muted-2" style="font-size:0.75rem;">${s.deck ? escapeHtml(s.deck) : '<em>Sorteio pendente</em>'}</div>
             </td>
             <td style="font-weight:700;color:var(--accent);text-align:center;">${s.points}</td>
             <td style="text-align:center;color:var(--text-2);">${s.wins}-${s.losses}</td>
@@ -421,7 +421,7 @@ function openResultModal(matchId, p1Id, p2Id) {
         if (!tpId) return;
         const p    = participantsMap.get(tpId);
         const name = p ? (p.playerName || 'Desconhecido') : 'Desconhecido';
-        const deck = p ? (p.deck || 'Sem deck') : 'Sem deck';
+        const deck = p ? (p.deck || 'Sorteio pendente') : 'Sem deck';
         sel.innerHTML += `<option value="${tpId}">${escapeHtml(name)} (${escapeHtml(deck)})</option>`;
     });
     if (p1Id && p2Id) {

@@ -56,6 +56,11 @@ namespace RankingDigi.Controller
             bool inMatch = await _context.Matches.AnyAsync(m => m.Deck1Id == deckId || m.Deck2Id == deckId);
             if (inMatch) return true;
 
+            // Enviado a um pool de sorteio (DeckMode 1/2) e ainda não sorteado — a linha some assim
+            // que TournamentDeckDrawService resolve o DeckId definitivo de cada participante.
+            bool pendingOption = await _context.TournamentPlayerDeckOptions.AnyAsync(o => o.DeckId == deckId);
+            if (pendingOption) return true;
+
             return await _context.TournamentPlayers
                 .Where(tp => tp.DeckId == deckId)
                 .Join(_context.Tournaments, tp => tp.TournamentId, t => t.Id, (tp, t) => t.Status)
@@ -146,7 +151,8 @@ namespace RankingDigi.Controller
                 .ToDictionaryAsync(x => x.DeckId, x => x.Total);
 
             // Mesmo critério do IsDeckLockedAsync: partida avulsa trava pra sempre; torneio só
-            // trava enquanto não tiver terminado (Status 0 ou 1) — ver comentário lá.
+            // trava enquanto não tiver terminado (Status 0 ou 1); pool de sorteio pendente trava
+            // até o sorteio rodar — ver comentário lá.
             var lockedIds = (await _context.Matches
                 .Where(m => (m.Deck1Id != null && deckIds.Contains(m.Deck1Id.Value)) || (m.Deck2Id != null && deckIds.Contains(m.Deck2Id.Value)))
                 .Select(m => new { m.Deck1Id, m.Deck2Id })
@@ -159,6 +165,10 @@ namespace RankingDigi.Controller
                     .Join(_context.Tournaments, tp => tp.TournamentId, t => t.Id, (tp, t) => new { tp.DeckId, t.Status })
                     .Where(x => x.Status != 2)
                     .Select(x => x.DeckId!.Value)
+                    .ToListAsync())
+                .Union(await _context.TournamentPlayerDeckOptions
+                    .Where(o => deckIds.Contains(o.DeckId))
+                    .Select(o => o.DeckId)
                     .ToListAsync())
                 .ToHashSet();
 
@@ -197,6 +207,14 @@ namespace RankingDigi.Controller
 
             var bannedDeckIds = await DeckBanService.GetBannedDeckIdsAsync(_context);
 
+            // Selo "Death Random": nome do torneio de origem, pro tooltip (join direto pelas
+            // poucas linhas que realmente têm SourceTournamentId, em vez de Include em massa).
+            var deathRandomTournamentIds = decks.Where(d => d.SourceTournamentId.HasValue)
+                .Select(d => d.SourceTournamentId!.Value).Distinct().ToList();
+            var deathRandomTournamentNames = await _context.Tournaments
+                .Where(t => deathRandomTournamentIds.Contains(t.Id))
+                .ToDictionaryAsync(t => t.Id, t => t.Name);
+
             var result = decks.Select(d => new
             {
                 d.Id,
@@ -206,6 +224,8 @@ namespace RankingDigi.Controller
                 CardCount = cardCounts.TryGetValue(d.Id, out var c) ? c : 0,
                 IsLocked = lockedIds.Contains(d.Id),
                 IsBannedNextTournament = bannedDeckIds.Contains(d.Id),
+                IsDeathRandomCopy = d.SourceDeckId != null,
+                DeathRandomTournamentName = d.SourceTournamentId.HasValue && deathRandomTournamentNames.TryGetValue(d.SourceTournamentId.Value, out var tn) ? tn : null,
                 CoverImageUrl = BuildCoverImageUrl(d),
             });
 

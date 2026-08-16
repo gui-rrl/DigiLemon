@@ -146,10 +146,61 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- Modo de deck -->
+                    <div class="row g-3 mt-3">
+                        <div class="col-12"><label class="form-label">Modo de deck</label></div>
+                        <div class="col-md-4">
+                            <div class="format-option h-100 selected" id="deckModeNormal">
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <i class="bi bi-check2-square" style="font-size:1.25rem;color:var(--accent);"></i>
+                                    <strong>Normal</strong><span class="badge bg-secondary ms-1" style="font-size:0.7rem;">Padrão</span>
+                                </div>
+                                <div class="text-muted-2" style="font-size:0.83rem;">Cada jogador escolhe 1 deck ao se inscrever. Sem sorteio.</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="format-option h-100" id="deckModeSelfRandom">
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <i class="bi bi-shuffle" style="font-size:1.25rem;color:var(--accent);"></i><strong>Sorteio entre decks próprios</strong>
+                                </div>
+                                <div class="text-muted-2" style="font-size:0.83rem;">Cada jogador envia 1-3 decks seus; ao iniciar o torneio, um deles é sorteado para valer na competição.</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="format-option h-100" id="deckModeDeathRandom">
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <i class="bi bi-shuffle" style="font-size:1.25rem;color:var(--accent);"></i><strong>Death Random</strong>
+                                </div>
+                                <div class="text-muted-2" style="font-size:0.83rem;">Cada jogador envia 1-3 decks; ao iniciar, todos são misturados e cada um recebe (uma cópia de) um deck de OUTRO jogador.</div>
+                            </div>
+                        </div>
+                        <input type="hidden" id="deckMode" value="0">
+                    </div>
+                    <div class="row g-3 mt-1 d-none" id="deckPoolOptions">
+                        <div class="col-md-6">
+                            <label class="form-label">Quantos decks cada jogador envia</label>
+                            <select id="deckPoolSize" class="form-select">
+                                <option value="1">1 deck</option>
+                                <option value="2" selected>2 decks</option>
+                                <option value="3">3 decks</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row g-3 mt-1 d-none" id="deckModeParticipantsHint">
+                        <div class="col-12">
+                            <div class="p-3 rounded-3 w-100" style="background:rgba(255,181,71,0.1);border:1px solid rgba(255,181,71,0.3);font-size:0.85rem;color:var(--text-2);">
+                                <i class="bi bi-info-circle me-1"></i>
+                                Com sorteio de deck ligado, não dá para pré-cadastrar participantes aqui — crie o torneio
+                                vazio e inscreva todo mundo depois, pelo link de convite ou pela tela de configuração
+                                (as duas já pedem os decks certos pra esse modo).
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </section>
 
-            <section class="card-app mb-4">
+            <section class="card-app mb-4" id="playersSectionCard">
                 <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                     <span><i class="bi bi-people-fill"></i> Participantes e decks <small class="text-muted-2 ms-2">(opcional)</small></span>
                     <span class="status-pill prep" id="playerCountPill">0 / 8 jogadores</span>

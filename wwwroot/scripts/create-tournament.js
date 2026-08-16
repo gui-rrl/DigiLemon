@@ -95,6 +95,33 @@ function updateUnlimitedUi() {
     document.getElementById('startDate').required = !isUnlimited;
 }
 
+// ── Modo de deck (Sorteio entre decks próprios / Death Random) ───────────────
+function selectDeckMode(mode) {
+    document.getElementById('deckMode').value = mode;
+    document.getElementById('deckModeNormal').classList.toggle('selected', mode === 0);
+    document.getElementById('deckModeSelfRandom').classList.toggle('selected', mode === 1);
+    document.getElementById('deckModeDeathRandom').classList.toggle('selected', mode === 2);
+    document.getElementById('deckPoolOptions').classList.toggle('d-none', mode === 0);
+
+    // Death Random não é compatível com Swiss Pontos Corridos (Format 2) — desabilita
+    // visualmente o cartão e troca de formato automaticamente se estava selecionado.
+    const swissPureCard = document.getElementById('fmtSwissPure');
+    swissPureCard.classList.toggle('disabled-option', mode === 2);
+    if (mode === 2 && parseInt(document.getElementById('format').value, 10) === 2) {
+        notifyWarning('Death Random não é compatível com Swiss Pontos Corridos. Formato ajustado para Dupla Eliminação.');
+        selectFormat(0);
+    }
+
+    // Participantes pré-cadastrados na criação não são suportados com sorteio de deck — a
+    // inscrição precisa passar pelo pool (TournamentPlayerDeckOption), só disponível via
+    // convite ou tela de configuração.
+    document.getElementById('playersSectionCard').classList.toggle('d-none', mode !== 0);
+    document.getElementById('deckModeParticipantsHint').classList.toggle('d-none', mode === 0);
+}
+document.getElementById('deckModeNormal').addEventListener('click', () => selectDeckMode(0));
+document.getElementById('deckModeSelfRandom').addEventListener('click', () => selectDeckMode(1));
+document.getElementById('deckModeDeathRandom').addEventListener('click', () => selectDeckMode(2));
+
 // Registrar listeners e inicializar após DOM pronto
 document.getElementById('fmtDoubleElim').addEventListener('click', () => selectFormat(0));
 document.getElementById('fmtSwiss').addEventListener('click', () => selectFormat(1));
@@ -104,6 +131,7 @@ document.getElementById('topCutSize').addEventListener('change', updateSwissRoun
 
 // Inicializar seleção padrão
 selectFormat(0);
+selectDeckMode(0);
 
 async function loadPlayers() {
     try {
@@ -292,46 +320,53 @@ document.getElementById('createTournamentForm').addEventListener('submit', async
         }
     }
 
-    const rows = document.querySelectorAll('.player-row');
-    const players = [];
-    const seenIds = new Set();
-    let hasIncomplete = false;
+    const deckMode = parseInt(document.getElementById('deckMode').value, 10);
 
-    for (const row of rows) {
-        const playerId = row.querySelector('.player-select').value;
-        const deckSelect = row.querySelector('.deck-saved-select');
-        const deckIdValue = deckSelect.value;
-        // O nome do deck vem do próprio deck escolhido — não há mais digitação manual
-        const deck = deckIdValue ? (deckSelect.options[deckSelect.selectedIndex].dataset.name || '') : '';
-        if (!playerId && !deckIdValue) continue;
-        if (!playerId || !deckIdValue) { hasIncomplete = true; continue; }
-        if (seenIds.has(playerId)) {
-            const dupName = allPlayers.find(p => String(p.id) === playerId)?.name || 'Jogador';
-            notifyError(`${dupName} foi selecionado mais de uma vez. Cada jogador pode participar apenas uma vez por torneio.`, 'Jogador duplicado');
+    const players = [];
+    // Com sorteio de deck ligado, participantes não são pré-cadastrados aqui (ver
+    // selectDeckMode) — o back-end rejeita players.length > 0 nesse caso de qualquer forma.
+    if (deckMode === 0) {
+        const rows = document.querySelectorAll('.player-row');
+        const seenIds = new Set();
+        let hasIncomplete = false;
+
+        for (const row of rows) {
+            const playerId = row.querySelector('.player-select').value;
+            const deckSelect = row.querySelector('.deck-saved-select');
+            const deckIdValue = deckSelect.value;
+            // O nome do deck vem do próprio deck escolhido — não há mais digitação manual
+            const deck = deckIdValue ? (deckSelect.options[deckSelect.selectedIndex].dataset.name || '') : '';
+            if (!playerId && !deckIdValue) continue;
+            if (!playerId || !deckIdValue) { hasIncomplete = true; continue; }
+            if (seenIds.has(playerId)) {
+                const dupName = allPlayers.find(p => String(p.id) === playerId)?.name || 'Jogador';
+                notifyError(`${dupName} foi selecionado mais de uma vez. Cada jogador pode participar apenas uma vez por torneio.`, 'Jogador duplicado');
+                return;
+            }
+            seenIds.add(playerId);
+            players.push({ playerId: parseInt(playerId), deck, deckId: deckIdValue ? parseInt(deckIdValue) : null });
+        }
+
+        if (hasIncomplete) {
+            notifyWarning('Selecione o jogador e um deck salvo em todas as linhas (ou remova as linhas vazias).');
             return;
         }
-        seenIds.add(playerId);
-        players.push({ playerId: parseInt(playerId), deck, deckId: deckIdValue ? parseInt(deckIdValue) : null });
+
+        if (!isUnlimited && players.length > maxPlayers) {
+            notifyWarning(`Você adicionou ${players.length} jogadores, mas o limite é ${maxPlayers}.`);
+            return;
+        }
     }
 
-    if (hasIncomplete) {
-        notifyWarning('Selecione o jogador e um deck salvo em todas as linhas (ou remova as linhas vazias).');
-        return;
-    }
-
-    if (!isUnlimited && players.length > maxPlayers) {
-        notifyWarning(`Você adicionou ${players.length} jogadores, mas o limite é ${maxPlayers}.`);
-        return;
-    }
-
-    const format     = parseInt(document.getElementById('format').value, 10);
-    const topCutSize = parseInt(document.getElementById('topCutSize').value, 10);
-    const mode       = parseInt(document.getElementById('tournamentMode').value, 10);
+    const format       = parseInt(document.getElementById('format').value, 10);
+    const topCutSize   = parseInt(document.getElementById('topCutSize').value, 10);
+    const mode         = parseInt(document.getElementById('tournamentMode').value, 10);
+    const deckPoolSize = parseInt(document.getElementById('deckPoolSize').value, 10);
 
     try {
         const response = await apiFetch(`${API_BASE_URL}/tournament`, {
             method: 'POST',
-            body: JSON.stringify({ name, startDate, endDate: endDate || null, registrationDeadline: registrationDeadline || null, maxPlayers, players, format, topCutSize, mode }),
+            body: JSON.stringify({ name, startDate, endDate: endDate || null, registrationDeadline: registrationDeadline || null, maxPlayers, players, format, topCutSize, mode, deckMode, deckPoolSize }),
         });
         const result = await response.json();
         await Swal.fire({

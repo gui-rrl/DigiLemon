@@ -169,6 +169,48 @@ async function promptText({ title, label, defaultValue = '', placeholder = '', c
     });
 }
 
+/* ---------- Seleção de múltiplos decks (torneios com sorteio: DeckMode 1/2) ---------- */
+
+/**
+ * Monta `poolSize` <select> de deck dentro de containerEl (um por slot), cada um desabilitando
+ * os decks já escolhidos nos OUTROS slots (evita repetir o mesmo deck) e os banidos
+ * (isBannedNextTournament, igual ao seletor único de sempre). Usado por join-tournament.js e
+ * tournament-setup.js quando o torneio tem DeckMode != 0.
+ */
+function buildDeckSlotPickers(containerEl, decks, poolSize) {
+    containerEl.innerHTML = '';
+    for (let i = 0; i < poolSize; i++) {
+        const div = document.createElement('div');
+        div.className = 'mb-3';
+        div.innerHTML = `<label class="form-label">Deck ${i + 1} de ${poolSize}</label>
+            <select class="form-select deck-slot" data-slot="${i}" required></select>`;
+        containerEl.appendChild(div);
+    }
+
+    const refresh = () => {
+        const slots = Array.from(containerEl.querySelectorAll('.deck-slot'));
+        const chosen = slots.map(s => s.value).filter(Boolean);
+        slots.forEach(sel => {
+            const current = sel.value;
+            const usedElsewhere = chosen.filter(v => v !== current);
+            sel.innerHTML = '<option value="">Selecione…</option>' + decks.map(d => {
+                const disabled = d.isBannedNextTournament || usedElsewhere.includes(String(d.id));
+                const suffix = d.isBannedNextTournament ? ' — banido (Top 4 do último torneio)' : (usedElsewhere.includes(String(d.id)) ? ' — já escolhido em outro slot' : '');
+                return `<option value="${d.id}"${disabled ? ' disabled' : ''}>${escapeHtml(d.name)} (${d.cardCount} cartas)${suffix}</option>`;
+            }).join('');
+            sel.value = current;
+        });
+    };
+
+    containerEl.querySelectorAll('.deck-slot').forEach(sel => sel.addEventListener('change', refresh));
+    refresh();
+}
+
+/** Lê os deckIds escolhidos em cada slot montado por buildDeckSlotPickers, na ordem dos slots. */
+function getDeckSlotValues(containerEl) {
+    return Array.from(containerEl.querySelectorAll('.deck-slot')).map(s => parseInt(s.value, 10));
+}
+
 /* ---------- Navbar ---------- */
 
 function activateNavLink(name) {

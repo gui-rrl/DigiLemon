@@ -25,6 +25,16 @@
         public int TopCutSize { get; set; } = 8;       // 4 ou 8
         public int CurrentSwissRound { get; set; } = 0; // 0 = não iniciado
 
+        // Modo de deck: opção ortogonal ao Format, decide COMO cada TournamentPlayer.DeckId é
+        // definido antes da rodada 1 (ver TournamentDeckDrawService).
+        public int DeckMode { get; set; } = 0;      // 0=Normal, 1=Sorteio entre decks próprios, 2=Death Random
+        public int DeckPoolSize { get; set; } = 1;  // 1-3 decks enviados por jogador; só relevante quando DeckMode != 0
+
+        // Trava a re-execução do sorteio. Necessário porque o Format 0 (Dupla Eliminação) não tem
+        // uma transição de Status pra "iniciado" (fica em Status 0 até a Grande Final terminar) —
+        // sem essa flag, reabrir o chaveamento sortearia/clonaria decks de novo a cada vez.
+        public bool DeckDrawCompleted { get; set; } = false;
+
         public ICollection<Bracket> Brackets { get; set; } = new List<Bracket>();
         public ICollection<TournamentPlayer>? TournamentPlayers { get; set; }
     }

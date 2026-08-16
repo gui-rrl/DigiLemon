@@ -91,6 +91,8 @@ public class TournamentController : ControllerBase
             SwissRounds = t.SwissRounds,
             TopCutSize = t.TopCutSize,
             CurrentSwissRound = t.CurrentSwissRound,
+            DeckMode = t.DeckMode,
+            DeckPoolSize = t.DeckPoolSize,
             WinnerName = winnerName,
             WinnerAvatarUrl = winnerAvatarUrl,
             TrophyImageUrl = t.TrophyImageUrl,
@@ -191,7 +193,23 @@ public class TournamentController : ControllerBase
         if (dto.RegistrationDeadline.HasValue && dto.EndDate.HasValue && dto.RegistrationDeadline.Value.Date > dto.EndDate.Value.Date)
             return BadRequest(new { error = "O prazo de inscrição não pode ser depois da data de término do torneio." });
 
+        // ── Modo de deck (Sorteio entre decks próprios / Death Random) ────────────────────
+        if (dto.DeckMode is < 0 or > 2)
+            return BadRequest(new { error = "Modo de deck inválido." });
+        if (dto.DeckMode != 0 && dto.DeckPoolSize is < 1 or > 3)
+            return BadRequest(new { error = "A quantidade de decks no sorteio deve ser 1, 2 ou 3." });
+        if (dto.DeckMode == 2 && dto.Format == 2)
+            return BadRequest(new { error = "Death Random não é compatível com Swiss Pontos Corridos. Escolha Dupla Eliminação, Swiss+TopCut ou Todos contra todos+TopCut." });
+
         var players = dto.Players ?? new List<PlayerDeckDto>();
+
+        // O sorteio exige que os decks sejam enviados como "pool" (TournamentPlayerDeckOption),
+        // não resolvidos na hora — por isso não dá pra pré-cadastrar participantes já na criação
+        // quando o modo de deck exige sorteio. O torneio nasce vazio e a inscrição acontece
+        // depois, pelo link de convite ou pela tela de configuração (ambos já suportam múltiplos
+        // decks quando DeckMode != 0).
+        if (dto.DeckMode != 0 && players.Count > 0)
+            return BadRequest(new { error = "Não é possível pré-cadastrar participantes na criação quando o modo de deck exige sorteio. Crie o torneio vazio e inscreva pelo link de convite ou pela tela de configuração." });
 
         if (!isUnlimited && players.Count > dto.MaxPlayers)
             return BadRequest(new { error = $"Você adicionou {players.Count} jogadores, mas o limite do torneio é {dto.MaxPlayers}." });
@@ -250,6 +268,8 @@ public class TournamentController : ControllerBase
             Format = dto.Format,
             SwissRounds = swissRounds,
             TopCutSize = topCutSize,
+            DeckMode = dto.DeckMode,
+            DeckPoolSize = dto.DeckMode == 0 ? 1 : dto.DeckPoolSize,
         };
         _context.Tournaments.Add(tournament);
         await _context.SaveChangesAsync();
@@ -332,6 +352,8 @@ public class TournamentController : ControllerBase
             tournament.Status,
             tournament.InviteCode,
             tournament.MaxPlayers,
+            tournament.DeckMode,
+            tournament.DeckPoolSize,
             Participants = participants,
             IsOpenForJoin = closedReason == null,
             ClosedReason = closedReason,
@@ -343,7 +365,7 @@ public class TournamentController : ControllerBase
     [Authorize]
     public async Task<IActionResult> JoinByInvite(string code, [FromBody] JoinTournamentDto dto)
     {
-        if (dto == null || dto.DeckId <= 0)
+        if (dto == null)
             return BadRequest(new { error = "Escolha um deck para ingressar no torneio." });
 
         var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
@@ -367,34 +389,75 @@ public class TournamentController : ControllerBase
                 return BadRequest(new { error = $"Este torneio já está cheio ({tournament.MaxPlayers} vagas preenchidas)." });
         }
 
-        var deck = await _context.Decks.FindAsync(dto.DeckId);
-        if (deck == null || deck.PlayerId != user.PlayerId.Value)
-            return BadRequest(new { error = "Deck não encontrado ou não pertence a você." });
-
-        var bannedDeckIds = await DeckBanService.GetBannedDeckIdsAsync(_context);
-        if (bannedDeckIds.Contains(deck.Id))
-            return BadRequest(new { error = $"O deck \"{deck.Name}\" ficou entre os 4 primeiros do último Top Cut e está banido de disputar o próximo torneio. Escolha outro deck." });
-
         var playerId = user.PlayerId.Value;
         bool alreadyIn = await _context.TournamentPlayers
             .AnyAsync(tp => tp.TournamentId == tournament.Id && tp.PlayerId == playerId);
         if (alreadyIn)
             return Conflict(new { error = $"\"{user.Player.Name}\" já está inscrito neste torneio." });
 
-        _context.TournamentPlayers.Add(new TournamentPlayer
+        var bannedDeckIds = await DeckBanService.GetBannedDeckIdsAsync(_context);
+
+        // ── DeckMode 0 (normal): um único deck, resolvido na hora — comportamento de sempre ──
+        if (tournament.DeckMode == 0)
         {
-            TournamentId = tournament.Id,
-            PlayerId     = playerId,
-            Deck         = deck.Name,
-            DeckId       = deck.Id,
-        });
+            if (dto.DeckId <= 0)
+                return BadRequest(new { error = "Escolha um deck para ingressar no torneio." });
+
+            var deck = await _context.Decks.FindAsync(dto.DeckId);
+            if (deck == null || deck.PlayerId != user.PlayerId.Value)
+                return BadRequest(new { error = "Deck não encontrado ou não pertence a você." });
+
+            if (bannedDeckIds.Contains(deck.Id))
+                return BadRequest(new { error = $"O deck \"{deck.Name}\" ficou entre os 4 primeiros do último Top Cut e está banido de disputar o próximo torneio. Escolha outro deck." });
+
+            _context.TournamentPlayers.Add(new TournamentPlayer
+            {
+                TournamentId = tournament.Id,
+                PlayerId     = playerId,
+                Deck         = deck.Name,
+                DeckId       = deck.Id,
+            });
+            await _context.SaveChangesAsync();
+
+            return Ok(new
+            {
+                tournamentName = tournament.Name,
+                playerName     = user.Player.Name,
+                message        = $"Você foi inscrito como \"{user.Player.Name}\" com o deck \"{deck.Name}\".",
+            });
+        }
+
+        // ── DeckMode 1/2: envia DeckPoolSize decks, o sorteio define o deck oficial ao iniciar ──
+        var deckIds = dto.DeckIds ?? new List<int>();
+        if (deckIds.Count != tournament.DeckPoolSize)
+            return BadRequest(new { error = $"Escolha exatamente {tournament.DeckPoolSize} deck(s) para este torneio." });
+        if (deckIds.Distinct().Count() != deckIds.Count)
+            return BadRequest(new { error = "Não é possível repetir o mesmo deck." });
+
+        var poolDecks = await _context.Decks.Where(d => deckIds.Contains(d.Id)).ToListAsync();
+        if (poolDecks.Count != deckIds.Count || poolDecks.Any(d => d.PlayerId != user.PlayerId.Value))
+            return BadRequest(new { error = "Um ou mais decks não foram encontrados ou não pertencem a você." });
+
+        var bannedNames = poolDecks.Where(d => bannedDeckIds.Contains(d.Id)).Select(d => d.Name).ToList();
+        if (bannedNames.Count > 0)
+            return BadRequest(new { error = $"O(s) deck(s) \"{string.Join(", ", bannedNames)}\" estão banidos de disputar o próximo torneio." });
+
+        var tp = new TournamentPlayer { TournamentId = tournament.Id, PlayerId = playerId, Deck = null, DeckId = null };
+        _context.TournamentPlayers.Add(tp);
+        await _context.SaveChangesAsync();
+
+        _context.TournamentPlayerDeckOptions.AddRange(poolDecks.Select(d => new TournamentPlayerDeckOption
+        {
+            TournamentPlayerId = tp.Id,
+            DeckId = d.Id,
+        }));
         await _context.SaveChangesAsync();
 
         return Ok(new
         {
             tournamentName = tournament.Name,
             playerName     = user.Player.Name,
-            message        = $"Você foi inscrito como \"{user.Player.Name}\" com o deck \"{deck.Name}\".",
+            message        = $"Você foi inscrito como \"{user.Player.Name}\". Seus decks entram no sorteio quando o torneio iniciar.",
         });
     }
 
@@ -427,6 +490,39 @@ public class TournamentController : ControllerBase
             var currentCount = await _context.TournamentPlayers.CountAsync(tp => tp.TournamentId == id);
             if (currentCount >= tournament.MaxPlayers)
                 return BadRequest(new { error = $"Este torneio já está cheio ({tournament.MaxPlayers} vagas preenchidas)." });
+        }
+
+        // ── DeckMode 1/2: exige DeckPoolSize decks salvos deste jogador (sem fallback de texto
+        // livre — o sorteio/clonagem exige um Deck real com cartas) ──────────────────────────
+        if (tournament.DeckMode != 0)
+        {
+            var poolDeckIds = dto.DeckIds ?? new List<int>();
+            if (poolDeckIds.Count != tournament.DeckPoolSize)
+                return BadRequest(new { error = $"Selecione exatamente {tournament.DeckPoolSize} deck(s) salvo(s) deste jogador." });
+            if (poolDeckIds.Distinct().Count() != poolDeckIds.Count)
+                return BadRequest(new { error = "Não é possível repetir o mesmo deck." });
+
+            var poolDecks = await _context.Decks.Where(d => poolDeckIds.Contains(d.Id)).ToListAsync();
+            if (poolDecks.Count != poolDeckIds.Count || poolDecks.Any(d => d.PlayerId != dto.PlayerId))
+                return BadRequest(new { error = "Um ou mais decks não pertencem a esse jogador." });
+
+            var bannedDeckIds = await DeckBanService.GetBannedDeckIdsAsync(_context);
+            var bannedNames = poolDecks.Where(d => bannedDeckIds.Contains(d.Id)).Select(d => d.Name).ToList();
+            if (bannedNames.Count > 0)
+                return BadRequest(new { error = $"O(s) deck(s) \"{string.Join(", ", bannedNames)}\" estão banidos de disputar o próximo torneio." });
+
+            var pending = new TournamentPlayer { TournamentId = id, PlayerId = dto.PlayerId, Deck = null, DeckId = null };
+            _context.TournamentPlayers.Add(pending);
+            await _context.SaveChangesAsync();
+
+            _context.TournamentPlayerDeckOptions.AddRange(poolDecks.Select(d => new TournamentPlayerDeckOption
+            {
+                TournamentPlayerId = pending.Id,
+                DeckId = d.Id,
+            }));
+            await _context.SaveChangesAsync();
+
+            return Ok(new { pending.Id, PlayerId = dto.PlayerId, PlayerName = player.Name, PendingDraw = true });
         }
 
         // Se o admin escolheu um deck salvo, o nome vem do próprio deck; senão vale o texto digitado.
@@ -532,6 +628,8 @@ public class TournamentController : ControllerBase
             SwissRounds = tournament.SwissRounds,
             TopCutSize = tournament.TopCutSize,
             CurrentSwissRound = tournament.CurrentSwissRound,
+            DeckMode = tournament.DeckMode,
+            DeckPoolSize = tournament.DeckPoolSize,
             TrophyImageUrl = tournament.TrophyImageUrl,
             Brackets = tournament.Brackets?.Select(b => new BracketDto
             {

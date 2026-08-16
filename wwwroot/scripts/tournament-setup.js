@@ -174,7 +174,7 @@ async function loadParticipants() {
                                         <i class="bi bi-eye"></i> Deck
                                     </button>
                                     <span class="text-truncate" id="deck-${p.id}" style="display:none;">
-                                        <i class="bi bi-layers"></i> ${escapeHtml(p.deck)}
+                                        <i class="bi bi-layers"></i> ${p.deck ? escapeHtml(p.deck) : '<em>Sorteio pendente</em>'}
                                     </span>
                                 </div>
                             </div>
@@ -259,46 +259,78 @@ function refreshAddPlayerSelect() {
 
 // Só decks já montados no sistema: não existe mais digitar o nome do deck à mão.
 async function loadSavedDecksForAdd() {
-    const playerId    = document.getElementById('addPlayerSelect').value;
+    const playerId = document.getElementById('addPlayerSelect').value;
+    const deckMode = currentTournament?.deckMode || 0;
     const savedSelect = document.getElementById('addDeckSavedSelect');
-    savedSelect.innerHTML = '<option value="">Selecione o jogador primeiro</option>';
-    if (!playerId) return;
+    const pickersWrap = document.getElementById('addDeckPickersWrap');
 
-    savedSelect.innerHTML = '<option value="">Carregando decks…</option>';
+    if (deckMode === 0) {
+        document.getElementById('addDeckSelectWrap').classList.remove('d-none');
+        pickersWrap.classList.add('d-none');
+    } else {
+        document.getElementById('addDeckSelectWrap').classList.add('d-none');
+        pickersWrap.classList.remove('d-none');
+    }
+
+    if (!playerId) {
+        savedSelect.innerHTML = '<option value="">Selecione o jogador primeiro</option>';
+        pickersWrap.innerHTML = '';
+        return;
+    }
+
     try {
         const decks = await apiFetch(`${API_BASE_URL}/deck?playerId=${playerId}`).then(r => r.json());
         if (!decks.length) {
             // Deixa explícito por que o select ficou vazio, em vez de parecer defeito
             savedSelect.innerHTML = '<option value="">Este jogador não tem deck salvo</option>';
+            pickersWrap.innerHTML = '<p class="text-muted-2 mb-0">Este jogador não tem deck salvo.</p>';
             return;
         }
-        savedSelect.innerHTML = '<option value="">Selecione o deck</option>' +
-            decks.map(d => `<option value="${d.id}" data-name="${escapeHtml(d.name)}"${d.isBannedNextTournament ? ' disabled' : ''}>${escapeHtml(d.name)} (${d.cardCount} cartas)${d.isBannedNextTournament ? ' — banido (Top 4 do último torneio)' : ''}</option>`).join('');
+        if (deckMode === 0) {
+            savedSelect.innerHTML = '<option value="">Selecione o deck</option>' +
+                decks.map(d => `<option value="${d.id}" data-name="${escapeHtml(d.name)}"${d.isBannedNextTournament ? ' disabled' : ''}>${escapeHtml(d.name)} (${d.cardCount} cartas)${d.isBannedNextTournament ? ' — banido (Top 4 do último torneio)' : ''}</option>`).join('');
+        } else {
+            buildDeckSlotPickers(pickersWrap, decks, currentTournament?.deckPoolSize || 1);
+        }
     } catch (_) {
         savedSelect.innerHTML = '<option value="">Não foi possível carregar os decks</option>';
+        pickersWrap.innerHTML = '<p class="text-muted-2 mb-0">Não foi possível carregar os decks.</p>';
     }
 }
 
 async function addParticipant() {
-    const playerId   = document.getElementById('addPlayerSelect').value;
-    const deckSelect = document.getElementById('addDeckSavedSelect');
-    const deckId     = deckSelect.value;
-    // O nome do deck vem do próprio deck escolhido — não há mais digitação manual
-    const deck = deckId ? (deckSelect.options[deckSelect.selectedIndex].dataset.name || '') : '';
-
+    const playerId = document.getElementById('addPlayerSelect').value;
+    const deckMode = currentTournament?.deckMode || 0;
     if (!playerId) { notifyWarning('Selecione o jogador que será inscrito.'); return; }
-    if (!deckId) { notifyWarning('Selecione um deck salvo do jogador. Se ele não tem deck, precisa montar um antes.'); return; }
+
+    let body;
+    if (deckMode === 0) {
+        const deckSelect = document.getElementById('addDeckSavedSelect');
+        const deckId = deckSelect.value;
+        if (!deckId) { notifyWarning('Selecione um deck salvo do jogador. Se ele não tem deck, precisa montar um antes.'); return; }
+        // O nome do deck vem do próprio deck escolhido — não há mais digitação manual
+        const deck = deckSelect.options[deckSelect.selectedIndex].dataset.name || '';
+        body = { playerId: parseInt(playerId, 10), deck: deck || null, deckId: parseInt(deckId, 10) };
+    } else {
+        const poolSize = currentTournament?.deckPoolSize || 1;
+        const deckIds = getDeckSlotValues(document.getElementById('addDeckPickersWrap'));
+        if (deckIds.some(id => !id) || deckIds.length !== poolSize) {
+            notifyWarning(`Selecione ${poolSize} deck(s) salvo(s) desse jogador, um em cada campo.`);
+            return;
+        }
+        if (new Set(deckIds).size !== deckIds.length) {
+            notifyWarning('Não é possível repetir o mesmo deck.');
+            return;
+        }
+        body = { playerId: parseInt(playerId, 10), deckIds };
+    }
 
     const btn = document.getElementById('addParticipantBtn');
     btn.disabled = true;
     try {
         await apiFetch(`${API_BASE_URL}/tournament/${tournamentId}/participants`, {
             method: 'POST',
-            body: JSON.stringify({
-                playerId: parseInt(playerId, 10),
-                deck: deck || null,
-                deckId: deckId ? parseInt(deckId, 10) : null,
-            }),
+            body: JSON.stringify(body),
         });
         const playerName = allPlayers.find(p => String(p.id) === playerId)?.name || 'Jogador';
         notifySuccess(`${playerName} inscrito(a) no torneio!`);

@@ -15,6 +15,8 @@
         public int SwissRounds { get; set; }
         public int TopCutSize { get; set; }
         public int CurrentSwissRound { get; set; }
+        public int DeckMode { get; set; }
+        public int DeckPoolSize { get; set; }
         public List<BracketDto>? Brackets { get; set; }
         public string? WinnerName { get; set; }
         public string? WinnerAvatarUrl { get; set; }

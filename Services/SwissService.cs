@@ -9,8 +9,13 @@ namespace RankingDigi.Services
     public class SwissService
     {
         private readonly RankingContext _context;
+        private readonly TournamentDeckDrawService _deckDrawService;
 
-        public SwissService(RankingContext context) => _context = context;
+        public SwissService(RankingContext context, TournamentDeckDrawService deckDrawService)
+        {
+            _context = context;
+            _deckDrawService = deckDrawService;
+        }
 
         // ── Fórmula padrão de rodadas Swiss ──────────────────────────────────
         public static int CalculateRounds(int playerCount) => playerCount switch
@@ -38,6 +43,10 @@ namespace RankingDigi.Services
 
             if (tps.Count < 2)
                 throw new InvalidOperationException("Mínimo de 2 participantes para iniciar.");
+
+            // Sorteio de deck (DeckMode 1/2): resolve o deck definitivo de cada participante
+            // antes de gerar as partidas. No-op se DeckMode == 0 ou se já sorteado.
+            await _deckDrawService.DrawAsync(tournamentId);
 
             // Todos contra todos (formato 3): todas as partidas saem de uma vez, numa "rodada"
             // única. Sem rodadas para avançar e sem bye — cada um joga contra todos os outros.

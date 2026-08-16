@@ -118,7 +118,10 @@ async function loadDeckList() {
                 <div class="deck-card-card${d.coverImageUrl ? ' has-cover' : ''}"${coverStyle}>
                     <div class="d-flex justify-content-between align-items-start">
                         <div class="deck-card-name">${escapeHtml(d.name)}</div>
-                        ${d.isLocked ? '<span class="status-pill done" title="Já usado em partida/torneio — não pode mais ser editado"><i class="bi bi-lock-fill"></i> Travado</span>' : ''}
+                        <div class="d-flex flex-column align-items-end gap-1">
+                            ${d.isLocked ? '<span class="status-pill done" title="Já usado em partida/torneio — não pode mais ser editado"><i class="bi bi-lock-fill"></i> Travado</span>' : ''}
+                            ${d.isDeathRandomCopy ? `<span class="status-pill live" title="Recebido em um sorteio Death Random${d.deathRandomTournamentName ? ' — ' + escapeHtml(d.deathRandomTournamentName) : ''}"><i class="bi bi-shuffle"></i> Death Random</span>` : ''}
+                        </div>
                     </div>
                     <div class="deck-card-meta">${d.cardCount} carta${d.cardCount === 1 ? '' : 's'} · atualizado em ${formatDate(d.updatedAt)}</div>
                     <div class="d-flex gap-2 mt-3">

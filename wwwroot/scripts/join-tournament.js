@@ -6,6 +6,8 @@ const currentUrl = window.location.pathname + window.location.search;
 
 let myPlayerId = null;
 let myPlayerName = null;
+let tournamentDeckMode = 0;
+let tournamentDeckPoolSize = 1;
 
 function show(id) {
     ['loadingBlock', 'errorBlock', 'inviteBlock', 'closedBlock', 'successBlock'].forEach(b => {
@@ -31,6 +33,8 @@ async function loadInvite() {
         document.getElementById('tournamentName').textContent = data.name;
         document.getElementById('tournamentDate').textContent = formatDate(data.startDate);
         document.getElementById('participantsCount').textContent = data.participants.length;
+        tournamentDeckMode = data.deckMode || 0;
+        tournamentDeckPoolSize = data.deckPoolSize || 1;
 
         if (data.registrationDeadline) {
             document.getElementById('tournamentDeadline').textContent = formatDate(data.registrationDeadline);
@@ -109,9 +113,22 @@ async function renderJoinStep() {
     }
 
     document.getElementById('pickDeckPlayerName').textContent = myPlayerName;
-    document.getElementById('joinDeckSelect').innerHTML = decks
-        .map(d => `<option value="${d.id}"${d.isBannedNextTournament ? ' disabled' : ''}>${escapeHtml(d.name)} (${d.cardCount} cartas)${d.isBannedNextTournament ? ' — banido (Top 4 do último torneio)' : ''}</option>`)
-        .join('');
+
+    if (tournamentDeckMode === 0) {
+        document.getElementById('joinDeckSelectWrap').style.display = '';
+        document.getElementById('joinDeckPickersOuterWrap').style.display = 'none';
+        document.getElementById('joinDeckSelect').innerHTML = decks
+            .map(d => `<option value="${d.id}"${d.isBannedNextTournament ? ' disabled' : ''}>${escapeHtml(d.name)} (${d.cardCount} cartas)${d.isBannedNextTournament ? ' — banido (Top 4 do último torneio)' : ''}</option>`)
+            .join('');
+    } else {
+        document.getElementById('joinDeckSelectWrap').style.display = 'none';
+        document.getElementById('joinDeckPickersOuterWrap').style.display = '';
+        const modeLabel = tournamentDeckMode === 2 ? 'Death Random' : 'sorteio entre decks próprios';
+        document.getElementById('joinDeckPoolHint').textContent =
+            `Este torneio usa ${modeLabel}: escolha ${tournamentDeckPoolSize} deck(s) seus. O deck que você vai usar de fato é sorteado quando o organizador iniciar o torneio.`;
+        buildDeckSlotPickers(document.getElementById('joinDeckPickersWrap'), decks, tournamentDeckPoolSize);
+    }
+
     setJoinStep('stepPickDeck');
 }
 
@@ -148,11 +165,28 @@ document.getElementById('linkPlayerForm').addEventListener('submit', async (e) =
 
 document.getElementById('joinForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const deckId = parseInt(document.getElementById('joinDeckSelect').value, 10);
-    if (!deckId) {
-        Swal.fire({ icon: 'warning', title: 'Atenção', text: 'Escolha um deck.' });
-        return;
+
+    let body;
+    if (tournamentDeckMode === 0) {
+        const deckId = parseInt(document.getElementById('joinDeckSelect').value, 10);
+        if (!deckId) {
+            Swal.fire({ icon: 'warning', title: 'Atenção', text: 'Escolha um deck.' });
+            return;
+        }
+        body = { deckId };
+    } else {
+        const deckIds = getDeckSlotValues(document.getElementById('joinDeckPickersWrap'));
+        if (deckIds.some(id => !id) || deckIds.length !== tournamentDeckPoolSize) {
+            Swal.fire({ icon: 'warning', title: 'Atenção', text: `Escolha ${tournamentDeckPoolSize} deck(s), um em cada campo.` });
+            return;
+        }
+        if (new Set(deckIds).size !== deckIds.length) {
+            Swal.fire({ icon: 'warning', title: 'Atenção', text: 'Não é possível repetir o mesmo deck.' });
+            return;
+        }
+        body = { deckIds };
     }
+
     const submitBtn = e.target.querySelector('button[type="submit"]');
     submitBtn.disabled = true;
     submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Enviando…';
@@ -160,7 +194,7 @@ document.getElementById('joinForm').addEventListener('submit', async (e) => {
     try {
         const res = await apiFetch(`${API_BASE_URL}/tournament/invite/${encodeURIComponent(code)}/join`, {
             method: 'POST',
-            body: JSON.stringify({ deckId }),
+            body: JSON.stringify(body),
         });
         const data = await res.json();
         document.getElementById('successText').textContent = data.message;

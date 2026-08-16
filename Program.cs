@@ -93,6 +93,7 @@ builder.Services.AddScoped<TournamentService>();
 builder.Services.AddScoped<SwissService>();
 builder.Services.AddScoped<MatchResultService>();
 builder.Services.AddScoped<MatchReportCodeService>();
+builder.Services.AddScoped<TournamentDeckDrawService>();
 
 // Integração com o simulador DCGO
 builder.Services.AddScoped<IntegrationKeyFilter>();

@@ -1367,6 +1367,13 @@ a {
         box-shadow: 0 0 0 3px rgba(22, 224, 189, 0.15);
     }
 
+    /* Formato incompatível com o modo de deck escolhido (ex: Death Random + Swiss Pontos
+       Corridos) — visualmente esmaecido e sem clique, em vez de simplesmente sumir. */
+    .format-option.disabled-option {
+        opacity: 0.4;
+        pointer-events: none;
+    }
+
 /* ---------- Swiss standings table ---------- */
 
 .standings-table {
