@@ -58,6 +58,7 @@ namespace RankingDigi.Services
             {
                 _logger.LogInformation("Encerrando automaticamente o torneio '{Name}' (Id={Id}).", tournament.Name, tournament.Id);
                 tournament.Status = 2;
+                tournament.EndDate = now;
             }
 
             if (expiredTournaments.Count > 0)

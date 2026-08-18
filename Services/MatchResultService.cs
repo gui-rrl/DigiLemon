@@ -145,6 +145,7 @@ namespace RankingDigi.Services
             if (match.MatchType == 2 && tournament != null)
             {
                 tournament.Status = 2;
+                tournament.EndDate = match.Date;
                 await TournamentScoringService.AwardBracketPlacementBonusAsync(_context, tournament);
             }
 

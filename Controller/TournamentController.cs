@@ -56,6 +56,7 @@ public class TournamentController : ControllerBase
         foreach (var t in tournaments.Where(x => x.Status != 2 && finishedIds.Contains(x.Id)))
         {
             t.Status = 2;
+            t.EndDate = grandFinalMatches.First(m => m.TournamentId == t.Id).Date;
             changed = true;
         }
 
