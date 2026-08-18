@@ -121,6 +121,7 @@ async function loadDeckList() {
                         <div class="d-flex flex-column align-items-end gap-1">
                             ${d.isLocked ? '<span class="status-pill done" title="Já usado em partida/torneio — não pode mais ser editado"><i class="bi bi-lock-fill"></i> Travado</span>' : ''}
                             ${d.isDeathRandomCopy ? `<span class="status-pill live" title="Recebido em um sorteio Death Random${d.deathRandomTournamentName ? ' — ' + escapeHtml(d.deathRandomTournamentName) : ''}"><i class="bi bi-shuffle"></i> Death Random</span>` : ''}
+                            ${d.isBannedNextTournament ? '<span class="status-pill prep" title="Ficou entre os 4 primeiros do último Top Cut — banido de disputar o próximo torneio"><i class="bi bi-shield-slash-fill"></i> Banido</span>' : ''}
                         </div>
                     </div>
                     <div class="deck-card-meta">${d.cardCount} carta${d.cardCount === 1 ? '' : 's'} · atualizado em ${formatDate(d.updatedAt)}</div>
