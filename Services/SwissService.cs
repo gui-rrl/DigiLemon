@@ -367,6 +367,7 @@ namespace RankingDigi.Services
                     Wins       = tp.SwissWins,
                     Losses     = tp.SwissLosses,
                     Draws      = tp.SwissDraws,
+                    Mw         = Math.Round(mwByTp[tp.Id] * 100, 1),
                     Omw        = Math.Round(omwByTp[tp.Id] * 100, 1),
                     Gw         = Math.Round(gwByTp[tp.Id] * 100, 1),
                     Ogw        = Math.Round(ogwByTp[tp.Id] * 100, 1),
@@ -465,6 +466,7 @@ namespace RankingDigi.Services
         public int Wins        { get; set; }
         public int Losses      { get; set; }
         public int Draws       { get; set; }
+        public double Mw       { get; set; }   // aproveitamento próprio em partidas
         public double Omw      { get; set; }   // aproveitamento médio dos adversários (partidas)
         public double Gw       { get; set; }   // aproveitamento próprio em games (melhor de 3)
         public double Ogw      { get; set; }   // aproveitamento médio dos adversários em games

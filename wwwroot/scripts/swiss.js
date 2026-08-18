@@ -94,10 +94,13 @@ function renderStandings(standings, topCutSize) {
             <td style="text-align:right;color:var(--text-3);font-size:0.78rem;" title="OMW% = aproveitamento dos adversários · GW% = seu aproveitamento em games">
                 ${s.omw}% <span style="opacity:0.6;">/ ${s.gw ?? 0}%</span>
             </td>
+            <td style="text-align:right;color:var(--text-3);font-size:0.78rem;" title="MW% = seu aproveitamento em partidas · OGW% = aproveitamento dos adversários em games">
+                ${s.mw ?? 0}% <span style="opacity:0.6;">/ ${s.ogw ?? 0}%</span>
+            </td>
         </tr>`;
     }).join('');
 
-    const legend = isPure
+    const bottomLegend = isPure
         ? `<div class="px-3 py-2" style="font-size:0.75rem;color:var(--text-3);">
                <i class="bi bi-star-fill me-1" style="color:var(--warning);"></i>Destaque = Top 4
            </div>`
@@ -106,20 +109,23 @@ function renderStandings(standings, topCutSize) {
            </div>`;
 
     container.innerHTML = `
-        <table class="standings-table">
-            <thead>
-                <tr>
-                    <th style="width:34px;">#</th>
-                    <th>Jogador</th>
-                    <th style="text-align:center;" title="Pontos">Pts</th>
-                    <th style="text-align:center;" title="Vitórias-Derrotas">V-D</th>
-                    <th style="text-align:center;" title="Total de partidas jogadas (vitórias + derrotas + empates)">Partidas</th>
-                    <th style="text-align:right;" title="OMW% = aproveitamento dos adversários (força da tabela) · GW% = seu aproveitamento em games na melhor de 3">OMW% / GW%</th>
-                </tr>
-            </thead>
-            <tbody>${rows}</tbody>
-        </table>
-        ${legend}`;
+        <div class="table-responsive">
+            <table class="standings-table">
+                <thead>
+                    <tr>
+                        <th style="width:34px;">#</th>
+                        <th>Jogador</th>
+                        <th style="text-align:center;" title="Pontos">Pts</th>
+                        <th style="text-align:center;" title="Vitórias-Derrotas">V-D</th>
+                        <th style="text-align:center;" title="Total de partidas jogadas (vitórias + derrotas + empates)">Partidas</th>
+                        <th style="text-align:right;" title="OMW% = aproveitamento dos adversários (força da tabela) · GW% = seu aproveitamento em games na melhor de 3">OMW% / GW%</th>
+                        <th style="text-align:right;" title="MW% = seu aproveitamento em partidas · OGW% = aproveitamento dos adversários em games">MW% / OGW%</th>
+                    </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+            </table>
+        </div>
+        ${bottomLegend}`;
 }
 
 // ── Rodadas Swiss ─────────────────────────────────────────────────────────────

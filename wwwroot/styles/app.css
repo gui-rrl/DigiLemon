@@ -1374,12 +1374,89 @@ a {
         pointer-events: none;
     }
 
+/* ---------- Legenda de desempate (acima da tabela de classificação) ---------- */
+
+.tiebreak-legend {
+    background: linear-gradient(180deg, rgba(var(--surface-rgb), 0.05) 0%, rgba(var(--surface-rgb), 0.015) 100%);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem 1.2rem;
+}
+
+    .tiebreak-legend-title {
+        font-weight: 600;
+        color: var(--text-1);
+        margin-bottom: 0.7rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .tiebreak-legend-items {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.6rem 1.5rem;
+    }
+
+    .tiebreak-legend-item,
+    .tiebreak-legend-note {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.55rem;
+        font-size: 0.82rem;
+        line-height: 1.45;
+        color: var(--text-2);
+    }
+
+    .tiebreak-legend-item i,
+    .tiebreak-legend-note i {
+        color: var(--accent);
+        margin-top: 0.15rem;
+        flex-shrink: 0;
+    }
+
+    .tiebreak-num {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 18px;
+        height: 18px;
+        flex-shrink: 0;
+        border-radius: 50%;
+        background: var(--accent);
+        color: var(--on-accent, #fff);
+        font-size: 0.68rem;
+        font-weight: 700;
+        margin-top: 0.05rem;
+    }
+
+    .tiebreak-legend-note {
+        margin-top: 0.7rem;
+        padding-top: 0.7rem;
+        border-top: 1px dashed var(--border);
+        color: var(--text-3);
+    }
+
+@media (max-width: 767.98px) {
+    .tiebreak-legend-items {
+        grid-template-columns: 1fr;
+    }
+}
+
 /* ---------- Swiss standings table ---------- */
 
 .standings-table {
     width: 100%;
     border-collapse: collapse;
     font-size: 0.9rem;
+}
+
+@media (max-width: 575.98px) {
+    .standings-table th,
+    .standings-table td {
+        padding: 0.5rem 0.5rem;
+        font-size: 0.82rem;
+    }
 }
 
     .standings-table th {
